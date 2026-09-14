@@ -2,7 +2,7 @@
 
 Paper/Purpur tools for scripted SMP productions: actors, timed scenes, movement recordings, repeatable takes, kits, inventory tools, world controls and configurable inventory menus.
 
-This is an independent clean-room implementation based on public feature descriptions and gallery images. It does not include ScriptedEssentials code or assets. **Full reference parity is not claimed.** See [PARITY.md](PARITY.md) for the implemented behaviors, acceptance criteria and outstanding differences.
+This is an independent clean-room implementation based on public feature descriptions and gallery images. It does not include ScriptedEssentials code or assets. **Full reference parity is not claimed.** See [PARITY.md](documentation/PARITY.md) for the implemented behaviors, acceptance criteria and outstanding differences.
 
 ## Build and install
 
@@ -14,9 +14,9 @@ Use JDK 25 and the included Gradle wrapper:
 
 On Windows, use `.\gradlew.bat build`.
 
-Copy `build/libs/EasyScripting-0.1.2.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
+Copy `build/libs/EasyScripting-0.1.2.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
 
-The primary target is Paper 26.2 with Java 25. The plugin produces Java 21 bytecode and uses the shared Paper API surface for 1.21.8, 1.21.11 and 26.1 compatibility. Test evidence and its limits are in [TESTING.md](TESTING.md). Purpur is a compatibility target; Folia and Spigot are not supported.
+The primary target is Paper 26.2 with Java 25. The plugin produces Java 21 bytecode and uses the shared Paper API surface for 1.21.8, 1.21.11 and 26.1 compatibility. Test evidence and its limits are in [TESTING.md](documentation/TESTING.md). Purpur is a compatibility target; Folia and Spigot are not supported.
 
 Optional integrations:
 
@@ -29,7 +29,7 @@ Neither dependency is bundled. Without them the rest of the plugin loads and the
 
 With Citizens installed, `/actor create guard_1` automatically assigns a random displayed username and skin. Keep the result as-is, use `/actor set guard_1 name RiverScout` or `/actor set guard_1 skin Notch` to change one part, or `/actor randomize guard_1` to reroll both. `/actor info guard_1` shows the identity; the actor's ID remains `guard_1`. Names, skin owners and resolved skin textures persist across restarts. Pools and automatic assignment are configured in `npc-identities.yml`; existing actors are unchanged on upgrade.
 
-`/actor gui guard_1` now opens Appearance, Movement, Acting & Playback, and Combat sections. `/actor act guard_1 entrance` puts you in the NPC's place and costume to record a performance; `/actor finish` restores you and saves it. Choose `/actor mode guard_1 stop`, `repeat` or `reverse`, then `/actor play guard_1`. Combat has direct Hittable and Immortal switches. See [the acting workflow](USERGUIDE.md#act-as-an-npc-and-save-its-performance).
+`/actor gui guard_1` now opens Appearance, Movement, Acting & Playback, and Combat sections. `/actor act guard_1 entrance` puts you in the NPC's place and costume to record a performance; `/actor finish` restores you and saves it. Choose `/actor mode guard_1 stop`, `repeat` or `reverse`, then `/actor play guard_1`. Combat has direct Hittable and Immortal switches. See [the acting workflow](documentation/USERGUIDE.md#act-as-an-npc-and-save-its-performance).
 
 Run these in-game with the documented permissions. They create an actor, announce the shot, show a swing and damage animation, then restore the actor after three seconds:
 
@@ -67,7 +67,7 @@ All durations are server ticks unless a setting explicitly says seconds. Lag str
 
 Most control permissions default to operators. Merely opening the studio does not grant its controls. Console/player command actions are disabled by default and need an explicit configuration option plus their separate permission. Real destructive explosions need both configuration and `easyscripting.destructive`; cleanup and forced death also require the destructive node, which does not default to operators.
 
-See [USERGUIDE.md](USERGUIDE.md), [COMMANDS.md](COMMANDS.md), [PERMISSIONS.md](PERMISSIONS.md), [CONFIGURATION.md](CONFIGURATION.md), [API.md](API.md), [TESTING.md](TESTING.md) and [CHANGELOG.md](CHANGELOG.md).
+See [USERGUIDE.md](documentation/USERGUIDE.md), [COMMANDS.md](documentation/COMMANDS.md), [PERMISSIONS.md](documentation/PERMISSIONS.md), [CONFIGURATION.md](documentation/CONFIGURATION.md), [API.md](documentation/API.md), [TESTING.md](documentation/TESTING.md) and [CHANGELOG.md](documentation/CHANGELOG.md).
 
 ## Operational boundaries
 
