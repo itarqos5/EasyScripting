@@ -41,7 +41,7 @@ public final class MenuService implements Listener, AutoCloseable {
   private final Map<UUID, Pending> inputs = new ConcurrentHashMap<>();
   private final Set<UUID> viewers = new HashSet<>();
 
-  private record Pending(String prefix, long expires) {}
+  private record Pending(String prefix, long expires, Runnable back) {}
 
   public MenuService(
       JavaPlugin plugin,
@@ -113,13 +113,50 @@ public final class MenuService implements Listener, AutoCloseable {
             material(settings.file("guis").getString("layout.filler", "GRAY_STAINED_GLASS_PANE")),
             settings.file("guis").getString("layout.filler-name", " "),
             List.of());
-    for (int i = 0; i < holder.inventory.getSize(); i++) holder.inventory.setItem(i, filler);
+    for (int i = 0; i < holder.inventory.getSize(); i++)
+      if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) holder.inventory.setItem(i, filler);
+    String path = "menus." + menu;
+    holder.inventory.setItem(
+        layout("header-slot"),
+        icon(
+            material(settings.file("guis").getString(path + ".material", "BOOK")),
+            settings
+                .file("guis")
+                .getString(path + ".heading", "<white><bold>" + name)
+                .replace("{name}", name)
+                .replace("{page}", String.valueOf(page + 1)),
+            settings.file("guis").getStringList(path + ".description")));
     button(
         holder,
         layout("back-slot"),
         Material.ARROW,
         settings.file("guis").getString("layout.back-name", "Back"),
         c -> open(p, "main", 0));
+    button(
+        holder,
+        layout("home-slot"),
+        Material.NETHER_STAR,
+        settings.file("guis").getString("layout.home-name"),
+        c -> open(p, "main", 0));
+    button(
+        holder,
+        layout("close-slot"),
+        Material.BARRIER,
+        settings.file("guis").getString("layout.close-name"),
+        c -> p.closeInventory());
+    holder.inventory.setItem(
+        layout("help-slot"),
+        icon(
+            Material.BOOK,
+            settings.file("guis").getString("layout.help-name"),
+            settings.file("guis").getStringList(path + ".description")));
+    holder.refresh = () -> open(p, menu, page);
+    String parent = settings.file("guis").getString(path + ".parent", "main");
+    holder.actions.put(layout("back-slot"), c -> open(p, parent, 0));
+    if (menu.equals("main")) {
+      holder.actions.remove(layout("back-slot"));
+      holder.inventory.setItem(layout("back-slot"), filler);
+    }
     return holder;
   }
 
@@ -142,8 +179,45 @@ public final class MenuService implements Listener, AutoCloseable {
 
   private void button(
       MenuHolder h, int slot, Material type, String name, Consumer<ClickType> action) {
-    h.inventory.setItem(slot, icon(type, name, List.of()));
+    button(h, slot, type, name, settings.file("guis").getStringList("layout.click-lore"), action);
+  }
+
+  private void button(
+      MenuHolder h,
+      int slot,
+      Material type,
+      String name,
+      List<String> lore,
+      Consumer<ClickType> action) {
+    h.inventory.setItem(slot, icon(type, name, lore));
     h.actions.put(slot, action);
+  }
+
+  private void selected(MenuHolder h, int slot, boolean selected) {
+    ItemStack item = h.inventory.getItem(slot);
+    if (item == null) return;
+    var meta = item.getItemMeta();
+    meta.setEnchantmentGlintOverride(selected);
+    item.setItemMeta(meta);
+  }
+
+  private void disabled(MenuHolder h, String key, String reason) {
+    int slot = controlSlot(key, -1);
+    if (slot < 0 || h.inventory.getItem(slot) == null) return;
+    ItemStack item = h.inventory.getItem(slot);
+    var meta = item.getItemMeta();
+    var lore =
+        new ArrayList<>(
+            meta.hasLore() ? meta.lore() : List.<net.kyori.adventure.text.Component>of());
+    lore.add(Messages.rich("<gray>" + reason).decoration(TextDecoration.ITALIC, false));
+    meta.lore(lore);
+    meta.setEnchantmentGlintOverride(false);
+    item.setItemMeta(meta);
+    h.actions.remove(slot);
+  }
+
+  private String state(boolean enabled) {
+    return settings.file("guis").getString("layout." + (enabled ? "enabled" : "disabled"));
   }
 
   private int controlSlot(String key, int fallback) {
@@ -231,10 +305,17 @@ public final class MenuService implements Listener, AutoCloseable {
             page,
             Material.CLOCK,
             id ->
-                prompt(
+                picker(
                     p,
-                    "record play " + id,
-                    "Enter the actor identifier, optional loop on/off, and reverse on/off."),
+                    "Choose an NPC",
+                    actors.ids(),
+                    0,
+                    Material.PLAYER_HEAD,
+                    actor -> {
+                      command(p, "actor recording " + actor + " " + id);
+                      actor(p, actor, "acting");
+                    },
+                    () -> open(p, "recording", page)),
             id -> "record delete " + id,
             () ->
                 prompt(
@@ -278,8 +359,17 @@ public final class MenuService implements Listener, AutoCloseable {
   }
 
   private void configured(Player p, String menu) {
-    if (!List.of("main", "item", "production", "world", "effects").contains(menu))
-      throw new IllegalArgumentException("Unknown menu '" + menu + "'.");
+    if (!List.of(
+            "main",
+            "item",
+            "production",
+            "world",
+            "effects",
+            "wardrobe",
+            "stage",
+            "organization",
+            "settings")
+        .contains(menu)) throw new IllegalArgumentException("Unknown menu '" + menu + "'.");
     MenuHolder h = base(p, menu, "", 0);
     ConfigurationSection buttons =
         settings.file("guis").getConfigurationSection("menus." + menu + ".buttons");
@@ -288,18 +378,21 @@ public final class MenuService implements Listener, AutoCloseable {
         ConfigurationSection b = Objects.requireNonNull(buttons.getConfigurationSection(id));
         int slot = b.getInt("slot");
         String action = b.getString("action", "");
+        String permission = b.getString("permission", "use");
+        boolean allowed = access.allowed(p, "easyscripting." + permission);
+        List<String> lore = new ArrayList<>(b.getStringList("lore"));
+        if (!allowed) lore.add(settings.file("guis").getString("layout.locked-name"));
         h.inventory.setItem(
-            slot,
-            icon(
-                material(b.getString("material", "STONE")),
-                b.getString("name", id),
-                b.getStringList("lore")));
+            slot, icon(material(b.getString("material", "STONE")), b.getString("name", id), lore));
         h.actions.put(
             slot,
             click -> {
+              access.require(p, permission);
               if (action.startsWith("menu ")) open(p, action.substring(5), 0);
-              else if (action.startsWith("command ")) command(p, action.substring(8));
-              else if (action.startsWith("input "))
+              else if (action.startsWith("command ")) {
+                command(p, action.substring(8));
+                configured(p, menu);
+              } else if (action.startsWith("input "))
                 prompt(p, action.substring(6), b.getString("prompt", "Enter a value."));
             });
       }
@@ -321,20 +414,45 @@ public final class MenuService implements Listener, AutoCloseable {
     for (int i = 0; i < slots.size() && page * slots.size() + i < ids.size(); i++) {
       String id = ids.get(page * slots.size() + i);
       int slot = slots.get(i);
+      String entryPath = "entries." + menu;
+      String detail = menu.equals("scenes") ? scenes.status(id) : id;
+      String display = id;
+      if (menu.equals("actors")) {
+        var a = actors.get(id);
+        display = a.definition.name;
+        detail =
+            a.definition.type
+                + " · "
+                + (recordings.playing(id)
+                    ? "Playing"
+                    : a.entity().isPresent() ? "Ready" : "Hidden / dead");
+      }
+      String entryDetail = detail;
       List<String> lore =
-          settings.file("guis").getStringList("layout.entry-lore").stream()
-              .map(line -> line.replace("{detail}", menu.equals("scenes") ? scenes.status(id) : id))
+          settings.file("guis").getStringList(entryPath + ".lore").stream()
+              .map(line -> line.replace("{detail}", entryDetail).replace("{id}", id))
               .toList();
       h.inventory.setItem(
           slot,
           icon(
               icon,
-              settings.file("guis").getString("layout.entry-name", "{name}").replace("{name}", id),
+              settings
+                  .file("guis")
+                  .getString("layout.entry-name", "{name}")
+                  .replace("{name}", display),
               lore));
       h.actions.put(
           slot,
           click -> {
-            if (click == ClickType.SHIFT_RIGHT) confirm(p, () -> command(p, delete.apply(id)));
+            if (click == ClickType.SHIFT_RIGHT)
+              confirm(
+                  p,
+                  id,
+                  () -> {
+                    command(p, delete.apply(id));
+                    open(p, menu, page);
+                  },
+                  () -> open(p, menu, page));
             else if (menu.equals("kits") && click == ClickType.RIGHT) kitEditor(p, id);
             else select.accept(id);
           });
@@ -343,8 +461,18 @@ public final class MenuService implements Listener, AutoCloseable {
         h,
         settings.file("guis").getInt("dynamic.create-slot"),
         Material.LIME_DYE,
-        label("create-name"),
+        settings.file("guis").getString("entries." + menu + ".create", label("create-name")),
+        settings.file("guis").getStringList("dynamic.create-lore"),
         c -> create.run());
+    if (ids.isEmpty())
+      h.inventory.setItem(
+          layout("empty-slot"),
+          icon(
+              Material.WRITABLE_BOOK,
+              settings
+                  .file("guis")
+                  .getString("entries." + menu + ".empty", "<white>Nothing saved yet"),
+              settings.file("guis").getStringList("layout.empty-lore")));
     navigation(p, h, menu, page, ids.size());
     show(p, h);
   }
@@ -367,7 +495,16 @@ public final class MenuService implements Listener, AutoCloseable {
   }
 
   public void confirm(Player p, Runnable action) {
-    MenuHolder h = base(p, "confirm", "", 0);
+    var previous = p.getOpenInventory().getTopInventory();
+    Runnable back =
+        previous.getHolder() instanceof MenuHolder old ? old.refresh : () -> open(p, "main", 0);
+    confirm(p, "selected item", action, back);
+  }
+
+  private void confirm(Player p, String name, Runnable action, Runnable back) {
+    MenuHolder h = base(p, "confirm", name, 0);
+    h.refresh = back;
+    h.actions.put(layout("back-slot"), c -> back.run());
     button(
         h,
         settings.file("guis").getInt("dynamic.confirm-slot"),
@@ -382,13 +519,60 @@ public final class MenuService implements Listener, AutoCloseable {
         settings.file("guis").getInt("dynamic.cancel-slot"),
         Material.LIME_CONCRETE,
         label("cancel-name"),
-        c -> open(p, "main", 0));
+        c -> back.run());
+    show(p, h);
+  }
+
+  private void picker(
+      Player p,
+      String title,
+      List<String> ids,
+      int requested,
+      Material material,
+      Consumer<String> select,
+      Runnable back) {
+    int page = Math.max(0, Math.min(requested, Math.max(0, (ids.size() - 1) / slots().size())));
+    MenuHolder h = base(p, "picker", title, page);
+    h.refresh = () -> picker(p, title, ids, page, material, select, back);
+    h.actions.put(layout("back-slot"), c -> back.run());
+    for (int i = 0; i < slots().size() && page * slots().size() + i < ids.size(); i++) {
+      String id = ids.get(page * slots().size() + i);
+      button(
+          h,
+          slots().get(i),
+          material,
+          "<white>" + id,
+          settings.file("guis").getStringList("layout.select-lore"),
+          c -> select.accept(id));
+    }
+    if (ids.isEmpty())
+      h.inventory.setItem(
+          layout("empty-slot"),
+          icon(
+              Material.PAPER,
+              settings.file("guis").getString("layout.picker-empty-name"),
+              settings.file("guis").getStringList("layout.picker-empty-lore")));
+    if (page > 0)
+      h.actions.put(
+          layout("previous-slot"), c -> picker(p, title, ids, page - 1, material, select, back));
+    if ((page + 1) * slots().size() < ids.size())
+      h.actions.put(
+          layout("next-slot"), c -> picker(p, title, ids, page + 1, material, select, back));
+    for (String key : List.of("previous", "next"))
+      if (h.actions.containsKey(layout(key + "-slot")))
+        h.inventory.setItem(
+            layout(key + "-slot"),
+            icon(
+                Material.ARROW,
+                settings.file("guis").getString("layout." + key + "-name"),
+                List.of()));
     show(p, h);
   }
 
   private void features(Player p, int page) {
     access.require(p, "admin");
     MenuHolder h = base(p, "features", "", page);
+    h.actions.put(layout("back-slot"), c -> open(p, "settings", 0));
     List<Integer> slots = slots();
     for (int i = 0; i < slots.size() && page * slots.size() + i < Settings.FEATURES.size(); i++) {
       String key = Settings.FEATURES.get(page * slots.size() + i);
@@ -397,10 +581,10 @@ public final class MenuService implements Listener, AutoCloseable {
           h,
           slots.get(i),
           enabled ? Material.LIME_DYE : Material.GRAY_DYE,
-          "<aqua>"
-              + key
+          settings.file("guis").getString("features." + key + ".name", key)
               + " <gray>· "
-              + settings.file("guis").getString("layout." + (enabled ? "enabled" : "disabled")),
+              + state(enabled),
+          settings.file("guis").getStringList("features." + key + ".lore"),
           c -> {
             access.require(p, "admin");
             settings.toggle(key);
@@ -414,6 +598,7 @@ public final class MenuService implements Listener, AutoCloseable {
   private void permissions(Player p, int page) {
     access.require(p, "admin");
     MenuHolder h = base(p, "permissions", "", page);
+    h.actions.put(layout("back-slot"), c -> open(p, "settings", 0));
     List<Integer> slots = slots();
     for (int i = 0; i < slots.size() && page * slots.size() + i < Access.EDITABLE.size(); i++) {
       String key = Access.EDITABLE.get(page * slots.size() + i);
@@ -421,7 +606,14 @@ public final class MenuService implements Listener, AutoCloseable {
           h,
           slots.get(i),
           Material.TRIPWIRE_HOOK,
-          "<aqua>" + key,
+          settings.file("guis").getString("permissions." + key + ".name", "<white>" + key),
+          List.of(
+              "<gray>Current: <white>"
+                  + settings
+                      .file("permissions")
+                      .getString("overrides." + key, "easyscripting." + key),
+              "<gray>Click to change the permission node.",
+              "<gray>Use everyone to allow all players."),
           c -> prompt(p, "permissions " + key, "Enter everyone or a custom permission node."));
     }
     navigation(p, h, "permissions", page, Access.EDITABLE.size());
@@ -434,11 +626,15 @@ public final class MenuService implements Listener, AutoCloseable {
     List<Integer> slots = slots();
     for (int i = 0; i < PlayerService.FLAGS.size(); i++) {
       String flag = PlayerService.FLAGS.get(i);
+      boolean enabled = players.flag(p.getUniqueId(), flag);
       button(
           h,
           slots.get(i),
-          players.flag(p.getUniqueId(), flag) ? Material.LIME_DYE : Material.GRAY_DYE,
-          "<aqua>" + flag,
+          enabled ? Material.LIME_DYE : Material.GRAY_DYE,
+          settings.file("guis").getString("player-flags." + flag + ".name", flag)
+              + " <gray>· "
+              + state(enabled),
+          settings.file("guis").getStringList("player-flags." + flag + ".lore"),
           c -> {
             command(p, "player " + flag + " " + !players.flag(p.getUniqueId(), flag));
             playerControls(p);
@@ -456,11 +652,18 @@ public final class MenuService implements Listener, AutoCloseable {
 
   public void actor(Player p, String id, String section) {
     access.require(p, "actor");
-    var definition = actors.get(id).definition;
+    var managed = actors.get(id);
+    var definition = managed.definition;
     if (!List.of("overview", "appearance", "movement", "acting", "combat").contains(section))
       throw new IllegalArgumentException(
           "Actor section must be overview, appearance, movement, acting or combat.");
     MenuHolder h = base(p, section.equals("overview") ? "actor" : "actor-" + section, id, 0);
+    h.refresh = () -> actor(p, id, section);
+    for (String tab : List.of("overview", "appearance", "movement", "acting", "combat")) {
+      String key = "actor-tab-" + tab;
+      control(h, key, 0, Material.PAPER, c -> actor(p, id, tab));
+      selected(h, controlSlot(key, 0), tab.equals(section));
+    }
     button(
         h,
         layout("back-slot"),
@@ -482,12 +685,70 @@ public final class MenuService implements Listener, AutoCloseable {
         control(h, "actor-section-acting", 14, Material.ARMOR_STAND, c -> actor(p, id, "acting"));
         control(h, "actor-section-combat", 16, Material.IRON_SWORD, c -> actor(p, id, "combat"));
         control(h, "actor-info", 21, Material.BOOK, c -> command(p, "actor info " + id));
+        control(
+            h,
+            "actor-delete",
+            43,
+            Material.BARRIER,
+            c ->
+                confirm(
+                    p,
+                    id,
+                    () -> {
+                      command(p, "actor delete " + id);
+                      open(p, "actors", 0);
+                    },
+                    h.refresh));
       }
       case "movement" -> {
-        control(h, "actor-here", 10, Material.ENDER_PEARL, c -> command(p, "actor here " + id));
-        control(h, "actor-walk", 11, Material.LEATHER_BOOTS, c -> command(p, "actor move " + id));
-        control(h, "actor-hide", 12, Material.GRAY_DYE, c -> command(p, "actor hide " + id));
-        control(h, "actor-show", 13, Material.LIME_DYE, c -> command(p, "actor respawn " + id));
+        control(
+            h,
+            "actor-here",
+            11,
+            Material.ENDER_PEARL,
+            c -> {
+              command(p, "actor here " + id);
+              h.refresh.run();
+            });
+        control(
+            h,
+            "actor-walk",
+            13,
+            Material.LEATHER_BOOTS,
+            c -> {
+              command(p, "actor move " + id);
+              p.closeInventory();
+            });
+        control(
+            h,
+            "actor-hide",
+            20,
+            Material.GRAY_DYE,
+            c -> {
+              command(p, "actor hide " + id);
+              h.refresh.run();
+            });
+        control(
+            h,
+            "actor-show",
+            24,
+            Material.LIME_DYE,
+            c -> {
+              command(p, "actor show " + id);
+              h.refresh.run();
+            });
+        control(
+            h,
+            "actor-respawn",
+            15,
+            Material.RECOVERY_COMPASS,
+            c -> {
+              command(p, "actor respawn " + id);
+              h.refresh.run();
+            });
+        actorToggle(p, h, id, "look", definition.lookNearby, 29, section);
+        actorToggle(p, h, id, "wander", definition.wander, 31, section);
+        actorToggle(p, h, id, "collidable", definition.collidable, 33, section);
         control(
             h,
             "actor-setting",
@@ -505,7 +766,18 @@ public final class MenuService implements Listener, AutoCloseable {
             "actor-kit",
             14,
             Material.CHEST,
-            c -> prompt(p, "actor kit " + id, "Enter a kit identifier."));
+            c ->
+                picker(
+                    p,
+                    "Choose a costume",
+                    kits.ids(),
+                    0,
+                    Material.CHEST,
+                    kit -> {
+                      command(p, "actor kit " + id + " " + kit);
+                      h.refresh.run();
+                    },
+                    h.refresh));
         control(
             h,
             "actor-skin",
@@ -519,12 +791,23 @@ public final class MenuService implements Listener, AutoCloseable {
             Material.NAME_TAG,
             c -> prompt(p, "actor set " + id + " name", "Enter the actor name."));
         control(
-            h, "actor-randomize", 20, Material.ENDER_EYE, c -> command(p, "actor randomize " + id));
-        control(h, "actor-info", 21, Material.BOOK, c -> command(p, "actor info " + id));
+            h,
+            "actor-randomize",
+            31,
+            Material.ENDER_EYE,
+            c -> {
+              command(p, "actor randomize " + id);
+              h.refresh.run();
+            });
+        actorToggle(p, h, id, "glow", definition.glowing, 29, section);
+        actorToggle(p, h, id, "nametag", definition.nametag, 33, section);
+        if (!definition.type.equals("PLAYER"))
+          disabled(h, "actor-skin", "Skins are available for player NPCs.");
       }
       case "combat" -> {
-        actorToggle(p, h, id, "hittable", definition.hittable, 10);
-        actorToggle(p, h, id, "immortal", definition.immortal, 12);
+        actorToggle(p, h, id, "hittable", definition.hittable, 20, section);
+        actorToggle(p, h, id, "immortal", definition.immortal, 24, section);
+        control(h, "actor-health", 13, Material.APPLE, c -> command(p, "actor info " + id));
         control(
             h,
             "actor-combat-respawn",
@@ -572,17 +855,42 @@ public final class MenuService implements Listener, AutoCloseable {
               p.closeInventory();
               command(p, "actor play " + id);
             });
-        control(h, "actor-stop", 23, Material.RED_CONCRETE, c -> command(p, "actor stop " + id));
+        control(
+            h,
+            "actor-stop",
+            33,
+            Material.RED_CONCRETE,
+            c -> {
+              command(p, "actor stop " + id);
+              h.refresh.run();
+            });
         control(
             h,
             "actor-recording",
             25,
             Material.WRITABLE_BOOK,
             c ->
-                prompt(
+                picker(
                     p,
-                    "actor recording " + id,
-                    "Enter an existing recording ID. Current: " + definition.recording));
+                    "Choose a recording",
+                    recordings.ids(),
+                    0,
+                    Material.CLOCK,
+                    recording -> {
+                      command(p, "actor recording " + id + " " + recording);
+                      h.refresh.run();
+                    },
+                    h.refresh));
+        control(
+            h,
+            "actor-autoplay",
+            40,
+            Material.REDSTONE_TORCH,
+            c -> {
+              command(p, "actor autoplay " + id + " " + !definition.autoplay);
+              h.refresh.run();
+            });
+        selected(h, controlSlot("actor-autoplay", 40), definition.autoplay);
         for (var mode : dev.easyscripting.recording.PlaybackMode.values()) {
           String key = mode.name().toLowerCase(Locale.ROOT);
           control(
@@ -594,22 +902,60 @@ public final class MenuService implements Listener, AutoCloseable {
                 command(p, "actor mode " + id + " " + key);
                 actor(p, id, "acting");
               });
+          selected(
+              h,
+              controlSlot("actor-mode-" + key, 19 + mode.ordinal()),
+              definition.playbackMode == mode);
+        }
+        boolean performing = acting.actor(p).filter(id::equals).isPresent();
+        if (!performing) {
+          disabled(h, "actor-finish", "Start acting as this NPC first.");
+          disabled(h, "actor-cancel", "No active performance for this NPC.");
+        }
+        if (acting.actor(p).isPresent() || recordings.capturing(p))
+          disabled(h, "actor-act", "Finish your current recording first.");
+        if (!recordings.playing(id)) disabled(h, "actor-stop", "This NPC is not playing.");
+        if (definition.recording.isBlank() || !recordings.ids().contains(definition.recording))
+          disabled(h, "actor-play", "Record a performance or choose a saved one.");
+        if (recordings.playing(id) || performing) {
+          for (String key :
+              List.of(
+                  "actor-act",
+                  "actor-play",
+                  "actor-recording",
+                  "actor-mode-stop",
+                  "actor-mode-repeat",
+                  "actor-mode-reverse")) disabled(h, key, "Finish acting or stop playback first.");
+        }
+        if (managed.entity().isEmpty()) {
+          disabled(h, "actor-act", "Show or respawn this NPC first.");
+          disabled(h, "actor-play", "Show or respawn this NPC first.");
         }
       }
       default -> throw new IllegalStateException("Unvalidated actor section");
     }
-    for (int slot : h.actions.keySet()) {
+    for (int slot = 0; slot < h.inventory.getSize(); slot++) {
       ItemStack item = h.inventory.getItem(slot);
       if (item == null) continue;
       var meta = item.getItemMeta();
       Map<String, String> values =
-          Map.of(
-              "{mode}",
-              definition.playbackMode.name().toLowerCase(Locale.ROOT),
-              "{recording}",
-              definition.recording.isBlank() ? "None yet" : definition.recording,
-              "{acting}",
-              acting.actor(p).orElse("None"));
+          Map.ofEntries(
+              Map.entry("{id}", id),
+              Map.entry("{name}", definition.name),
+              Map.entry("{skin}", definition.skin.isBlank() ? "Default" : definition.skin),
+              Map.entry("{autoplay}", definition.autoplay ? "ON" : "OFF"),
+              Map.entry(
+                  "{health}",
+                  managed
+                      .entity()
+                      .map(e -> String.format(Locale.ROOT, "%.1f", e.getHealth()))
+                      .orElse("Not spawned")),
+              Map.entry("{status}", recordings.playing(id) ? "Playing" : performingStatus(p, id)),
+              Map.entry("{mode}", definition.playbackMode.name().toLowerCase(Locale.ROOT)),
+              Map.entry(
+                  "{recording}",
+                  definition.recording.isBlank() ? "None yet" : definition.recording),
+              Map.entry("{acting}", acting.actor(p).orElse("None")));
       java.util.function.UnaryOperator<net.kyori.adventure.text.Component> replace =
           component -> {
             var result = component;
@@ -627,7 +973,13 @@ public final class MenuService implements Listener, AutoCloseable {
   }
 
   private void actorToggle(
-      Player player, MenuHolder holder, String id, String setting, boolean enabled, int slot) {
+      Player player,
+      MenuHolder holder,
+      String id,
+      String setting,
+      boolean enabled,
+      int slot,
+      String section) {
     String key = "actor-" + setting;
     control(
         holder,
@@ -636,7 +988,7 @@ public final class MenuService implements Listener, AutoCloseable {
         enabled ? Material.LIME_DYE : Material.GRAY_DYE,
         c -> {
           command(player, "actor set " + id + " " + setting + " " + !enabled);
-          actor(player, id, "combat");
+          actor(player, id, section);
         });
     ItemStack item = holder.inventory.getItem(controlSlot(key, slot));
     var meta = item.getItemMeta();
@@ -649,15 +1001,28 @@ public final class MenuService implements Listener, AutoCloseable {
                         .file("guis")
                         .getString("layout." + (enabled ? "enabled" : "disabled")))));
     item.setItemMeta(meta);
+    selected(holder, controlSlot(key, slot), enabled);
+  }
+
+  private String performingStatus(Player player, String id) {
+    if (acting.actor(player).filter(id::equals).isPresent()) return "Recording your performance";
+    try {
+      actors.available(id);
+    } catch (IllegalArgumentException busy) {
+      return "Busy";
+    }
+    return actors.get(id).entity().isPresent() ? "Ready" : "Hidden / dead";
   }
 
   public void timeline(Player p, String id, int requested) {
     access.require(p, "scene.play");
     var scene = scenes.get(id);
-    List<Integer> slots = slots().subList(0, Math.max(1, slots().size() - 7));
+    List<Integer> slots = slots();
     int page =
         Math.max(0, Math.min(requested, Math.max(0, (scene.actions().size() - 1) / slots.size())));
     MenuHolder h = base(p, "timeline", id, page);
+    h.refresh = () -> timeline(p, id, page);
+    h.actions.put(layout("back-slot"), c -> open(p, "scenes", 0));
     for (int i = 0; i < slots.size() && page * slots.size() + i < scene.actions().size(); i++) {
       int index = page * slots.size() + i;
       var action = scene.actions().get(index);
@@ -666,7 +1031,22 @@ public final class MenuService implements Listener, AutoCloseable {
           slots.get(i),
           Material.PAPER,
           "<aqua>" + action.tick() + "t <white>" + action.type() + " <gray>" + action.target(),
-          c -> confirm(p, () -> command(p, "scene remove " + id + " " + (index + 1))));
+          List.of(
+              "<gray>Action #" + (index + 1),
+              "<gray>Arguments: <white>" + action.arguments(),
+              "",
+              "<red>Shift-right click to delete this action."),
+          c -> {
+            if (c == ClickType.SHIFT_RIGHT)
+              confirm(
+                  p,
+                  "action #" + (index + 1),
+                  () -> {
+                    command(p, "scene remove " + id + " " + (index + 1));
+                    h.refresh.run();
+                  },
+                  h.refresh);
+          });
     }
     control(h, "timeline-play", 37, Material.LIME_CONCRETE, c -> command(p, "scene play " + id));
     control(
@@ -712,7 +1092,9 @@ public final class MenuService implements Listener, AutoCloseable {
   public void viewInventory(Player viewer, Player target, boolean ender) {
     access.require(viewer, "inventory");
     MenuHolder h = base(viewer, "inventory", target.getName(), 0);
-    h.inventory.clear();
+    for (int i = 0; i < 45; i++) h.inventory.setItem(i, null);
+    h.actions.put(layout("back-slot"), c -> open(viewer, "players", 0));
+    h.refresh = () -> viewInventory(viewer, target, ender);
     ItemStack[] contents = (ender ? target.getEnderChest() : target.getInventory()).getContents();
     for (int i = 0; i < contents.length && i < 45; i++)
       h.inventory.setItem(i, contents[i] == null ? null : contents[i].clone());
@@ -723,7 +1105,9 @@ public final class MenuService implements Listener, AutoCloseable {
     access.require(p, "kit.edit");
     MenuHolder h = base(p, "kit-editor", id, 0);
     h.kitId = id;
-    h.inventory.clear();
+    for (int i = 0; i < 45; i++) h.inventory.setItem(i, null);
+    h.actions.put(layout("back-slot"), c -> open(p, "kits", 0));
+    h.refresh = () -> kitEditor(p, id);
     ItemStack[] contents = kits.contents(id);
     for (int i = 0; i < contents.length; i++) h.inventory.setItem(i, contents[i]);
     control(
@@ -744,8 +1128,12 @@ public final class MenuService implements Listener, AutoCloseable {
   }
 
   public void prompt(Player p, String prefix, String question) {
+    Runnable back =
+        p.getOpenInventory().getTopInventory().getHolder() instanceof MenuHolder old
+            ? old.refresh
+            : () -> open(p, "main", 0);
     p.closeInventory();
-    inputs.put(p.getUniqueId(), new Pending(prefix, System.currentTimeMillis() + 60000));
+    inputs.put(p.getUniqueId(), new Pending(prefix, System.currentTimeMillis() + 60000, back));
     messages.send(p, "input", question);
   }
 
@@ -755,14 +1143,24 @@ public final class MenuService implements Listener, AutoCloseable {
     if (pending == null) return;
     e.setCancelled(true);
     String text = PlainTextComponentSerializer.plainText().serialize(e.message()).strip();
-    if (pending.expires < System.currentTimeMillis() || text.equalsIgnoreCase("cancel")) return;
-    if (text.length() > 512 || text.contains("\n") || text.contains("\r")) return;
+    boolean cancelled =
+        pending.expires < System.currentTimeMillis()
+            || text.equalsIgnoreCase("cancel")
+            || text.length() > 512
+            || text.contains("\n")
+            || text.contains("\r");
     if (!plugin.isEnabled()) return;
     Bukkit.getScheduler()
         .runTask(
             plugin,
             () -> {
-              if (e.getPlayer().isOnline()) command(e.getPlayer(), pending.prefix + " " + text);
+              if (!e.getPlayer().isOnline()) return;
+              if (!cancelled) command(e.getPlayer(), pending.prefix + " " + text);
+              try {
+                pending.back.run();
+              } catch (IllegalArgumentException | IllegalStateException ex) {
+                messages.error(e.getPlayer(), ex.getMessage());
+              }
             });
   }
 
@@ -783,6 +1181,14 @@ public final class MenuService implements Listener, AutoCloseable {
                 if (h.kitId != null && slot >= h.inventory.getSize()) {
                   access.require(p, "kit.edit");
                   h.selected = clicked;
+                  h.inventory.setItem(
+                      layout("previous-slot"),
+                      clicked == null
+                          ? icon(
+                              Material.PAPER,
+                              "<gray>No item selected",
+                              List.of("<gray>Click an item in your inventory to copy it."))
+                          : clicked.clone());
                   return;
                 }
                 if (h.kitId != null && slot >= 0 && slot < 41) {

@@ -22,6 +22,7 @@ public final class ActingService implements Listener, AutoCloseable {
   private final PlayerService players;
   private final RecordingService recordings;
   private final Map<UUID, Session> sessions = new HashMap<>();
+  private boolean closing;
 
   public ActingService(
       Settings settings,
@@ -95,6 +96,7 @@ public final class ActingService implements Listener, AutoCloseable {
       player.displayName(Component.text(actor.definition.name));
       player.playerListName(Component.text(actor.definition.name));
       player.setGameMode(GameMode.SURVIVAL);
+      player.setInvulnerable(true);
       player.setFlying(false);
       player.getInventory().clear();
       player.getInventory().setHeldItemSlot(0);
@@ -173,13 +175,18 @@ public final class ActingService implements Listener, AutoCloseable {
           session.actor.definition.recording = session.recording;
           actors.save(session.actor);
         }
+        if (session.save && session.restoreActor && !closing)
+          recordings.requestAutoplay(session.actor.id());
+        else recordings.cancelAutoplay(session.actor.id());
       }
     }
     if (player.isOnline() && !session.deferred)
       messages.ok(
           player,
           session.save
-              ? "Performance saved. Use /actor play " + session.actor.id() + " to play it."
+              ? (session.actor.definition.autoplay
+                  ? "Performance saved. Autoplay will start your NPC's replay."
+                  : "Performance saved. Use /actor play " + session.actor.id() + " to play it.")
               : "Acting cancelled; original state restored.");
   }
 
@@ -207,12 +214,12 @@ public final class ActingService implements Listener, AutoCloseable {
   public void damage(EntityDamageEvent event) {
     Session session = sessions.get(event.getEntity().getUniqueId());
     if (session == null) return;
-    if (!session.actor.definition.hittable
-        || (session.actor.definition.immortal
-            && event.getFinalDamage() >= session.player.getHealth())) {
-      event.setCancelled(true);
-      if (session.actor.definition.hittable) session.player.playHurtAnimation(0);
-    }
+    event.setCancelled(true);
+  }
+
+  @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+  public void knockback(io.papermc.paper.event.entity.EntityKnockbackEvent event) {
+    if (sessions.containsKey(event.getEntity().getUniqueId())) event.setCancelled(true);
   }
 
   @EventHandler(ignoreCancelled = true)
@@ -224,6 +231,7 @@ public final class ActingService implements Listener, AutoCloseable {
 
   @Override
   public void close() {
+    closing = true;
     for (Session session : List.copyOf(sessions.values())) finish(session.player);
   }
 

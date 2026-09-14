@@ -68,3 +68,5 @@ overrides:
 Use `/es permissions scene.play production.director` or the permission GUI. Admin, destructive, command execution and bypass nodes cannot be overridden to `everyone` here. Warp-specific permission rules remain additional checks. Event-driven bypass checks use their explicitly documented nodes.
 
 To delegate a director role, grant use, scene.play, scene.edit, actor, record, kit, kit.edit, player, effects and the other feature nodes they need. Grant player.others only when that director may control other performers. Grant command/destructive nodes individually when the production requires them.
+
+Autoplay configuration requires both `easyscripting.actor` and `easyscripting.record`, like manual NPC playback. Runtime autoplay follows the saved actor configuration and feature switches; it does not execute commands or use a logged-out director's permissions. Hittable/Immortal changes require `easyscripting.actor` and are allowed during replay.

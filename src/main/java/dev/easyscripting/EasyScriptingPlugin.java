@@ -64,6 +64,7 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       RecordingService recordings =
           own(new RecordingService(settings, messages, store, ticks, actors));
       recordings.load();
+      recordings.autoplayAll();
       ActingService acting =
           own(new ActingService(settings, messages, actors, players, recordings));
       CameraService cameras = own(new CameraService(ticks, players));

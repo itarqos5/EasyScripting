@@ -29,6 +29,7 @@ public final class CitizensBackend implements ActorBackend {
     equipment.set(Equipment.EquipmentSlot.LEGGINGS, d.equipment[4]);
     equipment.set(Equipment.EquipmentSlot.BOOTS, d.equipment[5]);
     npc.setProtected(false);
+    npc.data().setPersistent(NPC.Metadata.KNOCKBACK, true);
     npc.data().setPersistent(NPC.Metadata.REMOVE_FROM_TABLIST, true);
     npc.data().setPersistent(NPC.Metadata.COLLIDABLE, d.collidable);
     npc.data().setPersistent(NPC.Metadata.NAMEPLATE_VISIBLE, d.nametag);

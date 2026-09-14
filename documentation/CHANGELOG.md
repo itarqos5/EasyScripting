@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.3 — 2026-09-14
+
+* Rebuilt every studio menu with grouped tools, spaced controls, explanatory lore, empty states, consistent navigation and NPC section tabs. Added recording/NPC/costume pickers, selected-mode indicators and unavailable-action explanations. Chat input returns to its originating page; timeline deletion requires Shift-right click and confirmation.
+* Added validated `guis.yml` schema 2. Legacy layouts receive a unique backup before replacement; custom schema-2 values survive reload. Slot collisions are rejected before settings are published.
+* Added saved per-NPC autoplay, enabled by default: starts after successful acting, on show/respawn/startup, or when enabled. It respects busy actors and feature switches. Stopping or cancelling does not immediately restart playback.
+* Protected acting performers from damage and knockback, restoring their previous state afterward.
+* NPC playback now yields to native knockback, then rejoins its recorded route. Damage survives playback reset, death stops the replay, and Hittable/Immortal can be changed during playback. Recovery timings are configurable in `recording.yml`.
+* Published the public EasyScripting repository. Kept README.md in the root and moved other Markdown files into documentation/.
+* Build and unit checks passed. This version has not been run on a server or visually checked in Minecraft.
+
 ## 0.1.2 — 2026-09-13
 
 * Added Appearance, Movement, Acting & Playback, and Combat sections to the YAML-configured actor GUI. Older GUI files inherit missing controls without being overwritten.

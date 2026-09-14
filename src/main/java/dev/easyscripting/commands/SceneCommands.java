@@ -102,7 +102,7 @@ public final class SceneCommands {
     router.add(
         "actor",
         "actor",
-        "create|list|info|randomize|set|here|move|copy|hide|show|respawn|attack|kit|pattern|all|delete|act|finish|cancel|play|stop|mode|recording"
+        "create|list|info|randomize|set|here|move|copy|hide|show|respawn|attack|kit|pattern|all|delete|act|finish|cancel|play|stop|mode|recording|autoplay"
             + " <id> ...",
         (s, a) -> {
           settings.require("actors");
@@ -152,6 +152,17 @@ public final class SceneCommands {
               actors.available(a.get(1));
               actors.set(a.get(1), "mode", a.get(2));
             }
+            case "autoplay" -> {
+              access.require(s, "record");
+              recordings.autoplay(a.get(1), Checks.bool(a.get(2)));
+              messages.ok(
+                  s,
+                  "Autoplay "
+                      + (Checks.bool(a.get(2)) ? "enabled" : "disabled")
+                      + " for '"
+                      + a.get(1)
+                      + "'.");
+            }
             case "recording" -> {
               access.require(s, "record");
               if (!recordings.ids().contains(a.get(2)))
@@ -160,7 +171,7 @@ public final class SceneCommands {
               actors.set(a.get(1), "recording", a.get(2));
             }
             case "set" -> {
-              actors.available(a.get(1));
+              if (!List.of("hittable", "immortal").contains(a.get(2))) actors.available(a.get(1));
               actors.set(a.get(1), a.get(2), a.rest(3));
             }
             case "here" -> actors.teleport(a.get(1), Args.player(s).getLocation());
@@ -250,6 +261,7 @@ public final class SceneCommands {
                     "play",
                     "stop",
                     "mode",
+                    "autoplay",
                     "recording",
                     "group",
                     "set",
@@ -269,26 +281,28 @@ public final class SceneCommands {
                     ? actors.ids()
                     : a.get(0).equals("gui") && a.size() == 3
                         ? List.of("overview", "appearance", "movement", "acting", "combat")
-                        : a.get(0).equals("mode") && a.size() == 3
-                            ? List.of("stop", "repeat", "reverse")
-                            : a.get(0).equals("recording") && a.size() == 3
-                                ? recordings.ids()
-                                : a.get(0).equals("set") && a.size() == 3
-                                    ? List.of(
-                                        "name",
-                                        "skin",
-                                        "group",
-                                        "immortal",
-                                        "hittable",
-                                        "collidable",
-                                        "nametag",
-                                        "look",
-                                        "wander",
-                                        "pose",
-                                        "glow",
-                                        "sneak",
-                                        "sprint")
-                                    : List.of());
+                        : a.get(0).equals("autoplay") && a.size() == 3
+                            ? List.of("on", "off")
+                            : a.get(0).equals("mode") && a.size() == 3
+                                ? List.of("stop", "repeat", "reverse")
+                                : a.get(0).equals("recording") && a.size() == 3
+                                    ? recordings.ids()
+                                    : a.get(0).equals("set") && a.size() == 3
+                                        ? List.of(
+                                            "name",
+                                            "skin",
+                                            "group",
+                                            "immortal",
+                                            "hittable",
+                                            "collidable",
+                                            "nametag",
+                                            "look",
+                                            "wander",
+                                            "pose",
+                                            "glow",
+                                            "sneak",
+                                            "sprint")
+                                        : List.of());
     router.add(
         "record",
         "record",
@@ -381,6 +395,8 @@ public final class SceneCommands {
         + (definition.recording.isBlank() ? "none" : definition.recording)
         + "; mode="
         + definition.playbackMode.name().toLowerCase(Locale.ROOT)
+        + "; autoplay="
+        + definition.autoplay
         + "; hittable="
         + definition.hittable
         + "; immortal="

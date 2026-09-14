@@ -153,14 +153,18 @@ final class ActingSmokeChecks implements CommandExecutor {
                   .allMatch(f -> f.containsKey("armor") && f.containsKey("pose")),
               "armor and pose captured");
           check(
-              data.getMapList("frames").stream().anyMatch(f -> Boolean.TRUE.equals(f.get("hurt")))
+              data.getMapList("frames").stream().noneMatch(f -> Boolean.TRUE.equals(f.get("hurt")))
                   && data.getMapList("frames").stream()
                       .anyMatch(f -> f.get("fire") instanceof Number n && n.intValue() > 0),
-              "hurt and fire animations captured");
+              "protected performer has no damage cues; visual fire captured");
         }
         case "cue" -> {
+          double health = player.getHealth();
           player.setNoDamageTicks(0);
           player.damage(1);
+          check(
+              player.getHealth() == health && player.isInvulnerable(),
+              "acting performer is protected from damage");
           player.setFireTicks(80);
         }
         case "end" -> {

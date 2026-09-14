@@ -51,6 +51,7 @@ public final class Settings {
 
   public void load(Consumer<YamlConfiguration> validateMenus) {
     Map<String, YamlConfiguration> next = new HashMap<>();
+    boolean upgradeGui = false;
     for (String file :
         List.of(
             "config",
@@ -70,11 +71,15 @@ public final class Settings {
       next.put(file, YamlStore.read(path));
       if (file.equals("guis")) {
         try (var input = plugin.getResource("guis.yml")) {
-          inheritActorMenus(
-              next.get(file),
-              YamlConfiguration.loadConfiguration(
-                  new java.io.InputStreamReader(
-                      Objects.requireNonNull(input), java.nio.charset.StandardCharsets.UTF_8)));
+          upgradeGui = next.get(file).getInt("schema", 1) < 2;
+          next.put(
+              file,
+              GuiSchema.prepare(
+                  next.get(file),
+                  YamlConfiguration.loadConfiguration(
+                      new java.io.InputStreamReader(
+                          Objects.requireNonNull(input),
+                          java.nio.charset.StandardCharsets.UTF_8))));
         } catch (java.io.IOException ex) {
           throw new IllegalStateException("Could not read bundled GUI defaults", ex);
         }
@@ -91,6 +96,15 @@ public final class Settings {
     bounded(config, "limits.region-blocks-per-tick", 1, 10000);
     bounded(config, "world.auto-clear-seconds", 0, 86400);
     bounded(config, "world.auto-clear-radius", 1, 128);
+    for (String key : List.of("playback.knockback-pause-ticks", "playback.return-to-route-ticks")) {
+      var recording = next.get("recording");
+      if (recording.contains(key)) {
+        int value = recording.getInt(key);
+        if (!(recording.get(key) instanceof Integer) || value < 1 || value > 100)
+          throw new IllegalArgumentException(
+              "recording.yml: " + key + " must be an integer from 1 to 100.");
+      }
+    }
     Map<String, Boolean> toggles = new HashMap<>();
     for (String key : FEATURES) {
       Object value = next.get("features").get(key);
@@ -101,6 +115,20 @@ public final class Settings {
     }
     validateMenus.accept(next.get("guis"));
     NpcIdentities nextIdentities = NpcIdentities.read(next.get("npc-identities"));
+    if (upgradeGui) {
+      Path path = plugin.getDataFolder().toPath().resolve("guis.yml");
+      Path backup = path.resolveSibling("guis-v1-backup-" + UUID.randomUUID() + ".yml");
+      try {
+        java.nio.file.Files.copy(path, backup);
+        store.write(path, next.get("guis").saveToString()).join();
+        plugin
+            .getLogger()
+            .info("Installed GUI layout v2. Previous layout saved as " + backup.getFileName());
+      } catch (java.io.IOException | java.util.concurrent.CompletionException ex) {
+        throw new IllegalStateException(
+            "Could not upgrade guis.yml. Check the original file and backup path " + backup, ex);
+      }
+    }
     files = Map.copyOf(next);
     features = Map.copyOf(toggles);
     npcIdentities = nextIdentities;

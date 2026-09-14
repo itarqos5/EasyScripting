@@ -52,6 +52,9 @@ public final class RecordingService implements Listener, AutoCloseable {
   private final Map<String, List<Frame>> recordings = new TreeMap<>();
   private final Map<UUID, Capture> captures = new HashMap<>();
   private final Map<String, UUID> playback = new HashMap<>();
+  private final Map<String, UUID> queuedAutoplay = new HashMap<>();
+  private final Map<String, CombatPlayback> combat = new HashMap<>();
+  private boolean closing;
   private final Set<UUID> swung = new HashSet<>();
   private final Set<UUID> offSwung = new HashSet<>(), hurt = new HashSet<>();
   private java.util.function.Consumer<Player> captureStopped = player -> {};
@@ -81,8 +84,56 @@ public final class RecordingService implements Listener, AutoCloseable {
     this.actors = actors;
     actors.onRemoved(
         id -> {
+          cancelAutoplay(id);
           if (playing(id)) stopPlayback(id);
         });
+    actors.onSpawned(actor -> requestAutoplay(actor.id()));
+  }
+
+  public void autoplay(String actorId, boolean enabled) {
+    var actor = actors.get(actorId);
+    actor.definition.autoplay = enabled;
+    actors.save(actor);
+    if (enabled) requestAutoplay(actorId);
+    else cancelAutoplay(actorId);
+  }
+
+  public void autoplayAll() {
+    actors.ids().forEach(this::requestAutoplay);
+  }
+
+  public void cancelAutoplay(String id) {
+    UUID pending = queuedAutoplay.remove(id);
+    if (pending != null) ticks.cancel(pending);
+  }
+
+  public void requestAutoplay(String id) {
+    if (closing || queuedAutoplay.containsKey(id)) return;
+    UUID job =
+        ticks.add(
+            new TickEngine.Job() {
+              public boolean tick() {
+                queuedAutoplay.remove(id);
+                if (closing
+                    || !settings.enabled("actors")
+                    || !settings.enabled("recording")
+                    || !actors.ids().contains(id)
+                    || playing(id)) return false;
+                var actor = actors.get(id);
+                if (!actor.definition.autoplay
+                    || actor.definition.hidden
+                    || actor.entity().map(LivingEntity::isDead).orElse(true)
+                    || !recordings.containsKey(actor.definition.recording)) return false;
+                try {
+                  actors.available(id);
+                } catch (IllegalArgumentException busy) {
+                  return false;
+                }
+                playActor(id);
+                return false;
+              }
+            });
+    queuedAutoplay.put(id, job);
   }
 
   public void load() {
@@ -270,6 +321,12 @@ public final class RecordingService implements Listener, AutoCloseable {
     actors.reserve(actorId, "recording " + recording);
     boolean gravity = entity.hasGravity();
     var visualFire = entity.getVisualFire();
+    CombatPlayback combatState =
+        new CombatPlayback(
+            new ReplayRecovery(
+                settings.file("recording").getInt("playback.knockback-pause-ticks", 12),
+                settings.file("recording").getInt("playback.return-to-route-ticks", 10)));
+    combat.put(actorId, combatState);
     entity.setGravity(false);
     entity.setVelocity(new org.bukkit.util.Vector());
     UUID job =
@@ -280,21 +337,37 @@ public final class RecordingService implements Listener, AutoCloseable {
               Boat vehicle;
 
               public boolean tick() {
-                if (!settings.enabled("recording") || actor.entity().isEmpty()) return false;
+                if (!settings.enabled("actors")
+                    || !settings.enabled("recording")
+                    || actor.entity().isEmpty()) return false;
+                LivingEntity e = actor.requireEntity();
+                if (e.isDead()) return false;
+                if (combatState.recovery.yieldToPhysics()) {
+                  e.setGravity(true);
+                  if (vehicle != null) {
+                    vehicle.remove();
+                    vehicle = null;
+                  }
+                  return true;
+                }
                 Frame f = frames.get(cursor.index());
                 if (Bukkit.getWorld(f.location.getWorld().getUID()) != f.location.getWorld())
                   return false;
-                LivingEntity e = actor.requireEntity();
+                e.setGravity(false);
+                Location destination = f.location.clone();
+                var correction =
+                    combatState.recovery.offset(e.getLocation().toVector(), destination.toVector());
+                destination.add(correction);
                 if (f.boat) {
                   if (vehicle == null || !vehicle.isValid()) {
                     vehicle =
-                        (Boat) f.location.getWorld().spawnEntity(f.location, EntityType.OAK_BOAT);
+                        (Boat) destination.getWorld().spawnEntity(destination, EntityType.OAK_BOAT);
                     vehicle.setPersistent(false);
                     vehicle.setGravity(false);
                     vehicle.addPassenger(e);
                   }
                   vehicle.teleport(
-                      f.location,
+                      destination,
                       org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.PLUGIN,
                       io.papermc.paper.entity.TeleportFlag.EntityState.RETAIN_PASSENGERS);
                 } else {
@@ -302,7 +375,7 @@ public final class RecordingService implements Listener, AutoCloseable {
                     vehicle.remove();
                     vehicle = null;
                   }
-                  if (!e.teleport(f.location))
+                  if (!e.teleport(destination))
                     throw new IllegalArgumentException("Recording teleport was cancelled.");
                 }
                 if (e instanceof Player p) {
@@ -329,23 +402,40 @@ public final class RecordingService implements Listener, AutoCloseable {
                                 .map(i -> i == null ? null : i.clone())
                                 .toArray(ItemStack[]::new));
                 }
-                completed = !cursor.advance();
+                boolean end = !cursor.advance();
+                // A hit near the final frame must finish its return to the route before STOP.
+                completed = end && correction.lengthSquared() < 1.0e-10;
                 return !completed;
               }
 
               public void stopped() {
                 playback.remove(actorId);
+                combat.remove(actorId);
                 actors.release(actorId, "recording " + recording);
                 if (vehicle != null) vehicle.remove();
                 actor
                     .entity()
                     .ifPresent(
                         e -> {
+                          if (e.isDead()) return;
                           e.setGravity(gravity);
                           e.setVisualFire(visualFire);
                           actor.stop();
-                          if (!completed || restoreOnComplete) snapshot.restore(e);
-                          else {
+                          if (!completed || restoreOnComplete) {
+                            double health = e.getHealth();
+                            try {
+                              snapshot.restore(e);
+                            } finally {
+                              if (combatState.damaged && !e.isDead())
+                                e.setHealth(
+                                    Math.min(
+                                        health,
+                                        Objects.requireNonNull(
+                                                e.getAttribute(
+                                                    org.bukkit.attribute.Attribute.MAX_HEALTH))
+                                            .getValue()));
+                            }
+                          } else {
                             e.setVelocity(new org.bukkit.util.Vector());
                             actor.definition.wander = false;
                             actors.save(actor);
@@ -364,11 +454,15 @@ public final class RecordingService implements Listener, AutoCloseable {
     if (playback.containsKey(actorId))
       throw new IllegalArgumentException("Actor already has active playback.");
     actors.available(actorId);
-    actors.get(actorId).requireEntity();
+    if (actors.get(actorId).requireEntity().isDead())
+      throw new IllegalArgumentException("Respawn the actor before playing a recording.");
   }
 
   public void stopPlayback(String actorId) {
+    boolean pending = queuedAutoplay.containsKey(actorId);
+    cancelAutoplay(actorId);
     UUID job = playback.get(actorId);
+    if (job == null && pending) return;
     if (job == null) throw new IllegalArgumentException("Actor has no active recording playback.");
     ticks.cancel(job);
   }
@@ -392,6 +486,28 @@ public final class RecordingService implements Listener, AutoCloseable {
   public void damaged(org.bukkit.event.entity.EntityDamageEvent event) {
     if (captures.containsKey(event.getEntity().getUniqueId()) && event.getFinalDamage() > 0)
       hurt.add(event.getEntity().getUniqueId());
+    if (event.getFinalDamage() > 0)
+      actors
+          .byEntity(event.getEntity().getUniqueId())
+          .ifPresent(
+              actor -> {
+                CombatPlayback state = combat.get(actor.id());
+                if (state != null) state.damaged = true;
+              });
+  }
+
+  @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+  public void knockback(io.papermc.paper.event.entity.EntityKnockbackEvent event) {
+    if (event.getKnockback().lengthSquared() == 0) return;
+    actors
+        .byEntity(event.getEntity().getUniqueId())
+        .ifPresent(
+            actor -> {
+              CombatPlayback state = combat.get(actor.id());
+              if (state != null && actor.definition.hittable) {
+                state.recovery.hit();
+              }
+            });
   }
 
   @EventHandler
@@ -401,8 +517,19 @@ public final class RecordingService implements Listener, AutoCloseable {
 
   @Override
   public void close() {
+    closing = true;
+    for (String id : List.copyOf(queuedAutoplay.keySet())) cancelAutoplay(id);
     for (Capture c : List.copyOf(captures.values())) stop(c.player);
     for (UUID job : List.copyOf(playback.values())) ticks.cancel(job);
+  }
+
+  private static final class CombatPlayback {
+    final ReplayRecovery recovery;
+    boolean damaged;
+
+    CombatPlayback(ReplayRecovery recovery) {
+      this.recovery = recovery;
+    }
   }
 
   private static final class Capture {

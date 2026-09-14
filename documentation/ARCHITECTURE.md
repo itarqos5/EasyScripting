@@ -24,7 +24,7 @@ The repository was empty on 2026-09-13. No pre-existing code, build or repositor
 
 ## Ownership and bounded work
 
-### 0.1.3 implementation plan
+### 0.1.3 implementation
 
 Preserve the target/build/plugin/thread/integration matrix above: compile-only Paper 1.21.8 through 26.2, JDK 25/Java 21 bytecode, conventional plugin.yml, synchronous entity access, bounded YAML writer, optional Citizens and voice, no Folia claim or new dependency. The repository was published at 0.1.2 before this work.
 
@@ -32,7 +32,7 @@ Preserve the target/build/plugin/thread/integration matrix above: compile-only P
 * ActorDefinition/ActorService/SceneCommands: persist autoplay, apply the configurable default and expose a per-actor command/toggle. Spawn notifications feed RecordingService's bounded one-shot autoplay queue, including existing actors at startup. Explicit stop cancels queued starts; occupied, hidden, deleted, disabled and dead actors cannot start.
 * ActingService: cancel performer damage/knockback while capturing; successful saves request autoplay only after restoring the performer/NPC. Cancel and shutdown never start a new replay.
 * RecordingService and a pure ReplayRecovery helper: let native knockback run for a bounded interval with gravity, then blend movement back to the paused frame. Health lost during playback survives stop/reset; death cancels playback without resurrecting the actor. All callbacks stay on the main thread and use the existing TickEngine; close prevents queued work from restarting.
-* Validation: unit tests for migration, GUI slot conflicts, autoplay decisions and recovery timing; full Gradle build and artifact inspection. No test server startup, following the user's request. The supported knockback event is checked against the [1.21.8 API](https://jd.papermc.io/paper/1.21.8/io/papermc/paper/event/entity/EntityKnockbackEvent.html) and [26.2 API](https://jd.papermc.io/paper/26.2/io/papermc/paper/event/entity/EntityKnockbackEvent.html); graphical/combat runtime behavior remains an explicit unrun acceptance gate for 0.1.3.
+* Validation: unit tests for migration, GUI slot conflicts and recovery timing; full Gradle build, Paper 26.2 API compilation and artifact inspection. No test server startup, following the user's request. The supported knockback event is checked against the [1.21.8 API](https://jd.papermc.io/paper/1.21.8/io/papermc/paper/event/entity/EntityKnockbackEvent.html) and [26.2 API](https://jd.papermc.io/paper/26.2/io/papermc/paper/event/entity/EntityKnockbackEvent.html); graphical/combat runtime behavior and autoplay lifecycle remain unrun acceptance checks for 0.1.3. Citizens NPCs explicitly enable its [knockback metadata](https://github.com/CitizensDev/CitizensAPI/blob/master/src/main/java/net/citizensnpcs/api/npc/NPC.java); Paper event cancellation enforces the Hittable switch.
 
 0.1.2 extends RecordingService with explicit end modes and equipment/pose frames while reading legacy recordings. ActingService owns temporary performer possession using PlayerService snapshots, actor reservations and the shared tick engine. ActorDefinition persists the selected recording/mode. MenuService provides actor sections and direct combat toggles backed by guis.yml. All entity/profile changes and event cleanup stay on the main thread; detached saves keep using YamlStore. Acting restores on finish/cancel/death/quit/disable and rejects conflicting scenes/cameras. No new production dependency, NMS or Folia support is introduced.
 

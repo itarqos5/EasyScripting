@@ -15,8 +15,7 @@ class GuiConfigurationTest {
         yaml,
         13,
         material -> {
-          if (!material.matches("[A-Z_0-9]+"))
-            throw new IllegalArgumentException("Invalid material token");
+          org.bukkit.Material.valueOf(material);
         });
   }
 
@@ -51,5 +50,63 @@ class GuiConfigurationTest {
     var yaml = defaults();
     yaml.set("menus.main.buttons.scenes.action", "console op Someone");
     assertThrows(IllegalArgumentException.class, () -> validate(yaml));
+  }
+
+  @Test
+  void actorControlsCannotHideTabsOrOtherButtons() {
+    var yaml = defaults();
+    yaml.set(
+        "dynamic.controls.actor-autoplay.slot",
+        yaml.getInt("dynamic.controls.actor-recording.slot"));
+    assertThrows(IllegalArgumentException.class, () -> validate(yaml));
+    var invalid = defaults();
+    invalid.set(
+        "dynamic.controls.actor-name.slot",
+        invalid.getInt("dynamic.controls.actor-tab-acting.slot"));
+    assertThrows(IllegalArgumentException.class, () -> validate(invalid));
+  }
+
+  @Test
+  void loadoutSaveCannotOverwriteFooterNavigation() {
+    var yaml = defaults();
+    yaml.set("dynamic.controls.kit-save.slot", yaml.getInt("layout.home-slot"));
+    assertThrows(IllegalArgumentException.class, () -> validate(yaml));
+  }
+
+  @Test
+  void timelineControlsCannotOverlapActions() {
+    var yaml = defaults();
+    yaml.set(
+        "dynamic.controls.timeline-play.slot",
+        yaml.getIntegerList("layout.content-slots").getFirst());
+    assertThrows(IllegalArgumentException.class, () -> validate(yaml));
+  }
+
+  @Test
+  void legacyLayoutGetsCompleteDesignWithoutMutatingItsBackup() {
+    var old = new YamlConfiguration();
+    old.set("layout.back-slot", 49);
+    old.set("menus.main.title", "Old studio");
+    var upgraded = GuiSchema.prepare(old, defaults());
+    validate(upgraded);
+    assertEquals(2, upgraded.getInt("schema"));
+    assertEquals(48, upgraded.getInt("layout.back-slot"));
+    assertEquals("Old studio", old.getString("menus.main.title"));
+    assertFalse(old.contains("schema"));
+  }
+
+  @Test
+  void customizedCurrentLayoutSurvivesReload() {
+    var custom = defaults();
+    custom.set("menus.main.title", "My studio");
+    custom.set("dynamic.actor-autoplay", "Automatic replay: {autoplay}");
+    var loaded = GuiSchema.prepare(custom, defaults());
+    validate(loaded);
+    assertEquals("My studio", loaded.getString("menus.main.title"));
+    assertEquals("Automatic replay: {autoplay}", loaded.getString("dynamic.actor-autoplay"));
+    custom.set("schema", 3);
+    assertThrows(IllegalArgumentException.class, () -> GuiSchema.prepare(custom, defaults()));
+    custom.set("schema", "2");
+    assertThrows(IllegalArgumentException.class, () -> GuiSchema.prepare(custom, defaults()));
   }
 }

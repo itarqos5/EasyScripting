@@ -1,5 +1,21 @@
 # Testing and acceptance
 
+## 0.1.3 validation
+
+The 0.1.3 Gradle build passes all **53 unit tests**. Nine new tests cover knockback pause/blend timing, repeated hits, immutable vectors, invalid recovery durations, complete legacy GUI migration, preserved schema-2 customization, conflicting NPC/tab slots, timeline overlap and protected kit footer navigation. Bundled GUI material names are also checked against the Paper enum. Compilation against the Paper 26.2 build-123 API passed; the distributable is rebuilt against the shared 1.21.8 API with Java 21 bytecode.
+
+No server or Minecraft client was launched for 0.1.3, following the requested build-only scope. Earlier integration results below apply to their stated versions. The optional client scripts have been updated for schema-2 slots and explicit manual playback, and the acting smoke fixture now checks performer damage immunity; these updated fixtures have not been run. Unit tests do not verify native knockback, Citizens physics, live autoplay or visual quality in Minecraft.
+
+For future in-game acceptance, exercise these new scenarios on both a mob and a matching Citizens PLAYER NPC:
+
+* Record with Autoplay ON, finish and observe the replay without a command. Repeat with OFF and with cancellation. Test STOP, REPEAT and REVERSE; explicit Stop must stay stopped.
+* Try player melee/projectile damage and knockback during acting, then finish/cancel and confirm original health, invulnerability, equipment and profile restoration.
+* During playback, attack a hittable mortal NPC: observe damage, knockback, route recovery, repeated hits, a hit near the final frame and death. Confirm Stop does not heal damage. Check Hittable OFF and Immortal ON separately.
+* Restart/show/respawn a visible NPC with a saved recording and Autoplay ON. Check hidden actors, scene reservations, feature disable, missing recordings and shutdown; none may start an invalid or duplicate replay.
+* Upgrade a customized legacy guis.yml, inspect the saved backup, navigate every menu and picker, and confirm schema-2 custom values persist after reload. Exercise copy-editor footer buttons, cancelling chat input and deletion confirmation.
+
+The downloadable plugin is `build/libs/EasyScripting-0.1.3.jar`. The complete unit report is `build/reports/tests/test/index.html`.
+
 ## Recorded environment
 
 Tests ran locally on Windows using Oracle JDK 25.0.1, Gradle wrapper 9.3.1 and disposable worlds. The user explicitly accepted the Minecraft EULA for these local servers. All server listeners were bound to 127.0.0.1, with RCON/query disabled. The 1.21.8 fixture uses offline authentication solely to admit the local protocol client. The original compatibility matrix was recorded for 0.1.0; the targeted 0.1.1 reruns are detailed below.

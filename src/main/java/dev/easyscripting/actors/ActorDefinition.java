@@ -14,6 +14,7 @@ public final class ActorDefinition {
   public String skinTexture = "", skinSignature = "";
   public String group = "default";
   public String recording = "";
+  public boolean autoplay = true;
   public dev.easyscripting.recording.PlaybackMode playbackMode =
       dev.easyscripting.recording.PlaybackMode.STOP;
   public org.bukkit.entity.Pose pose = org.bukkit.entity.Pose.STANDING;
@@ -47,6 +48,7 @@ public final class ActorDefinition {
     }
     y.set("group", group);
     y.set("recording", recording);
+    y.set("autoplay", autoplay);
     y.set("playback-mode", playbackMode.name().toLowerCase(Locale.ROOT));
     y.set("pose", pose.name());
     y.set("glowing", glowing);
@@ -78,6 +80,7 @@ public final class ActorDefinition {
     d.skinSignature = y.getString("skin-signature", "");
     d.group = Checks.id(y.getString("group", "default"));
     d.recording = y.getString("recording", "");
+    d.autoplay = y.getBoolean("autoplay", true);
     if (!d.recording.isBlank()) Checks.id(d.recording);
     d.playbackMode =
         dev.easyscripting.recording.PlaybackMode.parse(y.getString("playback-mode", "stop"));

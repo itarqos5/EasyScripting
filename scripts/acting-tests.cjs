@@ -56,16 +56,18 @@ bot.once('spawn', async () => {
     await command('/tp @s 0.5 -60 0.5');
     for (const id of ['acting_take', 'acting_disconnect']) await command('/es record delete ' + id);
     await serverCheck('setup'); await pause(2500);
+    // Keep endpoint tests deterministic; autoplay has a separate acceptance scenario.
+    await command('/actor autoplay acting_fixture off');
     await open();
-    check('four actor GUI sections', [10,12,14,16].map(s => bot.currentWindow.slots[s]?.name).join(',') === 'player_head,compass,armor_stand,iron_sword');
-    await click(10);
-    check('appearance section opens', bot.currentWindow.slots[20]?.name === 'ender_eye' && bot.currentWindow.slots[16]?.name === 'name_tag');
-    await click(49); await click(16);
-    check('combat section opens', bot.currentWindow.slots[10]?.name === 'target' && bot.currentWindow.slots[12]?.name === 'totem_of_undying');
-    await click(10); await serverCheck('unhittable');
-    await click(10); await serverCheck('hittable'); await serverCheck('immortal');
-    await click(12); await serverCheck('mortal');
-    await click(16); await serverCheck('respawned'); await click(12);
+    check('four actor GUI sections', [11,31,13,15].map(s => bot.currentWindow.slots[s]?.name).join(',') === 'player_head,compass,armor_stand,iron_sword');
+    await click(11);
+    check('appearance section opens', bot.currentWindow.slots[31]?.name === 'ender_eye' && bot.currentWindow.slots[11]?.name === 'name_tag');
+    await click(7);
+    check('combat section opens', bot.currentWindow.slots[20]?.name === 'target' && bot.currentWindow.slots[24]?.name === 'totem_of_undying');
+    await click(20); await serverCheck('unhittable');
+    await click(20); await serverCheck('hittable'); await serverCheck('immortal');
+    await click(24); await serverCheck('mortal');
+    await click(31); await serverCheck('respawned'); await click(24);
     bot.closeWindow(bot.currentWindow);
     await command('/actor act acting_fixture acting_take'); await serverCheck('active');
     const conflictStart = messages.length;
@@ -88,17 +90,17 @@ bot.once('spawn', async () => {
     await command('/actor mode acting_fixture stop'); await command('/actor play acting_fixture');
     await pause(duration); await serverCheck('end');
     for (const mode of ['repeat','reverse']) {
-      await open('acting'); await click(mode === 'repeat' ? 20 : 21);
-      check('mode GUI shows ' + mode, JSON.stringify(bot.currentWindow.slots[16]).includes(mode));
-      await click(16, false); await pause(duration * 2);
+      await open('acting'); await click(mode === 'repeat' ? 22 : 24);
+      check('mode GUI shows ' + mode, JSON.stringify(bot.currentWindow.slots[15]).includes(mode));
+      await click(15, false); await pause(duration * 2);
       const start = messages.length;
       await command('/actor set acting_fixture name Tampered');
       check(mode + ' remains active across recording boundaries', messages.slice(start).some(t => t.includes('busy with recording')));
       await command('/actor stop acting_fixture');
     }
-    await open('acting'); await click(10, false); await pause(500);
+    await open('acting'); await click(11, false); await pause(500);
     check('GUI act starts a new performance', messages.slice(-3).some(t => t.includes("Acting as 'acting_fixture'")));
-    await open('acting'); await click(14, false); await serverCheck('restored');
+    await open('acting'); await click(29, false); await serverCheck('restored');
     await command('/actor act acting_fixture acting_disconnect');
     check('disconnect fixture began', messages.slice(-3).some(t => t.includes("Acting as 'acting_fixture'")));
     await pause(500);

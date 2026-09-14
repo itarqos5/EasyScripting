@@ -13,7 +13,7 @@ Files are generated under `plugins/EasyScripting/`. Keep your existing files whe
 | guis.yml | Titles, content slots, navigation, controls, item icons, lore, configured command/input/menu buttons |
 | permissions.yml | Feature access overrides; see PERMISSIONS.md |
 | moderation.yml | Join lock, whitelist, locked worlds, dimension whitelists, blocked commands/phrases, signs and global build/break/PvP |
-| recording.yml | Session chat policy, MOTD and optional voice mute |
+| recording.yml | Session chat policy, MOTD, optional voice mute and replay knockback/recovery timing |
 | items.yml | Head display name, random-fill material pool |
 | potions.yml | Named presets; each effect has ticks and amplifier |
 | effects.yml | Projectile count/lifetime, orbital height, railgun range/damage, wolf limit and bossbar appearance |
@@ -29,7 +29,9 @@ Region jobs permit one operation per world and at most `limits.active-scenes` jo
 
 `security.allow-command-actions` and `security.destructive-effects` default to false. Both need additional permissions. Time/weather commands and selected region restoration intentionally alter the world; scene time/weather actions snapshot their original environment.
 
-`actors.default-type` defaults to PLAYER. Set it to ZOMBIE on a server without Citizens. `actors.defaults` controls immortal, hittable, collidable, nametag, look-nearby and wander for newly created actors. Actor-specific files persist their own choices.
+`actors.default-type` defaults to PLAYER. Set it to ZOMBIE on a server without Citizens. `actors.defaults` controls immortal, hittable, collidable, nametag, look-nearby, wander and autoplay for newly created actors. Autoplay defaults to true. Actor-specific files persist their own choices; old actor files without an autoplay key default to true.
+
+In `recording.yml`, `playback.knockback-pause-ticks: 12` controls how long replay yields to native physics after a hit, and `playback.return-to-route-ticks: 10` controls the following blend back to its recorded route. Both must be integers from 1 to 100. Missing keys on an older installation use these defaults. The recording cursor pauses during the physics interval; subsequent hits restart it. These settings do not change combat damage or bypass Hittable/Immortal.
 
 `world.auto-clear-seconds: 0` disables automatic cleanup. When enabled, only dropped items within `auto-clear-radius` of online players in `auto-clear-worlds` are removed. It is not a scan of unloaded worlds. Explicit cleanup can remove other chosen entity categories.
 
@@ -66,22 +68,24 @@ The chosen identity belongs to the actor definition; reloading settings or resta
 
 ## GUI customization
 
-Inventories use six rows so all 41 player inventory/equipment slots fit the kit editor. Slot indices are 0..53. `layout.content-slots` must be unique and separate from previous/back/next/create slots. Keep at least 13 content slots for player flags.
+`guis.yml` uses `schema: 2`. Upgrading a schema-1 or unversioned layout validates the complete new defaults, saves the old file beside it as `guis-v1-backup-<unique-id>.yml`, then installs the redesigned layout. A backup failure aborts the upgrade. Existing schema-2 values survive reload; missing leaves inherit bundled defaults. Unknown future schemas are rejected.
 
-`menus.<name>.buttons.<id>` accepts `slot`, `material`, `name`, `lore`, `action`, and optional `prompt`. Actions begin with `menu `, `command ` or `input `. Commands are suffixes of `/es`, run as the clicking player, and always pass through permission checks. `dynamic.controls` configures slots/materials/lore for actor, timeline and take controls; labels are under `dynamic`. Do not overlap controls that share the same screen. Keep kit save/navigation buttons outside slots 0..40.
+Inventories use six rows so all 41 player inventory/equipment slots fit the kit editor. Slot indices are 0..53. The top row holds a header and NPC tabs. The default 21 content slots occupy the interior of rows 2–4; row 5 holds workflow controls. Footer slots are previous 45, create/save 47, Back 48, Home 49, Close 50, Help 51 and next 53. `layout.content-slots` must be unique and separate from navigation and workflow controls. Keep at least 13 slots for player flags. Overlapping controls on the same screen are rejected.
 
-Titles accept `{name}` and `{page}`. Listing labels use `{name}`, and listing lore uses `{detail}`. MiniMessage is supported in titles, names, lore, scene text and configured templates. Player-supplied diagnostic text uses unparsed placeholders. Some contextual validation explanations are deliberately generated from the operation rather than separately translated strings.
+`menus.<name>` defines `title`, `heading`, `material`, `description` and optional `parent` for Back navigation. `buttons.<id>` accepts `slot`, `material`, `name`, `lore`, `action`, optional permission suffix and optional `prompt`. Actions begin with `menu `, `command ` or `input `. Commands are suffixes of `/es`, run as the clicking player, and always pass through permission checks. `dynamic.controls` configures slots/materials/lore for actor, timeline and take controls; labels are under `dynamic`. Keep the kit footer in slots 45..53; slots 0..40 are the saved loadout and 41..44 are reserved spacing.
+
+Titles accept `{name}` and `{page}`. `entries.<menu>` configures create labels, empty labels and entry lore with `{detail}` and `{id}`. `player-flags`, `features` and `permissions` configure readable control labels. MiniMessage is supported in titles, names, lore, scene text and configured templates. Player-supplied diagnostic text uses unparsed placeholders. Some contextual validation explanations are generated from the operation rather than separately translated strings.
 
 Changing a YAML button cannot grant permissions or cause it to execute as console. Chat input is bound to the initiating player's UUID, expires in 60 seconds and is never treated as an arbitrary root command.
 
-Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. Section navigation is configured with `dynamic.controls.actor-section-*`. Acting controls use `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording` and `actor-mode-stop/repeat/reverse`. Combat controls are `actor-hittable`, `actor-immortal`, `actor-combat-respawn`. Labels live under `dynamic`; mode/recording/performer placeholders are `{mode}`, `{recording}`, `{acting}`, and combat labels use `{state}`. Missing actor-menu settings inherit bundled defaults in memory on older installations; existing customized values and files are preserved.
+Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. Navigation uses `dynamic.controls.actor-section-*` and persistent `actor-tab-*` tabs. Acting controls include `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording`, `actor-autoplay` and `actor-mode-stop/repeat/reverse`. Combat controls are `actor-health`, `actor-hittable`, `actor-immortal`, `actor-combat-respawn`. Placeholders include `{id}`, `{name}`, `{skin}`, `{mode}`, `{recording}`, `{acting}`, `{autoplay}`, `{health}`, `{status}`; toggle labels use `{state}`.
 
 ## Definitions and state
 
 | Directory/file | Contents |
 | --- | --- |
 | scenes/ | Schema-1 timelines |
-| actors/ | Actor type, transform, behavior, equipment, name, skin owner, optional cached signed texture, selected recording and playback-mode |
+| actors/ | Actor type, transform, behavior, equipment, name, skin owner, optional cached signed texture, recording, playback-mode and autoplay |
 | loadouts/ | Saved 41-slot kits |
 | recordings/ | Schema-2 frame lists with transforms, hands, armor, pose, animation/fire cues and movement state; legacy schema-1 files remain readable |
 | warps/ | Locations and individual access nodes |

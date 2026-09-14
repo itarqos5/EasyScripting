@@ -14,6 +14,7 @@ final class MenuHolder implements InventoryHolder {
   final Map<Integer, Consumer<ClickType>> actions = new HashMap<>();
   String kitId;
   ItemStack selected;
+  Runnable refresh;
 
   MenuHolder(Player owner, int size, Component title) {
     this.owner = owner.getUniqueId();

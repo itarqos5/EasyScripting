@@ -71,8 +71,9 @@ Every action has a target. `at` and `victim` also accept bindings. Positions nee
 | `/actor act <id> [recording-id]` | Take the NPC position/name/skin/costume and record your performance; requires actor + record |
 | `/actor finish`, `/actor cancel` | Save or discard acting and restore your original state |
 | `/actor recording <id> <recording-id>` | Select an existing recording |
+| `/actor autoplay <id> <on\|off>` | Save autoplay preference; enabling starts an available NPC. Requires actor + record. Disabling does not stop an active replay |
 | `/actor mode <id> <stop\|repeat\|reverse>` | Choose final-position stop, teleport-to-start loop, or continuous forward/backward playback |
-| `/actor play <id>`, `/actor stop <id>` | Play selected recording/mode; explicit stop restores the pre-playback state |
+| `/actor play <id>`, `/actor stop <id>` | Play selected recording/mode; explicit stop restores starting state while preserving damage received during replay |
 | `/actor set <id> <setting> <value>` | name, skin, group, immortal, hittable, collidable, nametag, look, wander, pose, glow, sneak, sprint |
 | `/actor here <id>` | Teleport actor to director |
 | `/actor move <id> [speed]` | Navigate to director's current location |
@@ -92,6 +93,8 @@ Every action has a target. `at` and `victim` also accept bindings. Positions nee
 | `/es camera stop` | Stop camera and restore viewer |
 
 Actor IDs remain unchanged when a name or skin is edited. `/actor set <id> name <name>` keeps the skin; `/actor set <id> skin <account>` keeps the name and supports hidden PLAYER actors. NPC skin values are Java account names, not PNG/NameMC URLs. Newly resolved signed textures are saved for reuse after restart; repeating the skin command deliberately refreshes them. Copying an actor keeps its appearance; pattern members receive new identities. See [USERGUIDE.md](USERGUIDE.md#2-create-an-npc-with-a-random-identity) for examples and pool customization.
+
+Autoplay defaults to ON, starts after a successful acting save and when an eligible NPC loads, is shown or respawns. Choose the end mode before recording. Stop playback before changing the mode or recording; Hittable, Immortal and Autoplay can be toggled during playback. Acting performers are damage/knockback immune; replaying NPCs follow their combat flags.
 
 ## Player, takes and inventory
 

@@ -18,6 +18,7 @@ actors:
   # Player actors need a matching Citizens release. Mob actors are built in.
   citizens-enabled: true
   defaults:
+    autoplay: true
     immortal: true
     hittable: true
     collidable: true

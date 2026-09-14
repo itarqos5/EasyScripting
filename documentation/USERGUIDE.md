@@ -1,11 +1,11 @@
 # EasyScripting user guide
 
-This guide covers EasyScripting 0.1.2: setting up your cast, acting as an NPC, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
+This guide covers EasyScripting 0.1.3: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
 
 ## 1. Install and open the studio
 
 1. Stop your Paper/Purpur server. The primary tested target is Paper 26.2 on Java 25; see [TESTING.md](TESTING.md) for other versions.
-2. Put `build/libs/EasyScripting-0.1.2.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
+2. Put `build/libs/EasyScripting-0.1.3.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
 3. For human NPCs and skins, also install a Citizens build compatible with your exact Minecraft version. Mob actors work without Citizens.
 4. Start the server. EasyScripting creates its YAML files under `plugins/EasyScripting/`.
 5. Join with operator access or the appropriate [permissions](PERMISSIONS.md), then run `/es`. Use `/es help` for commands you can access, and `/es status` to check loaded actors, scenes and active jobs.
@@ -69,12 +69,14 @@ Run `/actor gui guard_1`, or open `/es` → Actors → your actor. Choose a sect
 
 * **Appearance:** name, skin, random identity, costume kit and identity details.
 * **Movement:** teleport, walk, hide, respawn and behavior settings.
-* **Acting & Playback:** act as the NPC, finish/cancel, choose a recording, select an end mode, play and stop.
+* **Acting & Playback:** act as the NPC, finish/cancel, browse saved recordings, select an end mode, toggle autoplay, play and stop.
 * **Combat:** Hittable and Immortal switches, plus Respawn NPC.
 
-Back returns to the actor overview, then the cast list. Open a section directly with `/actor gui guard_1 acting` or `appearance`, `movement`, `combat`.
+Tabs across the top switch sections. Back returns to the actor overview, then the cast list; Home returns to the studio and Close exits. The overview shows the NPC ID, status and assigned recording. Selected modes and active switches glow. Unavailable actions explain what to do first. Appearance → Choose costume and Acting → Choose saved recording open pickers instead of asking you to remember an ID. Open a section directly with `/actor gui guard_1 acting` or `appearance`, `movement`, `combat`.
 
-Input buttons close the inventory and ask for text in chat. Enter the requested value without repeating the command. Type `cancel` to abandon input; it expires after 60 seconds. The selected actor stays identified by its ID.
+The studio groups kits and item editing under **Wardrobe**, world/effects under **Stage tools**, teams/warps/villagers under **Organization**, and feature/permission controls under **Settings**. Empty libraries show a create button; hover over an entry to see its click actions. Deletion requires Shift-right click and confirmation. The kit editor keeps navigation and Save below the editable inventory.
+
+Input buttons close the inventory and ask for text in chat. Enter the requested value without repeating the command. Type `cancel` to return without changes; input expires after 60 seconds. After a response, the originating page reopens. The selected actor stays identified by its ID.
 
 ### Configure the random name and skin pools
 
@@ -124,23 +126,24 @@ Other patterns are `circle`, `grid` and `square`. The default server cap is 200 
 
 ### Act as an NPC and save its performance
 
-Open **Acting & Playback** and click **Act as this NPC**. A recording ID is generated automatically. To choose the ID yourself:
+Open **Acting & Playback**, choose an end mode, then click **1 · Act as NPC**. A recording ID is generated automatically. To choose the ID yourself:
 
 ```text
 /actor act guard_1 entrance_take
 ```
 
-You move to the NPC's position with its name, skin and costume. The NPC is temporarily removed so you can perform in its place. You use Survival mode while acting. Walk, run, jump, turn, sneak, change your held items or armor, and swing your arms. Capture includes location/rotation, equipment, poses, main/off-hand swings, hurt animations, visual flames and supported boat movement. Hurt and flame cues do not damage or ignite the NPC during playback. It records **movements, equipment and animations**; block edits, damage to other entities, commands, chat and third-party abilities are not replayed.
+You move to the NPC's position with its name, skin and costume. The NPC is temporarily removed so you can perform in its place. You use Survival mode while acting, with damage and knockback protection even if the NPC is mortal. Your original invulnerability state returns afterward. Walk, run, jump, turn, sneak, change your held items or armor, and swing your arms. Capture includes location/rotation, equipment, poses, main/off-hand swings, visual flames and supported boat movement. Saved hurt/flame cues are visual; real hits during playback are handled separately. It records **movements, equipment and animations**; block edits, damage to other entities, commands, chat and third-party abilities are not replayed.
 
 For a PLAYER NPC, let its skin finish loading before starting. Names outside Java's 1–16 character username format remain display/list labels while your underlying profile name stays unchanged. When acting for a mob, your character remains a player model wearing the mob's equipment; this is not a mob disguise.
 
-Finish with `/actor finish` or the **Finish & save** button. Your original position, name/skin, inventory, health, XP and gamemode return, and the NPC returns to its starting state. The saved recording is selected on that actor. `/actor cancel` or **Cancel acting** restores you and discards the unfinished recording. A disconnect, death or plugin shutdown ends capture and restores your state immediately or after rejoining/respawning. Do not use a plugin manager to hot-unload the plugin.
+Finish with `/actor finish` or **2 · Finish & save**. Your original position, name/skin, inventory, health, XP and gamemode return, and the NPC returns to its starting state. The saved recording is selected on that actor. **Autoplay is ON by default**, so the NPC starts the performance on the next server tick. `/actor cancel` or **Discard this take** restores you and discards the unfinished recording without starting playback. A disconnect, death or plugin shutdown ends capture and restores your state immediately or after rejoining/respawning. Shutdown does not start playback. Do not use a plugin manager to hot-unload the plugin.
 
 An active scene, camera or another performance cannot take over the same player/NPC. Reset and discard an existing personal take before starting. Acting needs both `easyscripting.actor` and `easyscripting.record`.
 
-Select playback in the GUI, or run:
+For manual playback, disable autoplay, then select playback in the GUI or run:
 
 ```text
+/actor autoplay guard_1 off
 /actor mode guard_1 stop
 /actor play guard_1
 ```
@@ -151,13 +154,17 @@ Select playback in the GUI, or run:
 | `repeat` | Teleports to the first recorded position and repeats continuously |
 | `reverse` | Reverses along the recorded path, then plays forward again, continuously; the endpoints are not duplicated |
 
-Normal gravity and collisions resume when playback completes; finish on solid ground to hold that position. `/actor stop guard_1` stops active playback and restores the state from before playback began. Stop before changing its mode. The selected mode and recording survive restarts; playback starts explicitly rather than automatically on server boot. To use another saved route, choose **Choose recording** or `/actor recording guard_1 another_take`.
+Normal gravity and collisions resume when playback completes; finish on solid ground to hold that position. `/actor stop guard_1` stops playback and restores its starting state while keeping damage received during the replay. Stop before changing mode, costume or recording. To use another saved route, choose **Choose saved recording** or `/actor recording guard_1 another_take`.
+
+The recording, end mode and autoplay setting survive restarts. Autoplay also starts a visible, idle NPC on server startup, show or respawn, or when switched ON. A hidden, dead or busy NPC does not start; it does not queue behind an active scene. Explicit Stop keeps it stopped until a new autoplay trigger or manual Play. Switching autoplay OFF does not interrupt an existing replay; use Stop for that. `stop` still plays once; use `repeat` or `reverse` for continuous action. Old actor files without an autoplay field default to ON; set `/actor autoplay <id> off` to retain manual playback.
 
 The older `/es record play <recording> <actor> [loop] [reverse]` command keeps its original behavior: `reverse` plays backward from the outset, and a completed single run restores the previous actor state. Use the actor GUI or `/actor play` for the three modes above.
 
 ### Allow hits and death
 
-Open **Combat**. Set **Hittable: Enabled** to accept damage. With **Immortal: Enabled**, lethal hits are prevented but nonlethal hits can still hurt. Set **Immortal: Disabled** to let a hittable NPC die. **Hittable: Disabled** cancels incoming damage regardless of immortality.
+Open **Combat**. Set **Hittable: ON** to accept damage and knockback. With **Immortal: ON**, lethal hits are prevented but nonlethal hits can still hurt. Set **Immortal: OFF** to let a hittable NPC die. **Hittable: OFF** cancels incoming damage and knockback regardless of immortality. Both switches can be changed during replay.
+
+When a replaying NPC is knocked back, the recorded timeline pauses for 12 ticks so normal physics can move it, then blends back to the route over 10 ticks. Hits do not get erased by the next recorded teleport. Further hits restart this recovery interval. Armor, attack cooldowns and other plugins still affect actual damage and knockback. `recording.yml` exposes both timings as integers from 1 to 100. Death ends the replay; it does not resurrect the NPC or drop copied equipment.
 
 ```text
 /actor set guard_1 hittable on
@@ -266,7 +273,7 @@ All editable files are under `plugins/EasyScripting/`:
 | `guis.yml` | Inventory titles, icons, slots, labels, lore and workflow buttons |
 | `messages.yml` | Feedback text and optional command sounds |
 | `permissions.yml` | Feature permission overrides |
-| `recording.yml` | Production-session behavior |
+| `recording.yml` | Production-session behavior and replay knockback/recovery timing |
 | `moderation.yml`, `death.yml` | Join/chat/world rules and death behavior |
 | `items.yml`, `potions.yml`, `effects.yml` | Item pools, potion presets and effect settings |
 
@@ -280,16 +287,16 @@ dynamic:
   actor-info: '<aqua>Identity details'
   controls:
     actor-randomize:
-      slot: 20
+      slot: 31
       material: ENDER_EYE
       lore: ['<gray>Choose another name and skin.']
     actor-info:
-      slot: 21
+      slot: 22
       material: BOOK
       lore: ['<gray>Show the ID, name and skin account.']
 ```
 
-Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. Upgrading an older `guis.yml` still exposes these two controls with default labels/slots; add these keys to customize them.
+Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. The randomize control is on Appearance; the identity summary is on Overview. Version 0.1.3 replaces legacy GUI layouts after validation and saves the original as `guis-v1-backup-<unique-id>.yml` in the plugin folder. Reapply custom labels to the new layout; do not merge the old slot arrangement into it. Schema-2 customizations are preserved on reload.
 
 Custom buttons execute as the clicking player and obey the same permissions as commands. Opening a menu does not grant control over another player. See [PERMISSIONS.md](PERMISSIONS.md) before granting staff access and [CONFIGURATION.md](CONFIGURATION.md) for complete YAML rules.
 

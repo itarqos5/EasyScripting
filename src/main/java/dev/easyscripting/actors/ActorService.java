@@ -24,6 +24,7 @@ public final class ActorService implements Listener, AutoCloseable {
   private final Map<UUID, ManagedActor> entities = new HashMap<>();
   private final Deque<String> recentNames = new ArrayDeque<>();
   private Consumer<String> removed = id -> {};
+  private Consumer<ManagedActor> spawned = actor -> {};
   private UUID behaviorJob;
   private final Set<String> scriptedDeaths = new HashSet<>();
   private final Map<String, String> leases = new HashMap<>();
@@ -71,6 +72,14 @@ public final class ActorService implements Listener, AutoCloseable {
 
   public void onRemoved(Consumer<String> listener) {
     removed = removed.andThen(listener);
+  }
+
+  public void onSpawned(Consumer<ManagedActor> listener) {
+    spawned = spawned.andThen(listener);
+  }
+
+  public Optional<ManagedActor> byEntity(UUID id) {
+    return Optional.ofNullable(entities.get(id));
   }
 
   public void refresh() {
@@ -135,6 +144,7 @@ public final class ActorService implements Listener, AutoCloseable {
     definition.nametag = defaults.getBoolean("actors.defaults.nametag", true);
     definition.lookNearby = defaults.getBoolean("actors.defaults.look-nearby");
     definition.wander = defaults.getBoolean("actors.defaults.wander");
+    definition.autoplay = defaults.getBoolean("actors.defaults.autoplay", true);
     ManagedActor actor = new ManagedActor(definition);
     spawn(actor);
     actors.put(id, actor);
@@ -190,6 +200,7 @@ public final class ActorService implements Listener, AutoCloseable {
         eq.setBootsDropChance(0);
       }
     }
+    spawned.accept(actor);
   }
 
   public void save(ManagedActor actor) {
@@ -551,6 +562,12 @@ public final class ActorService implements Listener, AutoCloseable {
             if (actors.containsKey(actor.id()) && actor.entity().isEmpty())
               removed.accept(actor.id());
           });
+  }
+
+  @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+  public void knockback(io.papermc.paper.event.entity.EntityKnockbackEvent event) {
+    ManagedActor actor = entities.get(event.getEntity().getUniqueId());
+    if (actor != null && !actor.definition.hittable) event.setCancelled(true);
   }
 
   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
