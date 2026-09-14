@@ -1,0 +1,21 @@
+# MiniMessage templates. <detail> is inserted as plain text, never parsed markup.
+success: '<dark_gray>[<aqua>EasyScripting<dark_gray>] <gray><detail>'
+error: '<dark_gray>[<aqua>EasyScripting<dark_gray>] <red><detail>'
+info: '<gray><detail>'
+chat-blocked: '<red>Chat is restricted for this production.'
+server-locked: '<red>This server is locked for recording. Contact the director for access.'
+recording-start: '<red>● <white>Recording started: <aqua><detail>'
+recording-stop: '<gray>Recording ended: <aqua><detail>'
+fake-join: '<yellow><detail> joined the game'
+fake-leave: '<yellow><detail> left the game'
+fake-death: '<gray><detail> died'
+broadcast: '<aqua>[Production] <white><detail>'
+sign-alert: '<gold>Sign edited by <detail>'
+kick: '<gray>Removed from the current take.'
+input: '<aqua><detail> <gray>Type your answer in chat, or cancel. Expires in 60 seconds.'
+voice-muted: '<red>Voice chat is muted for this production.'
+feedback:
+  # Global command/menu feedback. Off by default to keep recording audio clean.
+  enabled: false
+  success: ui.button.click
+  error: entity.villager.no

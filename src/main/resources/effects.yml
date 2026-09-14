@@ -1,0 +1,10 @@
+# Effect commands are bounded. Block destruction needs config.yml opt-in AND permission.
+projectile-limit: 40
+projectile-lifetime-ticks: 200
+orbital-height: 30
+railgun-range: 64
+railgun-damage: 8
+wolf-limit: 12
+bossbar:
+  color: BLUE
+  overlay: PROGRESS

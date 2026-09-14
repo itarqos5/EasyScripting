@@ -1,0 +1,179 @@
+# Inventory titles, navigation, layout and every workflow button are configured here.
+# Slots are zero-based. Content slots cannot overlap navigation slots.
+layout:
+  rows: 6
+  content-slots: [10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43]
+  filler: GRAY_STAINED_GLASS_PANE
+  filler-name: ' '
+  previous-slot: 45
+  back-slot: 49
+  next-slot: 53
+  previous-name: '<aqua>Previous page'
+  back-name: '<gray>Back to studio'
+  next-name: '<aqua>Next page'
+  entry-name: '<aqua>{name}'
+  entry-lore: ['<gray>{detail}', '', '<yellow>Left click to open', '<red>Shift-right click to delete']
+  enabled: '<green>Enabled'
+  disabled: '<red>Disabled'
+menus:
+  main:
+    title: '<dark_gray>EasyScripting · Studio'
+    buttons:
+      scenes: {slot: 10, material: WRITABLE_BOOK, name: '<aqua>Scenes', lore: ['<gray>Build and run a timeline'], action: 'menu scenes'}
+      actors: {slot: 11, material: PLAYER_HEAD, name: '<aqua>Actors', lore: ['<gray>Cast, equip and direct actors'], action: 'menu actors'}
+      players: {slot: 12, material: TOTEM_OF_UNDYING, name: '<aqua>Player controls', lore: ['<gray>Health, freeze and take resets'], action: 'menu players'}
+      kits: {slot: 13, material: CHEST, name: '<aqua>Kits', lore: ['<gray>Save and apply inventory setups'], action: 'menu kits'}
+      warps: {slot: 14, material: ENDER_PEARL, name: '<aqua>Warps', lore: ['<gray>Saved locations and access'], action: 'menu warps'}
+      recording: {slot: 15, material: CLOCK, name: '<aqua>Recording', lore: ['<gray>Capture movement and repeat takes'], action: 'menu recording'}
+      features: {slot: 16, material: LEVER, name: '<aqua>Features', lore: ['<gray>Enable or disable a feature'], action: 'menu features'}
+      item: {slot: 19, material: ANVIL, name: '<aqua>Item editor', lore: ['<gray>Edit the item in your main hand'], action: 'menu item'}
+      teams: {slot: 20, material: WHITE_BANNER, name: '<aqua>Teams', lore: ['<gray>Colors, glow and visibility'], action: 'menu teams'}
+      production: {slot: 21, material: REDSTONE_TORCH, name: '<aqua>Production', lore: ['<gray>Session and server controls'], action: 'menu production'}
+      world: {slot: 22, material: COMPASS, name: '<aqua>World tools', lore: ['<gray>Time, weather and borders'], action: 'menu world'}
+      effects: {slot: 23, material: FIREWORK_ROCKET, name: '<aqua>Effects', lore: ['<gray>Visual cues and combat tools'], action: 'menu effects'}
+      permissions: {slot: 24, material: TRIPWIRE_HOOK, name: '<aqua>Permissions', lore: ['<gray>Feature access rules'], action: 'menu permissions'}
+      villagers: {slot: 25, material: EMERALD, name: '<aqua>Villagers', lore: ['<gray>Create reusable trading actors'], action: 'menu villagers'}
+  scenes: {title: '<dark_gray>Scenes · {page}'}
+  actors: {title: '<dark_gray>Actors · {page}'}
+  players: {title: '<dark_gray>Player controls'}
+  kits: {title: '<dark_gray>Kits · {page}'}
+  warps: {title: '<dark_gray>Warps · {page}'}
+  recording: {title: '<dark_gray>Recordings · {page}'}
+  features: {title: '<dark_gray>Feature controls · {page}'}
+  teams: {title: '<dark_gray>Teams · {page}'}
+  permissions: {title: '<dark_gray>Permissions · {page}'}
+  villagers: {title: '<dark_gray>Villager templates · {page}'}
+  timeline: {title: '<dark_gray>Timeline · {name} · {page}'}
+  actor: {title: '<dark_gray>Actor · {name}'}
+  actor-appearance: {title: '<dark_gray>{name} · Appearance'}
+  actor-movement: {title: '<dark_gray>{name} · Movement'}
+  actor-acting: {title: '<dark_gray>{name} · Acting & Playback'}
+  actor-combat: {title: '<dark_gray>{name} · Combat'}
+  confirm: {title: '<dark_red>Confirm deletion'}
+  inventory: {title: '<dark_gray>Inventory · {name}'}
+  kit-editor: {title: '<dark_gray>Edit kit · {name}'}
+  item:
+    title: '<dark_gray>Item editor'
+    buttons:
+      name: {slot: 10, material: NAME_TAG, name: '<aqua>Rename', action: 'input item name', prompt: 'Enter the item name (MiniMessage supported).'}
+      lore: {slot: 11, material: PAPER, name: '<aqua>Edit lore', action: 'input item lore', prompt: 'Enter lore, using | between lines.'}
+      repair: {slot: 12, material: ANVIL, name: '<aqua>Repair', action: 'command item repair'}
+      unbreakable: {slot: 13, material: BEDROCK, name: '<aqua>Make unbreakable', action: 'command item unbreakable on'}
+      breakable: {slot: 14, material: IRON_PICKAXE, name: '<aqua>Make breakable', action: 'command item unbreakable off'}
+      attribute: {slot: 15, material: DIAMOND_SWORD, name: '<aqua>Edit attribute', action: 'input item attribute', prompt: 'Enter attribute, amount, optional operation and slot. Example: attack_damage 4 ADD_NUMBER mainhand'}
+      enchant: {slot: 16, material: ENCHANTED_BOOK, name: '<aqua>Edit enchantment', action: 'input item enchant', prompt: 'Enter enchantment and level. Example: sharpness 5'}
+  production:
+    title: '<dark_gray>Production controls'
+    buttons:
+      start: {slot: 10, material: REDSTONE_BLOCK, name: '<red>Start recording session', action: 'input take start', prompt: 'Enter a session identifier.'}
+      stop: {slot: 11, material: BARRIER, name: '<aqua>Stop session and reset', action: 'command take stop reset'}
+      mute: {slot: 12, material: RED_DYE, name: '<aqua>Mute chat', action: 'command chat mute on'}
+      unmute: {slot: 13, material: LIME_DYE, name: '<aqua>Unmute chat', action: 'command chat mute off'}
+      lock: {slot: 14, material: IRON_DOOR, name: '<aqua>Lock server joins', action: 'command server lock on'}
+      unlock: {slot: 15, material: OAK_DOOR, name: '<aqua>Unlock server joins', action: 'command server lock off'}
+      voice: {slot: 16, material: NOTE_BLOCK, name: '<aqua>Mute voice chat', action: 'command voice mute on'}
+      unvoice: {slot: 19, material: JUKEBOX, name: '<aqua>Unmute voice chat', action: 'command voice mute off'}
+  world:
+    title: '<dark_gray>World controls'
+    buttons:
+      day: {slot: 10, material: SUNFLOWER, name: '<aqua>Noon', action: 'command world time 6000'}
+      night: {slot: 11, material: CLOCK, name: '<aqua>Midnight', action: 'command world time 18000'}
+      clear: {slot: 12, material: GLASS, name: '<aqua>Clear weather', action: 'command world weather clear'}
+      rain: {slot: 13, material: WATER_BUCKET, name: '<aqua>Rain', action: 'command world weather rain'}
+      thunder: {slot: 14, material: LIGHTNING_ROD, name: '<aqua>Thunder', action: 'command world weather thunder'}
+      top: {slot: 15, material: LADDER, name: '<aqua>Teleport to surface', action: 'command world top'}
+      wand: {slot: 16, material: WOODEN_AXE, name: '<aqua>Region wand', action: 'command region wand'}
+      border: {slot: 19, material: BLUE_STAINED_GLASS, name: '<aqua>Fake border', action: 'input world border', prompt: 'Enter border size in blocks.'}
+      clear-border: {slot: 20, material: GLASS_PANE, name: '<aqua>Reset fake border', action: 'command world border reset'}
+  effects:
+    title: '<dark_gray>Production effects'
+    buttons:
+      lightning: {slot: 10, material: LIGHTNING_ROD, name: '<aqua>Visual lightning', action: 'command effect lightning'}
+      explosion: {slot: 11, material: TNT, name: '<aqua>Visual explosion', action: 'command effect explosion'}
+      orbital: {slot: 12, material: FIREWORK_ROCKET, name: '<aqua>Orbital effect', action: 'command effect orbital'}
+      cannon: {slot: 13, material: ARROW, name: '<aqua>Arrow cannon', action: 'command effect arrows 8'}
+      railgun: {slot: 14, material: CROSSBOW, name: '<aqua>Railgun', action: 'command effect railgun'}
+      totem: {slot: 15, material: TOTEM_OF_UNDYING, name: '<aqua>Totem animation', action: 'command effect totem'}
+      cleanup: {slot: 16, material: BARRIER, name: '<aqua>Remove owned effects', action: 'command effect stop'}
+dynamic:
+  # Material, slot and lore for timeline, actor and take controls.
+  controls:
+    snapshot: {slot: 38, material: CLOCK, lore: []}
+    reset: {slot: 39, material: RECOVERY_COMPASS, lore: []}
+    inventory-save: {slot: 40, material: DIAMOND_ORE, lore: []}
+    actor-here: {slot: 10, material: ENDER_PEARL, lore: []}
+    actor-walk: {slot: 11, material: LEATHER_BOOTS, lore: []}
+    actor-hide: {slot: 12, material: GRAY_DYE, lore: []}
+    actor-show: {slot: 13, material: LIME_DYE, lore: []}
+    actor-kit: {slot: 14, material: CHEST, lore: []}
+    actor-skin: {slot: 15, material: PLAYER_HEAD, lore: []}
+    actor-name: {slot: 16, material: NAME_TAG, lore: []}
+    actor-setting: {slot: 19, material: LEVER, lore: []}
+    actor-randomize: {slot: 20, material: ENDER_EYE, lore: ['<gray>Choose a new username and skin.', '<gray>The actor ID stays the same.']}
+    actor-info: {slot: 21, material: BOOK, lore: ['<gray>Show this actor ID, username and skin owner.']}
+    actor-section-appearance: {slot: 10, material: PLAYER_HEAD, lore: ['<gray>Name, skin and costume.']}
+    actor-section-movement: {slot: 12, material: COMPASS, lore: ['<gray>Position, visibility and behavior.']}
+    actor-section-acting: {slot: 14, material: ARMOR_STAND, lore: ['<gray>Perform as this NPC and replay the take.', '<gray>Recording: <white>{recording}', '<gray>Playback: <white>{mode}']}
+    actor-section-combat: {slot: 16, material: IRON_SWORD, lore: ['<gray>Hittable, immortal and respawn.']}
+    actor-hittable: {slot: 10, material: TARGET, lore: ['<gray>Enabled: incoming hits deal damage.', '<gray>Disabled: incoming damage is cancelled.', '<yellow>Click to toggle.']}
+    actor-immortal: {slot: 12, material: TOTEM_OF_UNDYING, lore: ['<gray>Enabled: lethal hits are prevented.', '<gray>Disabled: a hittable NPC can die.', '<yellow>Click to toggle.']}
+    actor-combat-respawn: {slot: 16, material: RECOVERY_COMPASS, lore: ['<gray>Bring this NPC back after death.']}
+    actor-act: {slot: 10, material: ARMOR_STAND, lore: ['<gray>Take the NPC position, name, skin and costume.', '<gray>Your original state is restored afterward.', '<gray>Currently acting: <white>{acting}']}
+    actor-finish: {slot: 12, material: EMERALD, lore: ['<gray>Save your performance and return to yourself.']}
+    actor-cancel: {slot: 14, material: BARRIER, lore: ['<gray>Discard this performance and return to yourself.']}
+    actor-play: {slot: 16, material: LIME_CONCRETE, lore: ['<gray>Recording: <white>{recording}', '<gray>Playback: <white>{mode}']}
+    actor-mode-stop: {slot: 19, material: STONE_BUTTON, lore: ['<gray>Play once and stand at the final position.', '<gray>Selected mode: <white>{mode}']}
+    actor-mode-repeat: {slot: 20, material: REPEATER, lore: ['<gray>Repeat from the start with a teleport.', '<gray>Selected mode: <white>{mode}']}
+    actor-mode-reverse: {slot: 21, material: COMPARATOR, lore: ['<gray>Play forward, then backward, continuously.', '<gray>Selected mode: <white>{mode}']}
+    actor-stop: {slot: 23, material: RED_CONCRETE, lore: ['<gray>Stop playback and restore its starting state.']}
+    actor-recording: {slot: 25, material: WRITABLE_BOOK, lore: ['<gray>Choose a previously saved recording.', '<gray>Current: <white>{recording}']}
+    timeline-play: {slot: 37, material: LIME_CONCRETE, lore: []}
+    timeline-pause: {slot: 38, material: YELLOW_CONCRETE, lore: []}
+    timeline-stop: {slot: 39, material: RED_CONCRETE, lore: []}
+    timeline-add: {slot: 40, material: WRITABLE_BOOK, lore: []}
+    timeline-bind: {slot: 41, material: LEAD, lore: []}
+    kit-save: {slot: 49, material: EMERALD, lore: []}
+  create-name: '<green>Create new'
+  create-lore: ['<gray>Create at your current position or from your current inventory.']
+  create-slot: 48
+  confirm-slot: 20
+  cancel-slot: 24
+  confirm-name: '<red>Confirm deletion'
+  cancel-name: '<gray>Cancel'
+  timeline-play: '<green>Play scene'
+  timeline-pause: '<yellow>Pause / resume'
+  timeline-stop: '<red>Stop and reset'
+  timeline-add: '<aqua>Add action'
+  timeline-bind: '<aqua>Bind actor or player'
+  actor-here: '<aqua>Teleport here'
+  actor-walk: '<aqua>Walk here'
+  actor-hide: '<gray>Hide'
+  actor-show: '<green>Show / respawn'
+  actor-kit: '<aqua>Apply kit'
+  actor-skin: '<aqua>Change skin'
+  actor-name: '<aqua>Change name'
+  actor-setting: '<aqua>Edit setting'
+  actor-randomize: '<aqua>Randomize name & skin'
+  actor-info: '<aqua>Show ID, name & skin'
+  actor-back: '<gray>Back'
+  actor-section-appearance: '<aqua>Appearance'
+  actor-section-movement: '<aqua>Movement'
+  actor-section-acting: '<aqua>Acting & Playback'
+  actor-section-combat: '<aqua>Combat'
+  actor-hittable: '<aqua>Hittable: {state}'
+  actor-immortal: '<aqua>Immortal: {state}'
+  actor-combat-respawn: '<green>Respawn NPC'
+  actor-act: '<green>Act as this NPC'
+  actor-finish: '<green>Finish & save'
+  actor-cancel: '<red>Cancel acting'
+  actor-play: '<green>Play performance'
+  actor-mode-stop: '<aqua>Once, then stop'
+  actor-mode-repeat: '<aqua>Repeat from start'
+  actor-mode-reverse: '<aqua>Reverse back & forth'
+  actor-stop: '<red>Stop playback & reset'
+  actor-recording: '<aqua>Choose recording'
+  snapshot: '<aqua>Capture take snapshot'
+  reset: '<green>Reset take'
+  inventory-save: '<aqua>Save inventory rollback'
+  kit-save: '<green>Save kit'
+  kit-help: '<gray>Click your inventory to copy an item, then click a kit slot. Right click clears.'

@@ -1,0 +1,15 @@
+# No normal gameplay restrictions are enabled by default.
+server-lock:
+  enabled: false
+  allowed: []
+locked-worlds: []
+dimension-whitelist: {}
+blocked-commands: []
+# Literal case-insensitive phrases; never interpreted as regular expressions.
+blocked-phrases: []
+sign-alerts: false
+join-messages: true
+leave-messages: true
+build: true
+break: true
+pvp: true

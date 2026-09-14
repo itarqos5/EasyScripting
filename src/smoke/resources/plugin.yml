@@ -1,0 +1,18 @@
+name: EasyScriptingSmoke
+version: '1.0'
+main: dev.easyscripting.smoke.SmokePlugin
+api-version: '1.21.8'
+depend: [EasyScripting]
+commands:
+  esactingtest:
+    description: Disposable actor possession, GUI and combat checks.
+    permission: easyscripting.smoke
+  esidentitytest:
+    description: Disposable Citizens identity creation and restart test.
+    permission: easyscripting.smoke
+  essmoke:
+    description: Run isolated integration checks; creates temporary actors.
+    permission: easyscripting.smoke
+permissions:
+  easyscripting.smoke:
+    default: op

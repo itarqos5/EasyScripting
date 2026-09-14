@@ -1,0 +1,19 @@
+# Runtime feature switches, also editable in /es features.
+actors: true
+scenes: true
+recording: true
+players: true
+identity: true
+kits: true
+warps: true
+items: true
+inventory: true
+locks: true
+death: true
+chat: true
+world: true
+regions: true
+teams: true
+villagers: true
+effects: true
+voice: true

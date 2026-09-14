@@ -1,0 +1,12 @@
+# A choice is made only when creating or explicitly randomizing an NPC.
+# IDs such as guard_1 stay unchanged. Existing saved actors are not randomized on upgrade.
+schema: 1
+enabled: true
+# 24 x 48 = 1,152 usernames. The last eight chosen endings are avoided when alternatives exist.
+# Names already used by actors or online players are skipped.
+name-prefixes: [Amber, Arctic, Ash, Azure, Birch, Cedar, Copper, Coral, Dusk, Ember, Fern, Frost, Golden, Ivory, Jade, Lunar, Maple, Moss, Oak, River, Silver, Storm, Violet, Winter]
+name-suffixes: [Badger, Bear, Birch, Brook, Crow, Deer, Dove, Falcon, Finch, Fox, Hare, Hawk, Heron, Lynx, Oak, Otter, Owl, Pine, Raven, Reed, Robin, Sparrow, Willow, Wolf, Ace, Arrow, Blade, Bolt, Comet, Dash, Drift, Echo, Flame, Forge, Glider, Knight, Leaf, Nova, Orbit, Pilot, Pixel, Quest, Rider, Rune, Scout, Spark, Stone, Wave]
+# Actual Java account names, NOT invented NPC usernames. Citizens fetches their skins.
+# Replace or expand this pool with accounts wearing the skins you want for your production.
+# Several actors can share a skin, but random usernames are unique among the current cast.
+skin-owners: [Notch, jeb_, Dinnerbone, Grumm, MHF_Steve, MHF_Alex]

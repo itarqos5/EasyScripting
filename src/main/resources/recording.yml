@@ -1,0 +1,6 @@
+allow-chat: false
+change-motd: true
+motd: '<red>● Recording in progress <gray>— EasyScripting'
+voice:
+  # Microphone data is not recorded or stored.
+  mute-on-session: false

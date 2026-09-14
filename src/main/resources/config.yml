@@ -1,0 +1,33 @@
+# EasyScripting 0.1 - all durations use server ticks (20 ticks = 1 second).
+schema: 1
+limits:
+  actors: 200
+  active-scenes: 8
+  actions-per-tick: 200
+  scene-actions: 10000
+  recording-ticks: 2400
+  region-blocks: 131072
+  region-blocks-per-tick: 1024
+  cleanup-radius: 128
+security:
+  # Requires additional commands.console / commands.player permission.
+  allow-command-actions: false
+  destructive-effects: false
+actors:
+  default-type: PLAYER
+  # Player actors need a matching Citizens release. Mob actors are built in.
+  citizens-enabled: true
+  defaults:
+    immortal: true
+    hittable: true
+    collidable: true
+    nametag: true
+    look-nearby: false
+    wander: false
+spawn:
+  on-first-join: false
+  on-respawn: false
+world:
+  auto-clear-seconds: 0
+  auto-clear-radius: 32
+  auto-clear-worlds: []

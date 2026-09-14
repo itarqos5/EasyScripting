@@ -1,0 +1,8 @@
+# Per-player overrides are stored under state/deaths.yml.
+default-mode: normal
+# Retaining a loadout still consumes Curse of Vanishing items, matching vanilla death semantics.
+keep-inventory-respects-vanishing: true
+message-radius: -1
+# -1 broadcasts normally; 0 suppresses; positive values limit distance in same world.
+spectator-permission: easyscripting.death.spectator
+kick-message: '<gray>Your part in this take is complete.'

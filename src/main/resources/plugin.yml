@@ -1,0 +1,56 @@
+name: EasyScripting
+version: '${version}'
+main: dev.easyscripting.EasyScriptingPlugin
+api-version: '1.21.8'
+description: Scripted SMP production tools, actors, timelines and repeatable takes.
+authors: [EasyScripting]
+softdepend: [Citizens, voicechat]
+commands:
+  es:
+    description: EasyScripting studio, tools and configuration
+    aliases: [easyscripting, script]
+    usage: /es help
+  scene:
+    description: Create and run EasyScripting timelines
+    usage: /scene list
+  actor:
+    description: Create and direct EasyScripting actors
+    usage: /actor list
+permissions:
+  easyscripting.use: {description: Open the studio and view status, default: true}
+  easyscripting.admin: {description: Reload settings and edit feature and access policies, default: op}
+  easyscripting.actor: {description: Create and direct actors, default: op}
+  easyscripting.scene.play: {description: Play and control scenes, default: op}
+  easyscripting.scene.edit: {description: Create and edit scenes, default: op}
+  easyscripting.record: {description: Record movement and manage takes, default: op}
+  easyscripting.player: {description: Change own player state, default: op}
+  easyscripting.player.others: {description: Change other players, default: op}
+  easyscripting.identity: {description: Set temporary names and skins, default: op}
+  easyscripting.kit: {description: List and apply kits, default: op}
+  easyscripting.kit.edit: {description: Save edit and delete kits, default: op}
+  easyscripting.warp: {description: Use permitted warps and spawn, default: op}
+  easyscripting.warp.edit: {description: Save and delete warps, default: op}
+  easyscripting.warp.admin: {description: Use operator-access warps, default: op}
+  easyscripting.spawn.bypass: {description: Bypass automatic custom spawn routing, default: op}
+  easyscripting.items: {description: Create and edit items, default: op}
+  easyscripting.inventory: {description: Inspect save and restore inventories, default: op}
+  easyscripting.locks: {description: Lock containers and item frames, default: op}
+  easyscripting.locks.bypass: {description: Bypass production locks, default: op}
+  easyscripting.death: {description: Set player death behavior, default: op}
+  easyscripting.death.spectator: {description: Allow automatic spectator mode after death, default: op}
+  easyscripting.chat: {description: Manage production chat, default: op}
+  easyscripting.chat.bypass: {description: Talk while production chat is muted, default: op}
+  easyscripting.world: {description: Set environment and view limits, default: op}
+  easyscripting.world.edit: {description: Capture and restore selected blocks, default: op}
+  easyscripting.world.bypass: {description: Bypass dimension and build restrictions, default: op}
+  easyscripting.team: {description: Manage production teams, default: op}
+  easyscripting.villager: {description: Create and edit villagers, default: op}
+  easyscripting.effects: {description: Trigger visual and combat effects, default: op}
+  easyscripting.voice: {description: Mute or broadcast voice chat, default: op}
+  easyscripting.moderation: {description: Use moderation tools and receive sign alerts, default: op}
+  easyscripting.server.bypass: {description: Join locked recording servers, default: op}
+  easyscripting.commands.bypass: {description: Bypass blocked commands, default: op}
+  easyscripting.commands.player: {description: Run explicitly enabled player command actions, default: false}
+  easyscripting.commands.console: {description: Run explicitly enabled console command actions, default: false}
+  easyscripting.destructive: {description: Trigger opt-in destructive effects and entity cleanup, default: false}
+  easyscripting.see.vanish: {description: See vanished players, default: op}

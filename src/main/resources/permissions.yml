@@ -1,0 +1,4 @@
+# Optional overrides for non-sensitive features. Use 'everyone' or a custom permission node.
+# Omitted nodes use the plugin.yml permission default. Administrative and command-execution
+# permissions cannot be made public through this file.
+overrides: {}

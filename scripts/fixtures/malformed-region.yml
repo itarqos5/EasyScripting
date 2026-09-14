@@ -1,0 +1,40 @@
+# Deliberately invalid. Only for the disposable restart test described in TESTING.md.
+schema: 1
+world: easy-test-world
+blocks:
+- x: 22
+  y: -60
+  z: 20
+  data: minecraft:gold_block
+- x: 23
+  y: -60
+  z: 20
+  data: minecraft:chest
+  inventory:
+  - 'this-is-invalid-base64'
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''
+  - ''

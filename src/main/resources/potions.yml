@@ -1,0 +1,17 @@
+# Amplifier 0 is potion level I.
+presets:
+  chase:
+    speed:
+      ticks: 1200
+      amplifier: 1
+  underwater:
+    water_breathing:
+      ticks: 6000
+      amplifier: 0
+    night_vision:
+      ticks: 6000
+      amplifier: 0
+  dramatic:
+    slowness:
+      ticks: 100
+      amplifier: 1

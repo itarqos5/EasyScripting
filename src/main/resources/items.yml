@@ -1,0 +1,7 @@
+head-name: '<white>{name}'
+random-fill-materials:
+  - COBBLESTONE
+  - OAK_LOG
+  - IRON_INGOT
+  - BREAD
+  - ARROW
