@@ -113,7 +113,7 @@ public final class PlayerCommands {
             }
             case "apply" -> {
               players.available(Args.player(s).getUniqueId());
-              kits.apply(a.get(1), Args.player(s));
+              kits.claim(a.get(1), Args.player(s));
             }
             case "delete" -> {
               access.require(s, "kit.edit");
@@ -123,14 +123,16 @@ public final class PlayerCommands {
               access.require(s, "kit.edit");
               menus.kitEditor(Args.player(s), a.get(1));
             }
-            case "list" -> messages.ok(s, String.join(", ", kits.ids()));
+            case "list" -> messages.ok(s, String.join(", ", kits.ids(s)));
             default -> throw new IllegalArgumentException("Unknown kit operation.");
           }
         },
         (s, a) ->
             a.size() == 1
-                ? List.of("create", "save", "apply", "delete", "edit", "list")
-                : kits.ids());
+                ? s.isOp()
+                    ? List.of("create", "save", "apply", "delete", "edit", "list")
+                    : List.of("apply", "list")
+                : kits.ids(s));
     router.add(
         "warp",
         "warp",

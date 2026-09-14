@@ -87,6 +87,47 @@ public final class GuiSchema {
         (key, old) -> {
           if (Objects.equals(result.get(key), old)) result.set(key, defaults.get(key));
         });
+    Map<String, Object> old016 =
+        Map.of(
+            "menus.kits.description",
+                List.of(
+                    "<gray>Click to apply; right click to edit a copy.",
+                    "<gray>Use the green button below to create one.",
+                    "<gray>Shift-right click an entry to delete it."),
+            "menus.kit-details.description",
+                List.of(
+                    "<gray>Equip the kit, edit its slots, or import inventory.",
+                    "<gray>Export copies a portable YAML file."),
+            "dynamic.kit-apply", "<green>Equip kit",
+            "dynamic.controls.kit-apply.lore",
+                List.of("<gray>Equip this kit, replacing your inventory."),
+            "entries.kits.empty", "<white>No costumes saved yet");
+    old016.forEach(
+        (key, old) -> {
+          if (Objects.equals(result.get(key), old)) result.set(key, defaults.get(key));
+        });
+    if (result.getString("menus.production.buttons.start.action", "").equals("input take start")) {
+      for (String leaf : List.of("action", "lore", "prompt"))
+        result.set(
+            "menus.production.buttons.start." + leaf,
+            defaults.get("menus.production.buttons.start." + leaf));
+    }
+    if (result
+        .getString("menus.production.buttons.stop.action", "")
+        .equals("command take stop reset")) {
+      for (String leaf : List.of("action", "lore", "name"))
+        result.set(
+            "menus.production.buttons.stop." + leaf,
+            defaults.get("menus.production.buttons.stop." + leaf));
+    }
+    if (result
+        .getStringList("menus.recording.description")
+        .equals(
+            List.of(
+                "<gray>Choose a saved take, then select an NPC.",
+                "<gray>Use the green button below to create one.",
+                "<gray>Shift-right click an entry to delete it.")))
+      result.set("menus.recording.description", defaults.get("menus.recording.description"));
     for (String key : result.getKeys(true))
       if (key.endsWith(".action")
           && result.get(key) instanceof String action
@@ -228,8 +269,24 @@ public final class GuiSchema {
     Set<Integer> kitLibrary = new HashSet<>(taken);
     takeControl(y, "kits-import", kitLibrary);
     Set<Integer> kitDetails = new HashSet<>(navigation);
-    for (String key : List.of("kit-apply", "kit-edit", "kit-capture", "kit-export", "kit-delete"))
-      takeControl(y, key, kitDetails);
+    for (String key :
+        List.of(
+            "kit-apply",
+            "kit-edit",
+            "kit-capture",
+            "kit-export",
+            "kit-delete",
+            "kit-access",
+            "kit-give-player",
+            "kit-give-actor")) takeControl(y, key, kitDetails);
+    Set<Integer> kitAccess = new HashSet<>(navigation);
+    for (String key :
+        List.of(
+            "kit-access-info", "kit-access-operators", "kit-access-everyone", "kit-access-player"))
+      takeControl(y, key, kitAccess);
+    Set<Integer> kitProvider = new HashSet<>(taken);
+    for (String key : List.of("kits-import-all", "kits-import-cancel"))
+      takeControl(y, key, kitProvider);
     validateMaterial.accept(y.getString("layout.filler", "BLACK_STAINED_GLASS_PANE"));
     ConfigurationSection menus = y.getConfigurationSection("menus");
     if (menus == null) throw new IllegalArgumentException("guis.yml: menus is required.");

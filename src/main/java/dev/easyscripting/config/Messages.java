@@ -8,6 +8,11 @@ import org.bukkit.command.CommandSender;
 
 public final class Messages {
   private final Settings settings;
+  private final CommandResponses responses = new CommandResponses();
+
+  public CommandResponses.Scope track(CommandSender sender) {
+    return responses.begin(sender);
+  }
 
   public Messages(Settings settings) {
     this.settings = settings;
@@ -25,6 +30,7 @@ public final class Messages {
 
   public void send(CommandSender sender, String key, String detail) {
     sender.sendMessage(text(key, Map.of("detail", detail)));
+    responses.sent(sender);
   }
 
   public void ok(CommandSender sender, String detail) {

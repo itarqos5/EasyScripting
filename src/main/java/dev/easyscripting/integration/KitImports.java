@@ -2,7 +2,9 @@ package dev.easyscripting.integration;
 
 import static dev.easyscripting.integration.PublicKitApi.*;
 
+import dev.easyscripting.config.Messages;
 import dev.easyscripting.config.Settings;
+import dev.easyscripting.core.TickEngine;
 import dev.easyscripting.items.KitService;
 import java.util.*;
 import org.bukkit.Bukkit;
@@ -13,15 +15,21 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
 /** Reads item definitions only; never grants kits, charges money or executes provider actions. */
-public final class KitImports {
+public final class KitImports implements AutoCloseable {
   private static final List<String> PROVIDERS =
       List.of("PlayerKits2", "PlayerKits", "Essentials", "CMI");
   private final KitService kits;
   private final Settings settings;
+  private final TickEngine ticks;
+  private final Messages messages;
+  private UUID bulkJob;
+  private boolean closing;
 
-  public KitImports(KitService kits, Settings settings) {
+  public KitImports(KitService kits, Settings settings, TickEngine ticks, Messages messages) {
     this.kits = kits;
     this.settings = settings;
+    this.ticks = ticks;
+    this.messages = messages;
   }
 
   public List<String> sources() {
@@ -49,7 +57,11 @@ public final class KitImports {
   }
 
   public List<String> names(String source) {
-    if (source.equalsIgnoreCase("EasyScripting")) return kits.exports();
+    if (source.equalsIgnoreCase("EasyScripting")) {
+      List<String> names = kits.exports();
+      limit(names.size());
+      return names;
+    }
     Plugin p = provider(source);
     Collection<?> names =
         switch (p.getName()) {
@@ -66,13 +78,14 @@ public final class KitImports {
           case "CMI" -> ((Map<?, ?>) call(call(p, "getKitsManager"), "getKitMap")).keySet();
           default -> throw new IllegalArgumentException("Unsupported kit provider.");
         };
-    if (names.size() > settings.file("kits").getInt("max-provider-kits", 1000))
-      throw new IllegalArgumentException("Provider exceeds max-provider-kits in kits.yml.");
+    limit(names.size());
     return names.stream().map(String::valueOf).sorted().toList();
   }
 
   public void importKit(String source, String name, String destination, Player player) {
-    if (kits.ids().contains(destination))
+    settings.require("kits");
+    if (!player.isOp()) throw new IllegalArgumentException("Only operators can import kits.");
+    if (kits.exists(destination))
       throw new IllegalArgumentException(
           "Kit already exists: " + destination + ". Choose another destination ID.");
     if (source.equalsIgnoreCase("EasyScripting")) {
@@ -81,6 +94,90 @@ public final class KitImports {
     }
     Plugin provider = provider(source);
     kits.save(destination, read(provider.getName(), provider, name, player));
+  }
+
+  private void limit(int count) {
+    if (count > settings.file("kits").getInt("max-provider-kits", 1000))
+      throw new IllegalArgumentException("Provider exceeds max-provider-kits in kits.yml.");
+  }
+
+  public String destination(String source, String name) {
+    return KitImportBatch.destination(source, name, kits::exists);
+  }
+
+  public boolean importing() {
+    return bulkJob != null;
+  }
+
+  public void importAll(String source, Player player) {
+    settings.require("kits");
+    if (!player.isOp()) throw new IllegalArgumentException("Only operators can import kits.");
+    if (closing || !ticks.acceptingWork())
+      throw new IllegalStateException("EasyScripting is stopping.");
+    if (importing())
+      throw new IllegalArgumentException(
+          "An import is already running. Use /es kits cancelimport to stop it.");
+    KitImportBatch batch = new KitImportBatch(names(source));
+    if (batch.total() == 0)
+      throw new IllegalArgumentException("This provider has no kits to import.");
+    bulkJob =
+        ticks.add(
+            new TickEngine.Job() {
+              public boolean tick() {
+                boolean more =
+                    batch.step(
+                        () ->
+                            !closing
+                                && settings.enabled("kits")
+                                && player.isOnline()
+                                && player.isOp()
+                                && Bukkit.getPlayer(player.getUniqueId()) == player,
+                        name -> importKit(source, name, destination(source, name), player));
+                if (more && batch.processed() % 100 == 0)
+                  messages.send(
+                      player,
+                      "info",
+                      "Kit import: " + batch.processed() + "/" + batch.total() + " processed.");
+                return more;
+              }
+
+              public void stopped() {
+                bulkJob = null;
+                if (closing || !player.isOnline()) return;
+                messages.send(
+                    player,
+                    batch.failed() == 0 ? "success" : "error",
+                    "Kit import "
+                        + (batch.processed() == batch.total() ? "finished" : "stopped")
+                        + ": "
+                        + batch.imported()
+                        + " imported, "
+                        + batch.failed()
+                        + " failed, "
+                        + (batch.total() - batch.processed())
+                        + " not processed. Completed imports are kept.");
+                for (String error : batch.errors()) messages.send(player, "error", error);
+              }
+            });
+    messages.send(
+        player,
+        "info",
+        "Importing "
+            + batch.total()
+            + " kits from "
+            + source
+            + ". Existing kits are kept; new IDs receive a suffix when needed.");
+  }
+
+  public void cancel() {
+    if (bulkJob == null) throw new IllegalArgumentException("No kit import is running.");
+    ticks.cancel(bulkJob);
+  }
+
+  @Override
+  public void close() {
+    closing = true;
+    if (bulkJob != null) ticks.cancel(bulkJob);
   }
 
   public static ItemStack[] read(String source, Object provider, String name, Player player) {

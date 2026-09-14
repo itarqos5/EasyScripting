@@ -30,22 +30,22 @@ Commands follow /es unless shown otherwise. Permission suffixes follow easyscrip
 | Melee-protected acting (0.1.4) | Direct melee blocked; falls/projectiles/explosions allowed; prior player state restored afterward | /actor act/finish/cancel | actor, record | Acting & Playback | pending/ | IMPLEMENTED | HIGH |
 | Replay combat (0.1.3) | Native knockback pause and route recovery; received damage survives reset; death ends playback | /actor play/stop | actor, record | Combat | recording.yml | IMPLEMENTED | HIGH |
 | Studio redesign (0.1.3) | Grouped tools, NPC tabs, pickers, readable states, safe deletion, consistent navigation and backed-up schema migration | /es | use plus action nodes | All | guis.yml | IMPLEMENTED | HIGH |
-| Actor appearance | Copy equipment/name, account-name skin, visibility, pose and glow | /actor copy/set/kit | actor, kit | Actor editor | actors/ | IMPLEMENTED | HIGH |
+| Actor appearance | Copy equipment/name, account-name skin, visibility, pose and glow | /actor copy/set/kit | actor, actual operator for kits | Actor editor | actors/ | IMPLEMENTED | HIGH |
 | Actor movement | Navigate, face, rotate, sprint/sneak, jump, swing | /actor move; /scene add | actor, player, effects | Actor, timeline | actors/, scenes/ | IMPLEMENTED | HIGH |
-| Mass/groups | Line/circle/grid/square; group settings, hide/show/respawn/jump/kit; default cap 200 | /actor pattern/all/group | actor, kit | Actors, command | actors/, config.yml | IMPLEMENTED | HIGH |
+| Mass/groups | Line/circle/grid/square; group settings, hide/show/respawn/jump/kit; default cap 200 | /actor pattern/all/group | actor, actual operator for kits | Actors, command | actors/, config.yml | IMPLEMENTED | HIGH |
 | Actor combat | Face/swing/damage once within 6 blocks; immortal and unhittable differ | /actor attack/set | actor, player.others | Actor editor | actors/ | IMPLEMENTED | HIGH |
 | Scripted actor death (0.1.4) | Explicit permission; dead actor is permanently deleted and cannot be reset | /scene add … death | scene.edit, destructive | Timeline | scenes/ | IMPLEMENTED | HIGH |
 | Wander/look | Nearby wander with bounded safe destination candidates; look at closest player | /actor set | actor | Actor editor | actors/ | IMPLEMENTED | HIGH |
 | Advanced navigation | Explicit portal traversal, nearest-shore swimming and comprehensive hazard avoidance absent | — | — | — | — | NOT STARTED | HIGH |
-| Movement recording | Transforms, hands, sneak/sprint/swing, boat; replay, reverse, loop and reset | record | record | Recordings | recordings/ | IMPLEMENTED | HIGH |
-| Synchronized recording | Up to eight performers start together; tracks share start tick; single-performer batch/reverse loop verified, multi-performer acceptance pending | record startall/stopall/playgroup | record, player.others | Command | recordings/ | IMPLEMENTED | HIGH |
-| Boat playback | Owned boat, passenger movement and cleanup | record play | record | Recordings | recordings/ | IMPLEMENTED | HIGH |
+| Movement recording | NPC acting captures transforms/equipment/animations; three replay modes | /actor act/finish/play/mode | actor, record | Acting & Playback | recordings/ | IMPLEMENTED | HIGH |
+| Legacy synchronized command surface | Removed in 0.1.6 at user request; NPC acting remains available | — | — | — | recordings/ | REMOVED | HIGH |
+| Boat playback | Owned boat, passenger movement and cleanup | /actor play | actor, record | Acting & Playback | recordings/ | IMPLEMENTED | HIGH |
 | Nicknames (0.1.5) | API-generated online real-player aliases, tab/nametag/death/quit display, reset one/all, expire on disconnect; skin preserved | /nickname; nick | identity, player.others | Command | nicknames.yml, state/identities.yml | IMPLEMENTED | HIGH |
 | Identity blacklist | Blocks names/skins and purges matching actors/nicknames | nick blacklist | identity, admin | Command | state/identities.yml | IMPLEMENTED | HIGH |
 | Player skins | Asynchronous account lookup or direct texture URL; auto/slim/classic model | skin | identity | Command | state/identities.yml | IMPLEMENTED | HIGH |
 | PNG/NameMC | Upload/conversion provider and NameMC page resolver absent | — | — | — | — | NOT STARTED | HIGH |
-| Kits (0.1.5) | Blank/create, inventory import, 41-slot ghost editor, Save & equip, delete and portable YAML export/import | kits; kit | kit, kit.edit | Kits, details, editor | kits.yml, loadouts/, kit-exports/ | IMPLEMENTED | HIGH |
-| Plugin kit imports (0.1.5) | Item-only adapters for installed PlayerKits2, legacy PlayerKits, EssentialsX and CMI; provider actions not copied; runtime acceptance pending | kits import | kit, kit.edit | Import picker | kits.yml | IMPLEMENTED | HIGH |
+| Kits (0.1.6) | Create/edit, self/player/wildcard/NPC claims, three access modes, portable YAML; actual operators manage/gift | kits; kit | per-kit policy; actual operator manages | Kits, details, editor | kits.yml, loadouts/, kit-exports/ | IMPLEMENTED | HIGH |
+| Plugin kit imports (0.1.6) | Item-only adapters for installed PlayerKits2, legacy PlayerKits, EssentialsX and CMI; provider actions not copied; runtime acceptance pending | kits import/importall/cancelimport | actual operator | Import picker | kits.yml | IMPLEMENTED | HIGH |
 | Live NPC identity / tab-list (0.1.5) | Change name/skin during recorded playback; persistent player NPC tab-list toggle | /actor set/randomize | actor | Appearance | actors/, guis.yml | IMPLEMENTED | HIGH |
 | Live playback controls (0.1.5) | Mode edits after capture or during replay remain selected; Stop turns autoplay off and holds position | /actor mode/play/stop/autoplay | actor, record | Acting & Playback | actors/ | IMPLEMENTED | HIGH |
 | Observer kit import | Public conversion claim, but no authoritative input schema | — | — | — | — | UNKNOWN | LOW |
@@ -67,7 +67,7 @@ Commands follow /es unless shown otherwise. Permission suffixes follow easyscrip
 | Container/frame locks | Interaction/break/explosion/hopper/equipment restrictions and bypass | lock | locks, locks.bypass | Command | state/locks.yml | IMPLEMENTED | HIGH |
 | Chat (0.1.5) | Operator-only block, literal filter, clear, chat/title broadcast, fake join/leave and white death announcement | chat | chat; current operator to speak while blocked | Production | messages.yml, moderation.yml | IMPLEMENTED | HIGH |
 | Signs | Literal filtering and staff edit alerts | Configuration | moderation for alerts | Configuration | moderation.yml | IMPLEMENTED | HIGH |
-| Recording sessions | Capture participants, chat/MOTD/voice policy; restore at stop | take start/stop | record, player.others for all | Production | recording.yml | IMPLEMENTED | HIGH |
+| Recording sessions (0.1.6) | /es record on/off: MOTD and operator-only joining/reconnecting; take start/stop adds participant snapshots | record on/off; take start/stop | record, player.others for all | Production | recording.yml | IMPLEMENTED | HIGH |
 | Server lock | Allowed names including never-joined players, permission bypass | server lock/allow/deny | moderation, server.bypass | Production | moderation.yml | IMPLEMENTED | HIGH |
 | Dimension lock | Entry restrictions, bypass and allowlist | world lock/allow | world, world.bypass | World, command | moderation.yml | IMPLEMENTED | HIGH |
 | Command blocker | Namespace-normalized blocked command roots, bypass | Configuration | commands.bypass | Configuration | moderation.yml | IMPLEMENTED | HIGH |

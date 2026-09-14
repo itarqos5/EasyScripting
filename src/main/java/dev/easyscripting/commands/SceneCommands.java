@@ -164,13 +164,13 @@ public final class SceneCommands {
             }
             case "recording" -> {
               access.require(s, "record");
-              if (!recordings.ids().contains(a.get(2)))
-                throw new IllegalArgumentException("Recording not found.");
-              actors.available(a.get(1));
-              actors.set(a.get(1), "recording", a.get(2));
+              recordings.assign(a.get(1), a.get(2));
             }
             case "set" -> {
-              actors.set(a.get(1), a.get(2), a.rest(3));
+              if (a.get(2).equals("recording")) {
+                access.require(s, "record");
+                recordings.assign(a.get(1), a.get(3));
+              } else actors.set(a.get(1), a.get(2), a.rest(3));
             }
             case "here" -> actors.teleport(a.get(1), Args.player(s).getLocation());
             case "move" -> {
@@ -189,7 +189,8 @@ public final class SceneCommands {
               actors.attack(a.get(1), victim, Checks.decimal(a.get(3, "1"), 0, 1000));
             }
             case "kit" -> {
-              access.require(s, "kit");
+              access.require(s, "kit.edit");
+              settings.require("kits");
               actors.available(a.get(1));
               kits.apply(a.get(2), actors.get(a.get(1)).requireEntity());
               actors.save(actors.get(a.get(1)));
@@ -215,7 +216,8 @@ public final class SceneCommands {
                 throw new IllegalArgumentException(
                     "Group operation must be hide, show, respawn, jump or kit.");
               if (operation.equals("kit")) {
-                access.require(s, "kit");
+                access.require(s, "kit.edit");
+                settings.require("kits");
                 kits.contents(a.get(3));
               }
               List<ActorService.ManagedActor> members =
@@ -301,58 +303,6 @@ public final class SceneCommands {
                                             "sneak",
                                             "sprint")
                                         : List.of());
-    router.add(
-        "record",
-        "record",
-        "start <id> | startall <prefix> | stop|stopall | play <id> <actor> [loop] [reverse] |"
-            + " playgroup <loop> <reverse> <recording=actor>... | stopplay <actor> | delete <id>",
-        (s, a) -> {
-          switch (a.get(0)) {
-            case "start" -> recordings.start(Args.player(s), a.get(1));
-            case "stop" -> recordings.stop(Args.player(s));
-            case "startall" -> {
-              access.require(s, "player.others");
-              recordings.startAll(a.get(1), Bukkit.getOnlinePlayers());
-            }
-            case "stopall" -> {
-              access.require(s, "player.others");
-              recordings.stopAll();
-            }
-            case "playgroup" -> {
-              Map<String, String> group = new LinkedHashMap<>();
-              for (int i = 3; i < a.size(); i++) {
-                String[] pair = a.get(i).split("=", -1);
-                if (pair.length != 2
-                    || group.putIfAbsent(Checks.id(pair[1]), Checks.id(pair[0])) != null)
-                  throw new IllegalArgumentException(
-                      "Use recording=actor pairs, each actor only once.");
-              }
-              recordings.playGroup(group, Checks.bool(a.get(1)), Checks.bool(a.get(2)));
-            }
-            case "play" ->
-                recordings.play(
-                    a.get(1), a.get(2), Checks.bool(a.get(3, "off")), Checks.bool(a.get(4, "off")));
-            case "stopplay" -> recordings.stopPlayback(a.get(1));
-            case "delete" -> recordings.delete(a.get(1));
-            case "list" -> messages.ok(s, String.join(", ", recordings.ids()));
-            default -> throw new IllegalArgumentException("Unknown recording operation.");
-          }
-        },
-        (s, a) ->
-            a.size() == 1
-                ? List.of(
-                    "start",
-                    "startall",
-                    "stop",
-                    "stopall",
-                    "play",
-                    "playgroup",
-                    "stopplay",
-                    "delete",
-                    "list")
-                : a.size() == 2
-                    ? recordings.ids()
-                    : a.size() == 3 ? actors.ids() : List.of("on", "off"));
     router.add(
         "camera",
         "effects",

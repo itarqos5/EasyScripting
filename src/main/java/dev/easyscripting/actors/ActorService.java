@@ -24,6 +24,7 @@ public final class ActorService implements Listener, AutoCloseable {
   private final Map<UUID, ManagedActor> entities = new HashMap<>();
   private final Deque<String> recentNames = new ArrayDeque<>();
   private Consumer<String> removed = id -> {};
+  private Consumer<ActorDefinition> deleted = definition -> {};
   private Consumer<ManagedActor> spawned = actor -> {};
   private UUID behaviorJob;
   private boolean closing;
@@ -81,6 +82,10 @@ public final class ActorService implements Listener, AutoCloseable {
 
   public void onRemoved(Consumer<String> listener) {
     removed = removed.andThen(listener);
+  }
+
+  public void onDeleted(Consumer<ActorDefinition> listener) {
+    deleted = deleted.andThen(listener);
   }
 
   public void onSpawned(Consumer<ManagedActor> listener) {
@@ -281,6 +286,7 @@ public final class ActorService implements Listener, AutoCloseable {
     despawn(actor);
     actors.remove(id);
     store.delete("actors", id);
+    deleted.accept(actor.definition);
   }
 
   private void despawn(ManagedActor actor) {
@@ -639,6 +645,7 @@ public final class ActorService implements Listener, AutoCloseable {
     // Tombstone immediately: restoration and shutdown saves must not resurrect this definition.
     actor.pendingDeletion = true;
     store.delete("actors", actor.id());
+    deleted.accept(actor.definition);
     if (settings.file("config").getBoolean("actors.announce-death-leave", true))
       Bukkit.broadcast(
           new dev.easyscripting.config.Messages(settings)

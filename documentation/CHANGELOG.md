@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.6 — 2026-09-14
+
+* Added self/player/wildcard/NPC kit claims, with kit-first or player-first syntax, online account/nickname resolution and explicit `player:` / `actor:` targeting. Claims replace the saved inventory/equipment loadout; active reservations and dead players are rejected before giving kits.
+* Only actual operators may create/edit/import/export/delete, change access or gift kits. Each kit has Operators only, Everyone, or one selected UUID + operators access. Older/new/external-provider kits default to Operators only; item edits and EasyScripting exports retain policy. Both the GUI and legacy apply command enforce access.
+* Added player/NPC gift pickers, selected access controls and Import all kits for every supported provider. Bulk jobs import at most one kit per tick, keep existing kits, suffix duplicate IDs, report failures and support cancellation. Completed imports survive cancellation; de-op/disconnect/shutdown stop further work.
+* Replaced the old `/es record` movement command surface with `/es record on|off`. Sessions always show a configurable recording MOTD and block every non-operator login/reconnect, regardless of allow-list or server.bypass. Existing players remain; stopping restores ordinary login/MOTD rules. Actor act/finish/play remain the NPC recording workflow.
+* Permanent NPC death/deletion now removes its unshared selected take; shared takes are retained until the final referencing NPC is removed. Replacing a take cleans up its unreferenced predecessor. Hide, unload, feature disable and shutdown retain takes.
+* Added descriptive success feedback for previously silent commands, with scoped suppression when a command already replies. Updated GUI actions and migrations for sessions and kit access.
+* Rewrote the complete command guide in plain language, covering all 30 groups, help and all 33 scene actions with syntax/examples. README remains at root; other Markdown stays in documentation/.
+* Validation: 109 unit tests, production/smoke compilation, Paper 1.21.11 compilation, baseline rebuild and JAR/project checks. No Minecraft test server was started.
+
 ## 0.1.5 — 2026-09-14
 
 * Immortal NPCs retain hit feedback and knockback but cannot die from normal damage. New NPCs default to mortal; a backed-up migration changes the creation default once without changing existing actors. Citizens' extra spawn damage immunity is disabled.

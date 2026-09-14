@@ -2,6 +2,8 @@
 
 Paper/Purpur tools for scripted SMP productions: actors, timed scenes, movement recordings, repeatable takes, kits, inventory tools, world controls and configurable inventory menus.
 
+**Need help with a command?** The [complete command guide](documentation/COMMANDS.md) explains every `/es` command and shortcut, every NPC/player setting, and every scene action with simple descriptions and examples. Follow the [step-by-step user guide](documentation/USERGUIDE.md) for your first NPC or recording.
+
 This is an independent clean-room implementation based on public feature descriptions and gallery images. It does not include ScriptedEssentials code or assets. **Full reference parity is not claimed.** See [PARITY.md](documentation/PARITY.md) for the implemented behaviors, acceptance criteria and outstanding differences.
 
 ## Build and install
@@ -14,7 +16,7 @@ Use JDK 25 and the included Gradle wrapper:
 
 On Windows, use `.\gradlew.bat build`.
 
-Copy `build/libs/EasyScripting-0.1.5.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
+Copy `build/libs/EasyScripting-0.1.6.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
 
 The primary target is Paper 26.2 with Java 25. The plugin produces Java 21 bytecode and uses the shared Paper API surface for 1.21.8, 1.21.11 and 26.1 compatibility. Test evidence and its limits are in [TESTING.md](documentation/TESTING.md). Purpur is a compatibility target; Folia and Spigot are not supported.
 
@@ -27,6 +29,8 @@ Neither dependency is bundled. Without them the rest of the plugin loads and the
 
 ## Nicknames, chat and kits
 
+Version 0.1.6 adds `/es kits claim <kit> [player|*|actor:id]`, bulk provider imports and per-kit access for operators/everyone/one player plus operators. Only actual operators can manage or gift kits. Commands now report their result. `/es record on|off` controls a recording MOTD and blocks non-operator joins/reconnects; NPC performances use `/actor act` and `/actor finish`.
+
 * `/nickname <real-player-or-nickname>` assigns an API-generated username while preserving the skin. `/nickname <player-or-nickname> off` resets one; `/nickname off` resets everyone. Names expire on disconnect. Tab, nametag and ordinary death/quit messages use the nickname; the client's authenticated account name cannot be changed by a server plugin.
 * `/es chat block on` restricts public chat to current operators; `off` restores it. No argument toggles. `/es chat death <name>` prints a white simulated death message without killing anyone; broadcast sends chat and a title.
 * `/es kits` opens the kit library: create, import inventory, edit, Save or Save & equip, and export YAML. Import items from installed PlayerKits 2, legacy PlayerKits, EssentialsX and CMI, or another EasyScripting export. Provider commands, prices and cooldowns are not copied.
@@ -37,7 +41,7 @@ See the [usage guide](documentation/USERGUIDE.md#7-nickname-real-players), [kit 
 
 With Citizens installed, `/actor create guard_1` automatically assigns a random displayed username and skin. Keep the result as-is, use `/actor set guard_1 name RiverScout` or `/actor set guard_1 skin Notch` to change one part, or `/actor randomize guard_1` to reroll both. `/actor info guard_1` shows the identity; the actor's ID remains `guard_1`. Names, skin owners and resolved skin textures persist across restarts. Pools and automatic assignment are configured in `npc-identities.yml`; existing actors are unchanged on upgrade.
 
-`/actor gui guard_1` opens a tabbed NPC panel with Appearance, Movement, Acting & Playback, and Combat sections. Choose or change the end mode (`stop`, `repeat` or `reverse`) before recording, afterward or during playback. Name, skin and random identity can also change during playback. Appearance includes a tab-list toggle for PLAYER NPCs. `/actor act guard_1 entrance` puts you in the NPC's place and costume; `/actor finish` restores you, saves the performance and starts it automatically. Autoplay is enabled by default; use `/actor autoplay guard_1 off` for manual playback. While acting, direct melee is blocked but falls, projectiles and explosions can hurt you. On NPCs, Hittable only controls melee; Immortal keeps hits and knockback but prevents death. New NPCs default to Immortal OFF. NPC deaths permanently remove the actor, including from saved data, and announce its name leaving the game. `/actor stop guard_1` holds its current position and disables autoplay. See [the acting workflow](documentation/USERGUIDE.md#act-as-an-npc-and-save-its-performance).
+`/actor gui guard_1` opens a tabbed NPC panel with Appearance, Movement, Acting & Playback, and Combat sections. Choose or change the end mode (`stop`, `repeat` or `reverse`) before recording, afterward or during playback. Name, skin and random identity can also change during playback. Appearance includes a tab-list toggle for PLAYER NPCs. `/actor act guard_1 entrance` puts you in the NPC's place and costume; `/actor finish` restores you, saves the performance and starts it automatically. Autoplay is enabled by default; use `/actor autoplay guard_1 off` for manual playback. While acting, direct melee is blocked but falls, projectiles and explosions can hurt you. On NPCs, Hittable only controls melee; Immortal keeps hits and knockback but prevents death. New NPCs default to Immortal OFF. NPC deaths permanently remove the actor, announce its name leaving the game, and delete its take unless another NPC uses it. Shared takes remain until their final NPC is removed. `/actor stop guard_1` holds its current position and disables autoplay. See [the acting workflow](documentation/USERGUIDE.md#act-as-an-npc-and-save-its-performance).
 
 The redesigned studio groups tools into clear categories, provides saved-recording/costume pickers and uses consistent Back, Home and Close buttons. All menus are configured in `guis.yml`. Upgrading from the old layout saves a `guis-v1-backup-<unique-id>.yml` beside it before installing layout schema 2. Other project documentation is in [`documentation/`](documentation/USERGUIDE.md).
 
@@ -62,8 +66,8 @@ Use `/scene gui opening` to inspect the timeline. `/scene pause opening`, `/scen
 ## Common workflows
 
 * Save a costume with `/es kit save guard_kit`, then `/actor kit guard guard_kit`. The kit GUI copies inventory items into a saved loadout; saving a kit intentionally grants the ability to reproduce those items.
-* Record your route with `/es record start approach`, walk and swing, then `/es record stop`. Use `/es record play approach guard off off`; the last two arguments enable looping and reverse playback.
-* Record several performers with `/es record startall approach` and `/es record stopall`. Play tracks together with `/es record playgroup off off approach_alex=guard approach_steve=hero`.
+* Record an NPC performance with `/actor act guard approach`, then `/actor finish`. Replay it with `/actor play guard`; choose stop/repeat/reverse in its GUI.
+* `/es record on` enables a server recording session: recording MOTD, no non-operator joins/reconnects. `/es record off` restores normal MOTD and login rules. Old movement subcommands were removed; NPC acting remains available.
 * Capture your state with `/es take snapshot`, adjust your health/inventory/gamemode, and `/es take reset`. `/es take discard` releases the saved take.
 * Start a coordinated take with `/es take start episode self` or `all`; end it with `/es take stop reset`. Chat and MOTD behavior are in `recording.yml`.
 * Save locations with `/es warp save courtyard`; set access with `/es warp permission courtyard everyone`. Unauthorized warps are hidden from lists and completion.

@@ -1,11 +1,11 @@
 # EasyScripting user guide
 
-This guide covers EasyScripting 0.1.5: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
+This guide covers EasyScripting 0.1.6: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
 
 ## 1. Install and open the studio
 
 1. Stop your Paper/Purpur server. The primary tested target is Paper 26.2 on Java 25; see [TESTING.md](TESTING.md) for other versions.
-2. Put `build/libs/EasyScripting-0.1.5.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
+2. Put `build/libs/EasyScripting-0.1.6.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
 3. For human NPCs and skins, also install a Citizens build compatible with your exact Minecraft version. Mob actors work without Citizens.
 4. Start the server. EasyScripting creates its YAML files under `plugins/EasyScripting/`.
 5. Join with operator access or the appropriate [permissions](PERMISSIONS.md), then run `/es`. Use `/es help` for commands you can access, and `/es status` to check loaded actors, scenes and active jobs.
@@ -158,7 +158,7 @@ Normal gravity and collisions resume when playback completes; finish on solid gr
 
 The recording, end mode and autoplay setting survive restarts. Autoplay also starts a visible, idle NPC on server startup, show or respawn, or when switched ON. A hidden, dead or busy NPC does not start; it does not queue behind an active scene. Explicit Stop turns Autoplay OFF, including across restart, until you enable it again. Manual Play still works. Switching autoplay OFF does not interrupt an existing replay; use Stop for that. `stop` still plays once; use `repeat` or `reverse` for continuous action. Old actor files without an autoplay field default to ON; set `/actor autoplay <id> off` to retain manual playback.
 
-The older `/es record play <recording> <actor> [loop] [reverse]` command keeps its original behavior: `reverse` plays backward from the outset, and a completed single run restores the previous actor state. Use the actor GUI or `/actor play` for the three modes above.
+Version 0.1.6 uses `/actor act`, `/actor finish` and `/actor play` for NPC performances. `/es record` now controls server recording-session mode with on/off; the old movement subcommands are removed.
 
 ### Allow hits and death
 
@@ -171,7 +171,7 @@ When a replaying NPC is knocked back, the recorded timeline pauses for 12 ticks 
 /actor set guard_1 immortal off
 ```
 
-When an NPC dies, everyone sees a yellow `<NPC name> left the game` message. It is removed from the actor list and its saved definition is deleted from active storage. The message can be changed in `messages.yml` (`actor-left`) or disabled with `actors.announce-death-leave: false`. Playback stops; show, respawn, autoplay, scene reset and server restart cannot bring it back. This includes scripted NPC death actions. Its recording stays available for reuse. Deleted YAML uses the existing `trash/` retention mechanism, without automatic recovery. To use the same ID again, create a new actor with `/actor create guard_1`. **Reset NPC spawn** / `/actor respawn` only recreates an existing living or hidden NPC. Deaths drop no copied equipment or experience.
+When an NPC dies, everyone sees a yellow `<NPC name> left the game` message. It is removed from the actor list and its saved definition is deleted from active storage. The message can be changed in `messages.yml` (`actor-left`) or disabled with `actors.announce-death-leave: false`. Playback stops; show, respawn, autoplay, scene reset and server restart cannot bring it back. This includes scripted NPC death actions. Its selected take is also removed unless another NPC still references it; shared takes are removed with their last NPC. Hiding an NPC does not delete its take. Deleted YAML uses the existing `trash/` retention mechanism, without automatic recovery. To use the same ID again, create a new actor with `/actor create guard_1`. **Reset NPC spawn** / `/actor respawn` only recreates an existing living or hidden NPC. Deaths drop no copied equipment or experience.
 
 ## 4. Build and play your first scene
 
@@ -206,30 +206,23 @@ Stop cancels playback and restores the take. With automatic restoration disabled
 
 See [all scene actions](COMMANDS.md#action-types) for movement, equipment, health, potion, sound, particles, world controls and other cues. Arguments are separated by semicolons, as in `sound=entity.player.levelup;volume=1;pitch=1`. Actions at the same tick execute in their saved order. Some actions require additional permissions; command execution and destructive effects also require explicit configuration switches.
 
-## 5. Record a route and replay it
-
-Record your movement, hand items and movement cues:
+## 5. Start a server recording session
 
 ```text
-/es record start entrance
+/es record on
 ```
 
-Walk the route and perform the hand swings you want, then:
+The server list now displays the recording MOTD. Players already online can stay, but **all non-operators are blocked from joining or reconnecting**, even if they were allowed by another EasyScripting server allow-list or have server.bypass. Operators can join subject to ordinary server bans/whitelist rules.
 
 ```text
-/es record stop
-/es record play entrance guard_1 off off
+/es record off
 ```
 
-The final arguments are `loop` and `reverse`. For a repeating reverse route, use `/es record play entrance guard_1 on on`. Replay uses the exact recorded world coordinates. `/es record stopplay guard_1` ends playback and restores the actor. Recording length defaults to 2,400 frames; record several shorter routes for longer productions.
+Normal MOTD and ordinary login rules return. Existing independent server locks are not removed. Both commands report whether the session is ON or OFF. Customize the MOTD in recording.yml and the rejection message in messages.yml (`recording-locked`). The old change-motd switch is ignored: sessions always show their recording MOTD.
 
-For multiple performers, `/es record startall entrance` begins synchronized capture and `/es record stopall` ends it. `/es record list` shows the resulting IDs, such as `entrance_alex`. Map those exact IDs to distinct actors:
+For NPC performances, use `/actor act guard_1 entrance`, move/jump/swing/change equipment, then `/actor finish`. Set `/actor mode guard_1 repeat` or reverse for continuous replay; `/actor stop guard_1` holds the current position and disables autoplay. The actor GUI remains the movement-recording workflow; `/es menu recording` lets you assign saved NPC performances.
 
-```text
-/es record playgroup off off entrance_alex=guard_1 entrance_steve=guard_2
-```
-
-Both tracks begin on a shared tick. The capture cap is eight performers. Use the IDs actually produced on your server; the names above are examples.
+Deleting/killing an NPC also removes its selected take unless another NPC still uses it. Shared takes are deleted with the final referencing NPC. Replacing a take cleans up its unreferenced predecessor. Hide/show, stop, world unloading and normal shutdown keep the take. The older standalone `/es record` movement subcommands are no longer available.
 
 ## 6. Repeat player takes and prepare the set
 
@@ -243,7 +236,7 @@ Capture your current state before changing costume, location or health:
 
 Reset restores the saved take; repeat it as needed. `/es take discard` releases it. Snapshots include location, inventory, health, hunger, XP, gamemode, effects and supported player flags. They do not snapshot the entire world or arbitrary third-party plugin state.
 
-For a coordinated production session, use `/es take start episode all`, then `/es take stop reset` when finished. Use `self` instead of `all` for only yourself. Chat/MOTD/optional voice behavior is configured in `recording.yml`. A production session and a movement recording are separate workflows; start movement capture explicitly if you need it.
+For a coordinated production session, use `/es take start episode all`, then `/es take stop reset` when finished. Use `self` instead of `all` for only yourself. MOTD, chat and optional voice behavior are configured in `recording.yml`; sessions also block non-operator joins/reconnects. `/es record off` can end the same session and restore its participant snapshots. A production session and a movement recording are separate workflows; start movement capture explicitly if you need it.
 
 Useful set preparation commands:
 
@@ -298,18 +291,34 @@ Templates are in `messages.yml`, including `fake-death`, `chat-muted` and `chat-
 
 ## 9. Create, edit and import kits
 
-Run `/es kits` or open Studio → Wardrobe → Kits.
+Run `/es kits` or open Studio → Wardrobe → Kits. In 0.1.6, actual operators manage kits; other players see only kits they can claim. The [complete command guide](COMMANDS.md#kits) lists every kit command with examples.
 
 1. Click **Create a new kit** and enter a unique ID such as `guard_costume`.
 2. Click the kit to open its controls. **Import my inventory** copies your current storage, hotbar, armor and offhand; replacing an existing kit requires confirmation. **Edit kit** opens the 41-slot editor.
 3. Edit the copied items. **Import my inventory** inside the editor replaces the draft slots. **Save kit** saves and returns to the library; **Save & equip** saves and applies it to you. Leaving the editor without saving discards draft changes. Item editing is intentionally a staff duplication tool.
-4. Use **Equip kit** to apply it later, or `/actor kit guard_1 guard_costume` to dress an NPC. A recorded performance supplies its own recorded equipment, so stop it before changing its costume kit.
+4. Use **Claim kit** or `/es kits claim guard_costume` to equip it later. This replaces your hotbar, storage, armor and offhand, including clearing empty kit slots. Operators can choose **Give to player** or **Give to NPC**; `/actor kit guard_1 guard_costume` also works. Stop the NPC's active recording before replacing its costume.
+5. Open **Who can claim?** and select **Operators only**, **Everyone**, or **One player + operators**. The selected choice glows. Choose the specific player from the online-player picker; access is saved by UUID and survives nickname changes/reconnects. Choosing another mode clears the old player selection. New/legacy/provider-imported kits start as Operators only.
+
+```text
+/es kits access guard_costume everyone
+/es kits claim guard_costume
+/es kits claim guard_costume Alex
+/es kits claim Alex guard_costume
+/es kits claim guard_costume *
+/es kits claim guard_costume actor:guard_1
+/es kits access guard_costume player Alex
+/es kits access guard_costume operators
+```
+
+Account names and nicknames work for player recipients. Giving to somebody else, all players or NPCs requires actual op; operators may gift even when the recipient cannot self-claim. If a player name matches a kit ID, use `player:Alex`. Everyone means all eligible self-claimants; `*` gives a kit to all online real players immediately. Claims have no price/cooldown/one-use limit. Busy/dead recipients must be resolved before a grant proceeds.
 
 Editor slots 0–35 are hotbar/storage, 36 boots, 37 leggings, 38 chestplate, 39 helmet and 40 offhand. The footer contains controls and is never saved as kit contents. Commands also work: `/es kit create <id>` creates a blank kit, `/es kit save <id>` copies your inventory, `/es kit edit <id>` opens its editor and `/es kit apply <id>` equips it.
 
 ### Import from another plugin
 
-In the library click **Import kits**, choose an installed provider, then choose a kit. EasyScripting generates an unused destination ID and opens the imported kit for editing. Supported providers are **PlayerKits 2**, **legacy PlayerKits**, **EssentialsX** and **CMI**. They must already be installed/enabled and allowed in `kits.yml`. EasyScripting's adapter code is included in its JAR; it does not bundle those other plugins.
+In the library click **Import kits**, choose an installed provider, then choose one kit or **Import all kits**. Single imports generate an unused ID and open the editor. Bulk imports process one kit per tick, preserve existing kits, and report imported/failed counts. Use **Stop import** or `/es kits cancelimport` to cancel; completed imports stay saved. Disconnecting, losing op, disabling kits or shutdown also stops the batch. Repeating an import creates new suffixed IDs rather than updating old kits.
+
+Supported providers are **PlayerKits 2**, **legacy PlayerKits**, **EssentialsX** and **CMI**. They must already be installed/enabled and allowed in `kits.yml`. EasyScripting's adapter code is included; it does not bundle those other plugins.
 
 ```text
 /es kits imports
@@ -317,6 +326,8 @@ In the library click **Import kits**, choose an installed provider, then choose 
 /es kits import PlayerKits starter imported_legacy
 /es kits import Essentials tools imported_tools
 /es kits import CMI starter imported_cmi
+/es kits importall PlayerKits2
+/es kits cancelimport
 ```
 
 Imports read item definitions without claiming the kit, executing reward commands or charging currency. Provider item conversion preserves supported item metadata. PlayerKits auto-armor/offhand and CMI armor/offhand slots are retained; Essentials supports ordinary item metadata, serialized items and explicit slots. Player-specific placeholder values are resolved for the importing player and then saved. Claims, permissions, cooldowns, prices and commands stay with the original provider. Dynamic/nested formats outside the adapter's supported item definitions produce an error; they are not silently approximated. Oversized kits and conflicting item slots are rejected before saving.
@@ -331,7 +342,7 @@ Use a kit's **Export kit YAML** control or `/es kits export guard_costume`. The 
 /es kits import EasyScripting guard_costume imported_guard
 ```
 
-Use a new destination ID: imports never overwrite an existing kit. This format is EasyScripting's own schema-1 `contents` list, not a generic converter for arbitrary plugin YAML. Keep the destination on a compatible Minecraft version for its serialized items.
+Use a new destination ID: imports never overwrite an existing kit. This is EasyScripting's own schema-1 `contents` list plus its access policy; exports preserve that policy, including a selected player's UUID. Missing policies default to Operators only. Keep the destination on a compatible Minecraft version for serialized items.
 
 ## 10. Customize YAML and menus
 

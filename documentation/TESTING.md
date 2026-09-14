@@ -1,5 +1,15 @@
 # Testing and acceptance
 
+## 0.1.6 validation
+
+109 unit tests pass. Added regression coverage for kit policy defaults, UUID-specific access, live de-op enforcement despite permission grants, legacy apply/list authorization, real disk save/export/import/reload preservation, closed-writer rejection, both claim argument orders, wildcard/actor syntax and ambiguous recipients. Bulk tests cover one kit per step, retained partial progress, cancellation, bounded error details and unique valid IDs. Additional tests cover nested command feedback/exception cleanup, session login policy, shared take retention, and GUI overlap/migration validation.
+
+Build and smoke sources compile against Paper 1.21.8; production also compiles against Paper 1.21.11. The distributable is rebuilt against the baseline and produces Java 21 bytecode. Command-guide coverage checks account for all 30 registered groups plus help and 33 action types, with valid internal links. Project/JAR checks verify the descriptor, version and resources. Existing chat/login and newer-API passenger-teleport deprecations remain.
+
+No Minecraft server/client was launched. Native multiplayer kit GUI behavior, actual installed-provider bulk imports, login/MOTD interaction with other plugins and permanent-deletion event ordering remain in-game acceptance checks. Unit policy/retention tests do not claim native-event coverage. Verify a non-op recipient cannot manage through old/open GUIs, a selected UUID retains access after a nickname change, wildcard claims reject busy/dead recipients before grants, and hide/unload/shutdown retain takes while final NPC deletion removes its take.
+
+Artifact: `build/libs/EasyScripting-0.1.6.jar`. Source companion: `build/libs/EasyScripting-0.1.6-sources.jar`. Old movement command workflows below describe historical versions only; current `/es record` accepts on/off, and NPC movement capture uses actor act/finish.
+
 ## 0.1.5 validation
 
 The build passes **88 unit tests**. New coverage includes repeated lethal damage remaining positive/nonlethal, one-time mortal-default migration, live playback cursor mode changes, operator-only chat policy, old message/GUI migrations, nickname collision/reset/reconnect/message/API parsing, preventing old takes from restoring expired aliases, and isolated PlayerKits2/CMI adapter contracts with item layout/overflow/clone checks. The item fixtures use a minimal ItemStack subclass; they do not claim to validate server item metadata serialization. The existing storage/scheduler/scene suites still pass.

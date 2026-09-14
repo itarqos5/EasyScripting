@@ -149,6 +149,25 @@ Actions sort by tick, preserving YAML order for equal ticks. World positions req
 
 Snapshots restore location/rotation, inventory/equipment, health, food, XP, gamemode/flight/speeds, potion effects, velocity, fire, air, fall state, glow/invisibility/invulnerability/gravity, pose and player control flags. Display/list names are captured; the identity service's underlying profile history/skin policy is separate. Scoreboard membership, custom borders and arbitrary third-party state are not part of a take snapshot.
 
+## Kit access and recording sessions (0.1.6)
+
+`/es kits` exposes a per-kit **Who can claim?** page. Management/gifts use actual operator status; `permissions.yml` kit overrides cannot bypass it. Claiming replaces the 41-slot hotbar/storage/armor/offhand loadout. Access lives alongside `schema: 1` and `contents` in `loadouts/<id>.yml`:
+
+```yaml
+access:
+  mode: operators
+```
+
+Modes are `operators`, `everyone`, or `player`. Player mode also needs `access.player` (a UUID); `access.player-name` is only a display hint. Set it without editing YAML using `/es kits access starter player Alex`. Switching to operators/everyone clears the selected player. Missing policies default to operators; malformed policies never grant public access. Inventory edits and EasyScripting export/import retain the policy. Imported external-provider kits default to operators.
+
+Bulk imports use one shared-engine job, at most one kit per tick, one batch at a time, and the existing `max-provider-kits` cap. IDs receive numeric suffixes when occupied; no existing kit is overwritten. Cancel/de-op/disconnect/feature-disable/shutdown stops further imports and retains completed ones. Saves go through the bounded YAML writer; disk failures are logged and rejected submissions do not create phantom kits.
+
+New GUI controls under `dynamic.controls`: `kits-import-all`, `kits-import-cancel`, `kit-give-player`, `kit-give-actor`, `kit-access`, `kit-access-info`, `kit-access-operators`, `kit-access-everyone`, `kit-access-player`. Their labels are under `dynamic`; `{access}` shows the policy. New pages are `menus.kit-access`, `menus.kit-provider`, `menus.kit-recipients`. Missing defaults are inherited; overlapping controls fail validation. Customized labels are preserved except documented old shipped help/action migrations.
+
+`/es record on` starts server-session mode without capturing snapshots. `recording.yml → motd` is always shown while active; old `change-motd` values are ignored. All non-operator joins/reconnects are refused using `messages.yml → recording-locked`, regardless of the production allow-list or server.bypass. Existing players remain. `/es record off` restores ordinary MOTD/login rules, without removing independent locks/bans. Sessions are memory-only and end on shutdown. Take start/stop use the same session state with participant snapshots.
+
+NPC performances are created with `/actor act` and `/actor finish`; `/es record`'s old movement subcommands are removed. Permanent NPC deletion/death removes its unshared selected take from active storage. Shared takes remain until their last NPC is removed. Hide/unload/disable/shutdown do not delete takes. Removed YAML uses existing trash retention. Successful commands now send descriptive feedback; the existing `success` template controls its style. `feedback.enabled` still controls only sounds.
+
 ## Nicknames and kit imports (0.1.5)
 
 `nicknames.yml`: `schema: 1`, `api-enabled: true`, `api-timeout-millis: 4000` (integer 500–10000), `local-fallback: true`. The fixed HTTPS Random User endpoint generates names; no Minecraft player data is sent in the request. Its response is bounded to 16 KiB, eight candidates and two worker threads with a bounded queue. Disable the API to use the local NPC prefix/suffix pool only. Skin properties are preserved. Nicknames expire on disconnect; stale saved `state/identities.yml` active aliases are cleared at startup.

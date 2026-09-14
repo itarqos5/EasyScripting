@@ -88,6 +88,24 @@ public final class RecordingService implements Listener, AutoCloseable {
           if (playing(id)) stopPlayback(id);
         });
     actors.onSpawned(actor -> requestAutoplay(actor.id()));
+    actors.onDeleted(definition -> deleteUnused(definition.recording));
+  }
+
+  public void deleteUnused(String id) {
+    if (recordings.containsKey(id)
+        && TakeRetention.unused(
+            id, actors.list().stream().map(actor -> actor.definition.recording).toList()))
+      delete(id);
+  }
+
+  public void assign(String actorId, String recording) {
+    if (!recordings.containsKey(recording))
+      throw new IllegalArgumentException("Recording not found.");
+    actors.available(actorId);
+    var actor = actors.get(actorId);
+    String previous = actor.definition.recording;
+    actors.set(actorId, "recording", recording);
+    deleteUnused(previous);
   }
 
   public void autoplay(String actorId, boolean enabled) {

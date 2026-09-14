@@ -29,8 +29,8 @@ permissions:
   easyscripting.player: {description: Change own player state, default: op}
   easyscripting.player.others: {description: Change other players, default: op}
   easyscripting.identity: {description: Set temporary names and skins, default: op}
-  easyscripting.kit: {description: List and apply kits, default: op}
-  easyscripting.kit.edit: {description: Save edit and delete kits, default: op}
+  easyscripting.kit: {description: Browse kits (self-claims use each kit's access setting), default: true}
+  easyscripting.kit.edit: {description: Kit management requires actual operator status, default: op}
   easyscripting.warp: {description: Use permitted warps and spawn, default: op}
   easyscripting.warp.edit: {description: Save and delete warps, default: op}
   easyscripting.warp.admin: {description: Use operator-access warps, default: op}

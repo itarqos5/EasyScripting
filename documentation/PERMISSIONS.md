@@ -2,7 +2,7 @@
 
 Acting as an NPC and playing its selected recording require both `easyscripting.actor` and `easyscripting.record`. Finish/cancel restore the current performer's own session. Actor GUI sections and Hittable/Immortal toggles use `easyscripting.actor`; all buttons still dispatch permission-checked commands.
 
-Every command requires `easyscripting.use`. Permission checks apply to GUI actions too. A permission plugin may grant or deny these nodes; operator status is the default policy for command access. Public chat blocking is the exception: only current operators may speak while blocked.
+Every command requires `easyscripting.use`. Permission checks apply to GUI actions too. Most production nodes default to operators. Kit management/gifting and sending blocked public chat check actual current operator status; granting a permission node cannot bypass these operator rules.
 
 | Node | Default | Capability |
 | --- | --- | --- |
@@ -15,8 +15,8 @@ Every command requires `easyscripting.use`. Permission checks apply to GUI actio
 | `easyscripting.player` | op | Change own player state |
 | `easyscripting.player.others` | op | Change other players |
 | `easyscripting.identity` | op | Set temporary names and skins; use /nickname |
-| `easyscripting.kit` | op | List and apply kits |
-| `easyscripting.kit.edit` | op | Create, save, edit, import, export and delete kits |
+| `easyscripting.kit` | true | Compatibility node; browsing is public and each kit's access policy controls self-claims |
+| `easyscripting.kit.edit` | op | Compatibility node; management, access changes, importing and gifting require actual operator status |
 | `easyscripting.warp` | op | Use permitted warps and spawn |
 | `easyscripting.warp.edit` | op | Save and delete warps |
 | `easyscripting.warp.admin` | op | Use operator-access warps |
@@ -54,7 +54,7 @@ The inventory permission grants inspection, duplication through restocking, roll
 
 ## Editable feature access
 
-`permissions.yml` can override the following suffixes: actor, scene.play, scene.edit, record, player, identity, kit, kit.edit, warp, warp.edit, items, inventory, locks, death, chat, world, world.edit, team, villager, effects and voice.
+`permissions.yml` can override the following suffixes: actor, scene.play, scene.edit, record, player, identity, warp, warp.edit, items, inventory, locks, death, chat, world, world.edit, team, villager, effects and voice. Legacy kit/kit.edit overrides are ignored in 0.1.6; kit access has its own controls.
 
 Example:
 
@@ -67,8 +67,14 @@ overrides:
 
 Use `/es permissions scene.play production.director` or the permission GUI. Admin, destructive, command execution and bypass nodes cannot be overridden to `everyone` here. Warp-specific permission rules remain additional checks. Event-driven bypass checks use their explicitly documented nodes.
 
-To delegate a director role, grant use, scene.play, scene.edit, actor, record, kit, kit.edit, player, effects and the other feature nodes they need. Grant player.others only when that director may control other performers. Grant command/destructive nodes individually when the production requires them.
+To delegate a director role, grant use, scene.play, scene.edit, actor, record, player, effects and other feature nodes they need. Kit management still requires an operator. Grant player.others only when that director may control other performers. Grant command/destructive nodes individually when required.
 
 Autoplay configuration requires both `easyscripting.actor` and `easyscripting.record`, like manual NPC playback. Runtime autoplay follows the saved actor configuration and feature switches; it does not execute commands or use a logged-out director's permissions. Hittable/Immortal changes require `easyscripting.actor` and are allowed during replay.
 
-`/nickname` requires `identity`; targeting another real player or `/nickname off` additionally requires `player.others`. Resets remain available when the identity feature is disabled. Kits require `kit`, and importing/exporting/editing also requires `kit.edit`. Save & equip checks both permissions. Nicknames cannot target Citizens NPCs.
+`/nickname` requires `identity`; targeting another real player or `/nickname off` additionally requires `player.others`. Resets remain available when the identity feature is disabled. Nicknames cannot target Citizens NPCs.
+
+## Kit access in 0.1.6
+
+Actual operators can create, edit, delete, import/export, change access and give kits to another player, every online player or an actor. Non-operators can browse and self-claim only kits whose policy allows them. Policies are **Operators only**, **Everyone**, or **One selected UUID + operators**. New/legacy/provider-imported kits default to Operators only; an EasyScripting export carries its saved policy. Changes remain effective after nickname changes/reconnects. Switching away from specific-player access clears the previous UUID.
+
+`/es kits claim` and the older `/es kit apply` enforce the same policy. Operator gifting intentionally bypasses the recipient's self-claim restriction. GUI clicks recheck operator status and policies; a menu opened while op does not retain management rights after de-op. Neither `kit.edit` grants nor `permissions.yml` overrides can make a non-operator a kit manager. See [kit commands and examples](COMMANDS.md#kits).

@@ -2,7 +2,9 @@ package dev.easyscripting.gui;
 
 import dev.easyscripting.actors.ActorService;
 import dev.easyscripting.config.*;
+import dev.easyscripting.items.KitAccess;
 import dev.easyscripting.items.KitService;
+import dev.easyscripting.players.IdentityService;
 import dev.easyscripting.players.PlayerService;
 import dev.easyscripting.recording.ActingService;
 import dev.easyscripting.recording.RecordingService;
@@ -282,7 +284,7 @@ public final class MenuService implements Listener, AutoCloseable {
         listing(
             p,
             menu,
-            kits.ids(),
+            kits.ids(p),
             page,
             Material.CHEST,
             id -> kitDetails(p, id),
@@ -292,7 +294,7 @@ public final class MenuService implements Listener, AutoCloseable {
                     p,
                     "kit create",
                     "Enter a new kit ID. Then import your inventory or edit its slots."));
-        if (p.getOpenInventory().getTopInventory().getHolder() instanceof MenuHolder h)
+        if (p.isOp() && p.getOpenInventory().getTopInventory().getHolder() instanceof MenuHolder h)
           control(h, "kits-import", 40, Material.HOPPER, c -> kitImportMenu(p));
       }
       case "warps" -> {
@@ -309,9 +311,11 @@ public final class MenuService implements Listener, AutoCloseable {
       }
       case "recording" -> {
         access.require(p, "record");
-        listing(
+        settings.require("recording");
+        picker(
             p,
-            menu,
+            "recording",
+            "NPC performances",
             recordings.ids(),
             page,
             Material.CLOCK,
@@ -322,17 +326,13 @@ public final class MenuService implements Listener, AutoCloseable {
                     actors.ids(),
                     0,
                     Material.PLAYER_HEAD,
-                    actor -> {
-                      command(p, "actor recording " + actor + " " + id);
-                      actor(p, actor, "acting");
+                    actorId -> {
+                      command(p, "actor recording " + actorId + " " + id);
+                      actor(p, actorId, "acting");
                     },
                     () -> open(p, "recording", page)),
-            id -> "record delete " + id,
-            () ->
-                prompt(
-                    p,
-                    "record start",
-                    "Enter a movement recording identifier; use /es record stop to finish."));
+            () -> open(p, "main", 0),
+            h -> {});
       }
       case "teams" -> {
         access.require(p, "team");
@@ -427,6 +427,7 @@ public final class MenuService implements Listener, AutoCloseable {
       int slot = slots.get(i);
       String entryPath = "entries." + menu;
       String detail = menu.equals("scenes") ? scenes.status(id) : id;
+      if (menu.equals("kits")) detail = kitAccessDescription(id);
       String display = id;
       if (menu.equals("actors")) {
         var a = actors.get(id);
@@ -440,7 +441,11 @@ public final class MenuService implements Listener, AutoCloseable {
       }
       String entryDetail = detail;
       List<String> lore =
-          settings.file("guis").getStringList(entryPath + ".lore").stream()
+          settings
+              .file("guis")
+              .getStringList(
+                  entryPath + (menu.equals("kits") && !p.isOp() ? ".claim-lore" : ".lore"))
+              .stream()
               .map(line -> line.replace("{detail}", entryDetail).replace("{id}", id))
               .toList();
       h.inventory.setItem(
@@ -455,7 +460,8 @@ public final class MenuService implements Listener, AutoCloseable {
       h.actions.put(
           slot,
           click -> {
-            if (click == ClickType.SHIFT_RIGHT)
+            if (menu.equals("kits") && !p.isOp()) select.accept(id);
+            else if (click == ClickType.SHIFT_RIGHT)
               confirm(
                   p,
                   id,
@@ -468,13 +474,14 @@ public final class MenuService implements Listener, AutoCloseable {
             else select.accept(id);
           });
     }
-    button(
-        h,
-        settings.file("guis").getInt("dynamic.create-slot"),
-        Material.LIME_DYE,
-        settings.file("guis").getString("entries." + menu + ".create", label("create-name")),
-        settings.file("guis").getStringList("dynamic.create-lore"),
-        c -> create.run());
+    if (!menu.equals("kits") || p.isOp())
+      button(
+          h,
+          settings.file("guis").getInt("dynamic.create-slot"),
+          Material.LIME_DYE,
+          settings.file("guis").getString("entries." + menu + ".create", label("create-name")),
+          settings.file("guis").getStringList("dynamic.create-lore"),
+          c -> create.run());
     if (ids.isEmpty())
       h.inventory.setItem(
           layout("empty-slot"),
@@ -483,7 +490,12 @@ public final class MenuService implements Listener, AutoCloseable {
               settings
                   .file("guis")
                   .getString("entries." + menu + ".empty", "<white>Nothing saved yet"),
-              settings.file("guis").getStringList("layout.empty-lore")));
+              settings
+                  .file("guis")
+                  .getStringList(
+                      menu.equals("kits") && !p.isOp()
+                          ? "entries.kits.claim-empty-lore"
+                          : "layout.empty-lore")));
     navigation(p, h, menu, page, ids.size());
     show(p, h);
   }
@@ -546,9 +558,22 @@ public final class MenuService implements Listener, AutoCloseable {
       Material material,
       Consumer<String> select,
       Runnable back) {
+    picker(p, "picker", title, ids, requested, material, select, back, h -> {});
+  }
+
+  private void picker(
+      Player p,
+      String menu,
+      String title,
+      List<String> ids,
+      int requested,
+      Material material,
+      Consumer<String> select,
+      Runnable back,
+      Consumer<MenuHolder> decorate) {
     int page = Math.max(0, Math.min(requested, Math.max(0, (ids.size() - 1) / slots().size())));
-    MenuHolder h = base(p, "picker", title, page);
-    h.refresh = () -> picker(p, title, ids, page, material, select, back);
+    MenuHolder h = base(p, menu, title, page);
+    h.refresh = () -> picker(p, menu, title, ids, page, material, select, back, decorate);
     h.actions.put(layout("back-slot"), c -> back.run());
     for (int i = 0; i < slots().size() && page * slots().size() + i < ids.size(); i++) {
       String id = ids.get(page * slots().size() + i);
@@ -569,10 +594,12 @@ public final class MenuService implements Listener, AutoCloseable {
               settings.file("guis").getStringList("layout.picker-empty-lore")));
     if (page > 0)
       h.actions.put(
-          layout("previous-slot"), c -> picker(p, title, ids, page - 1, material, select, back));
+          layout("previous-slot"),
+          c -> picker(p, menu, title, ids, page - 1, material, select, back, decorate));
     if ((page + 1) * slots().size() < ids.size())
       h.actions.put(
-          layout("next-slot"), c -> picker(p, title, ids, page + 1, material, select, back));
+          layout("next-slot"),
+          c -> picker(p, menu, title, ids, page + 1, material, select, back, decorate));
     for (String key : List.of("previous", "next"))
       if (h.actions.containsKey(layout(key + "-slot")))
         h.inventory.setItem(
@@ -581,6 +608,7 @@ public final class MenuService implements Listener, AutoCloseable {
                 Material.ARROW,
                 settings.file("guis").getString("layout." + key + "-name"),
                 List.of()));
+    decorate.accept(h);
     show(p, h);
   }
 
@@ -793,6 +821,7 @@ public final class MenuService implements Listener, AutoCloseable {
                       h.refresh.run();
                     },
                     h.refresh));
+        if (!p.isOp()) disabled(h, "actor-kit", "Only operators can give kits to NPCs.");
         control(
             h,
             "actor-skin",
@@ -1113,6 +1142,7 @@ public final class MenuService implements Listener, AutoCloseable {
   }
 
   public void kitEditor(Player p, String id) {
+    settings.require("kits");
     access.require(p, "kit.edit");
     MenuHolder h = base(p, "kit-editor", id, 0);
     h.kitId = id;
@@ -1128,6 +1158,7 @@ public final class MenuService implements Listener, AutoCloseable {
         Material.EMERALD,
         c -> {
           access.require(p, "kit.edit");
+          settings.require("kits");
           kits.save(id, Arrays.copyOf(h.inventory.getContents(), 41));
           open(p, "kits", 0);
         });
@@ -1143,6 +1174,8 @@ public final class MenuService implements Listener, AutoCloseable {
               "confirm-import",
               "the draft slots",
               () -> {
+                access.require(p, "kit.edit");
+                settings.require("kits");
                 ItemStack[] inventory = p.getInventory().getContents();
                 for (int i = 0; i < 41; i++)
                   h.inventory.setItem(i, inventory[i] == null ? null : inventory[i].clone());
@@ -1158,6 +1191,7 @@ public final class MenuService implements Listener, AutoCloseable {
         c -> {
           access.require(p, "kit.edit");
           access.require(p, "kit");
+          settings.require("kits");
           players.available(p.getUniqueId());
           kits.save(id, Arrays.copyOf(h.inventory.getContents(), 41));
           kits.apply(id, p);
@@ -1171,12 +1205,18 @@ public final class MenuService implements Listener, AutoCloseable {
   }
 
   public void kitDetails(Player p, String id) {
+    settings.require("kits");
     access.require(p, "kit");
-    kits.contents(id);
+    kits.requireClaim(id, p);
     MenuHolder h = base(p, "kit-details", id, 0);
     h.refresh = () -> kitDetails(p, id);
     h.actions.put(layout("back-slot"), c -> open(p, "kits", 0));
-    control(h, "kit-apply", 11, Material.LIME_CONCRETE, c -> command(p, "kit apply " + id));
+    control(h, "kit-apply", 11, Material.LIME_CONCRETE, c -> command(p, "kits claim " + id));
+    if (!p.isOp()) {
+      kitPlaceholders(h, id);
+      show(p, h);
+      return;
+    }
     control(h, "kit-edit", 13, Material.ANVIL, c -> kitEditor(p, id));
     control(
         h,
@@ -1190,6 +1230,8 @@ public final class MenuService implements Listener, AutoCloseable {
               "confirm-import",
               "kit '" + id + "'",
               () -> {
+                access.require(p, "kit.edit");
+                settings.require("kits");
                 kits.save(id, p);
                 kitEditor(p, id);
               },
@@ -1207,15 +1249,22 @@ public final class MenuService implements Listener, AutoCloseable {
               p,
               id,
               () -> {
+                access.require(p, "kit.edit");
+                settings.require("kits");
                 kits.delete(id);
                 open(p, "kits", 0);
               },
               h.refresh);
         });
+    control(h, "kit-access", 31, Material.TRIPWIRE_HOOK, c -> kitAccessMenu(p, id));
+    control(h, "kit-give-player", 20, Material.PLAYER_HEAD, c -> kitRecipientMenu(p, id, false));
+    control(h, "kit-give-actor", 24, Material.ARMOR_STAND, c -> kitRecipientMenu(p, id, true));
+    kitPlaceholders(h, id);
     show(p, h);
   }
 
   public void kitImportMenu(Player p) {
+    settings.require("kits");
     access.require(p, "kit.edit");
     picker(
         p,
@@ -1223,31 +1272,176 @@ public final class MenuService implements Listener, AutoCloseable {
         kitImports.sources(),
         0,
         Material.HOPPER,
-        source ->
-            picker(
-                p,
-                "Import from " + source,
-                kitImports.names(source),
-                0,
-                Material.CHEST,
-                name -> {
-                  access.require(p, "kit.edit");
-                  String base =
-                      (source + "_" + name).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
-                  base = base.substring(0, Math.min(40, base.length()));
-                  String destination = base;
-                  for (int suffix = 2; kits.ids().contains(destination); suffix++)
-                    destination = base + "_" + suffix;
-                  kitImports.importKit(source, name, destination, p);
-                  messages.ok(
-                      p,
-                      "Imported items as '"
-                          + destination
-                          + "'. Provider commands, prices and cooldowns are not copied.");
-                  kitEditor(p, destination);
-                },
-                () -> kitImportMenu(p)),
+        source -> kitProviderMenu(p, source),
         () -> open(p, "kits", 0));
+  }
+
+  private void kitProviderMenu(Player p, String source) {
+    access.require(p, "kit.edit");
+    settings.require("kits");
+    picker(
+        p,
+        "kit-provider",
+        source,
+        kitImports.names(source),
+        0,
+        Material.CHEST,
+        name -> {
+          access.require(p, "kit.edit");
+          String destination = kitImports.destination(source, name);
+          kitImports.importKit(source, name, destination, p);
+          messages.ok(
+              p,
+              "Imported items as '"
+                  + destination
+                  + "'. Review its access settings before sharing.");
+          kitEditor(p, destination);
+        },
+        () -> kitImportMenu(p),
+        h -> {
+          control(
+              h,
+              "kits-import-all",
+              40,
+              Material.CHEST_MINECART,
+              c -> {
+                access.require(p, "kit.edit");
+                kitImports.importAll(source, p);
+                kitProviderMenu(p, source);
+              });
+          control(
+              h,
+              "kits-import-cancel",
+              42,
+              Material.RED_CONCRETE,
+              c -> {
+                access.require(p, "kit.edit");
+                kitImports.cancel();
+                kitProviderMenu(p, source);
+              });
+          if (kitImports.importing())
+            disabled(h, "kits-import-all", "An import is running. Reopen this page to refresh.");
+          else disabled(h, "kits-import-cancel", "No import is running.");
+        });
+  }
+
+  private void kitRecipientMenu(Player p, String id, boolean npc) {
+    settings.require("kits");
+    access.require(p, "kit.edit");
+    List<String> ids = new ArrayList<>();
+    Map<String, UUID> recipients = new HashMap<>();
+    if (npc) ids.addAll(actors.ids());
+    else {
+      ids.add("* (all online players)");
+      Bukkit.getOnlinePlayers().stream()
+          .filter(IdentityService::realPlayer)
+          .forEach(
+              player -> {
+                ids.add(player.getName());
+                recipients.put(player.getName(), player.getUniqueId());
+              });
+    }
+    picker(
+        p,
+        "kit-recipients",
+        id,
+        ids,
+        0,
+        npc ? Material.ARMOR_STAND : Material.PLAYER_HEAD,
+        recipient -> {
+          String target =
+              npc
+                  ? "actor:" + recipient
+                  : recipient.startsWith("*") ? "*" : "player:" + recipients.get(recipient);
+          command(p, "kits claim " + id + " " + target);
+        },
+        () -> kitDetails(p, id),
+        h -> {});
+  }
+
+  public void kitAccessMenu(Player p, String id) {
+    settings.require("kits");
+    access.require(p, "kit.edit");
+    kits.contents(id);
+    MenuHolder h = base(p, "kit-access", id, 0);
+    h.refresh = () -> kitAccessMenu(p, id);
+    h.actions.put(layout("back-slot"), c -> kitDetails(p, id));
+    control(h, "kit-access-info", 13, Material.PAPER, c -> {});
+    control(
+        h,
+        "kit-access-operators",
+        20,
+        Material.REDSTONE_TORCH,
+        c -> {
+          command(p, "kits access " + id + " operators");
+          h.refresh.run();
+        });
+    control(
+        h,
+        "kit-access-everyone",
+        22,
+        Material.GRASS_BLOCK,
+        c -> {
+          command(p, "kits access " + id + " everyone");
+          h.refresh.run();
+        });
+    control(
+        h,
+        "kit-access-player",
+        24,
+        Material.PLAYER_HEAD,
+        c -> {
+          access.require(p, "kit.edit");
+          Map<String, UUID> online = new TreeMap<>();
+          Bukkit.getOnlinePlayers().stream()
+              .filter(IdentityService::realPlayer)
+              .forEach(player -> online.put(player.getName(), player.getUniqueId()));
+          picker(
+              p,
+              "Choose the allowed player",
+              List.copyOf(online.keySet()),
+              0,
+              Material.PLAYER_HEAD,
+              name -> {
+                command(p, "kits access " + id + " player " + online.get(name));
+                h.refresh.run();
+              },
+              h.refresh);
+        });
+    try {
+      KitAccess.Mode mode = kits.access(id).mode();
+      selected(h, controlSlot("kit-access-operators", 20), mode == KitAccess.Mode.OPERATORS);
+      selected(h, controlSlot("kit-access-everyone", 22), mode == KitAccess.Mode.EVERYONE);
+      selected(h, controlSlot("kit-access-player", 24), mode == KitAccess.Mode.PLAYER);
+    } catch (IllegalArgumentException ignored) {
+      /* Operators can repair malformed access here. */
+    }
+    kitPlaceholders(h, id);
+    show(p, h);
+  }
+
+  private String kitAccessDescription(String id) {
+    try {
+      return kits.access(id).description();
+    } catch (IllegalArgumentException ex) {
+      return "Invalid access; operator repair required";
+    }
+  }
+
+  private void kitPlaceholders(MenuHolder h, String id) {
+    var replacement =
+        net.kyori.adventure.text.TextReplacementConfig.builder()
+            .matchLiteral("{access}")
+            .replacement(kitAccessDescription(id))
+            .build();
+    for (ItemStack item : h.inventory.getContents()) {
+      if (item == null || !item.hasItemMeta()) continue;
+      var meta = item.getItemMeta();
+      if (meta.hasDisplayName()) meta.displayName(meta.displayName().replaceText(replacement));
+      if (meta.hasLore())
+        meta.lore(meta.lore().stream().map(line -> line.replaceText(replacement)).toList());
+      item.setItemMeta(meta);
+    }
   }
 
   public void prompt(Player p, String prefix, String question) {

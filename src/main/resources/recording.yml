@@ -3,8 +3,9 @@ playback:
   # Let real hits move the NPC, then blend it back onto its recorded path.
   knockback-pause-ticks: 12
   return-to-route-ticks: 10
-change-motd: true
-motd: '<red>● Recording in progress <gray>— EasyScripting'
+# /es record on always displays this MOTD and blocks non-operator logins, including reconnects.
+# /es record off returns to the normal MOTD and ordinary server login rules.
+motd: '<red>● This server is in a recording session <gray>— EasyScripting'
 voice:
   # Microphone data is not recorded or stored.
   mute-on-session: false

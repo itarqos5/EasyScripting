@@ -26,6 +26,26 @@ public final class ProductionCommands {
       VillagerService villagers,
       VoiceBridge voice) {
     router.add(
+        "record",
+        "record",
+        "on|off",
+        (sender, args) -> {
+          if (args.size() != 1 || !List.of("on", "off").contains(args.get(0)))
+            throw new IllegalArgumentException(
+                "Use /es record on or off for a server recording session. Record NPC movement with"
+                    + " /actor act <id>, then /actor finish.");
+          boolean enabled = args.get(0).equals("on");
+          moderation.recording(enabled);
+          messages.ok(
+              sender,
+              enabled
+                  ? "Recording session is ON. The recording MOTD is shown; only operators can join"
+                      + " or reconnect."
+                  : "Recording session is OFF. Normal MOTD and server login rules are restored.");
+        },
+        "on",
+        "off");
+    router.add(
         "world",
         "world",
         "time|weather|border|top|clean|limit|lock|allow ...",

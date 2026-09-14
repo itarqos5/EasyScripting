@@ -13,8 +13,6 @@ public final class Access {
           "record",
           "player",
           "identity",
-          "kit",
-          "kit.edit",
           "warp",
           "warp.edit",
           "items",
@@ -35,6 +33,8 @@ public final class Access {
 
   public boolean allowed(CommandSender sender, String node) {
     String suffix = node.startsWith("easyscripting.") ? node.substring(14) : node;
+    if (suffix.equals("kit.edit")) return sender.isOp();
+    if (suffix.equals("kit")) return true; // Individual kit policies control self-claims.
     String rule =
         EDITABLE.contains(suffix)
             ? settings.file("permissions").getString("overrides." + suffix, node)

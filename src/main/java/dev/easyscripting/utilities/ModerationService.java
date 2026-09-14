@@ -26,6 +26,7 @@ public final class ModerationService implements Listener, AutoCloseable {
   private volatile List<String> filters = List.of();
   private volatile boolean allowRecordingChat;
   private volatile Component blockedMessage = Component.empty();
+  private volatile Component recordingMotd = Component.empty();
   private final Set<UUID> participants = new HashSet<>();
   private dev.easyscripting.integration.VoiceBridge voice =
       dev.easyscripting.integration.VoiceBridge.absent();
@@ -57,10 +58,21 @@ public final class ModerationService implements Listener, AutoCloseable {
             .toList();
     allowRecordingChat = settings.file("recording").getBoolean("allow-chat");
     blockedMessage = messages.text("chat-blocked", Map.of("detail", ""));
+    recordingMotd =
+        Messages.rich(
+            settings
+                .file("recording")
+                .getString("motd", "<red>This server is in a recording session."));
   }
 
   public boolean recording() {
     return recording;
+  }
+
+  public void recording(boolean enabled) {
+    if (enabled == recording) return;
+    if (enabled) recordingStart("session", List.of());
+    else recordingStop(true);
   }
 
   public void recordingStart(String name, Collection<? extends Player> cast) {
@@ -207,6 +219,12 @@ public final class ModerationService implements Listener, AutoCloseable {
 
   @EventHandler(priority = EventPriority.HIGHEST)
   public void login(PlayerLoginEvent e) {
+    if (RecordingSessionPolicy.blocksLogin(recording, e.getPlayer().isOp())) {
+      e.disallow(
+          PlayerLoginEvent.Result.KICK_WHITELIST,
+          messages.text("recording-locked", Map.of("detail", recordingName)));
+      return;
+    }
     if (!settings.file("moderation").getBoolean("server-lock.enabled")
         || e.getPlayer().hasPermission("easyscripting.server.bypass")) return;
     if (settings.file("moderation").getStringList("server-lock.allowed").stream()
@@ -276,10 +294,7 @@ public final class ModerationService implements Listener, AutoCloseable {
 
   @EventHandler
   public void ping(ServerListPingEvent e) {
-    if (recording && settings.file("recording").getBoolean("change-motd"))
-      e.motd(
-          Messages.rich(
-              settings.file("recording").getString("motd", "<red>Recording in progress")));
+    if (recording) e.motd(recordingMotd);
   }
 
   @EventHandler

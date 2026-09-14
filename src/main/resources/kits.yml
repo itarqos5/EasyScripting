@@ -7,3 +7,7 @@ providers:
   CMI: true
 max-provider-kits: 1000
 # EasyScripting exports live in plugins/EasyScripting/kit-exports/.
+# Bulk imports run one kit per server tick, with one active batch at a time.
+# Management/gifting always require actual operator status.
+# Claim access is stored per kit under loadouts/<id>.yml, not in permissions.yml.
+# Missing access policies default to operators only. Use /es kits access <id> ... to change.

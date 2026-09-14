@@ -145,44 +145,11 @@ public final class EasyScriptingPlugin extends JavaPlugin {
               locks,
               menus)) getServer().getPluginManager().registerEvents(listener, this);
       CommandRouter router = new CommandRouter(this, access, messages);
-      KitImports imports = new KitImports(kits, settings);
+      KitImports imports = own(new KitImports(kits, settings, ticks, messages));
       menus.kitImports(imports);
-      router.add(
-          "kits",
-          "kit",
-          "[import <provider> <kit> [new-id] | imports | export <id>]",
-          (sender, args) -> {
-            settings.require("kits");
-            if (args.size() == 0) {
-              menus.open(Args.player(sender), "kits", 0);
-              return;
-            }
-            access.require(sender, "kit.edit");
-            switch (args.get(0)) {
-              case "imports" -> menus.kitImportMenu(Args.player(sender));
-              case "import" -> {
-                String destination = args.get(3, args.get(2).toLowerCase(Locale.ROOT));
-                imports.importKit(args.get(1), args.get(2), destination, Args.player(sender));
-                messages.ok(sender, "Imported kit '" + destination + "'. Only items are copied.");
-              }
-              case "export" -> {
-                kits.export(args.get(1));
-                messages.ok(
-                    sender,
-                    "Export queued: plugins/EasyScripting/kit-exports/" + args.get(1) + ".yml");
-              }
-              default ->
-                  throw new IllegalArgumentException(
-                      "Use /es kits, /es kits imports, import or export.");
-            }
-          },
-          (sender, args) -> {
-            if (args.size() == 1) return List.of("imports", "import", "export");
-            if (args.get(0).equals("export")) return kits.ids();
-            if (args.size() == 2 && args.get(0).equals("import")) return imports.sources();
-            if (args.size() == 3 && args.get(0).equals("import")) return imports.names(args.get(1));
-            return List.of();
-          });
+      KitClaims claims = new KitClaims(kits, players, actors, nicknames, access);
+      KitCommands.register(
+          router, access, settings, messages, kits, claims, imports, actors, menus);
       router.add(
           "nickname",
           "identity",

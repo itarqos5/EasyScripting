@@ -258,16 +258,16 @@ menus:
         slot: 11
         material: "REDSTONE_BLOCK"
         name: "<white>Start session"
-        lore: ["<gray>Begin a coordinated production take.","","<yellow>Click to select"]
-        action: "input take start"
+        lore: ["<gray>Show the recording MOTD.","<gray>Only operators may join or reconnect.","<yellow>Click to turn recording ON."]
+        action: "command record on"
         permission: "record"
         prompt: "Enter a session identifier and optional self or all."
       stop:
         slot: 15
         material: "RECOVERY_COMPASS"
-        name: "<white>Stop session & reset"
-        lore: ["<gray>End the session and restore its players.","","<yellow>Click to select"]
-        action: "command take stop reset"
+        name: "<white>Stop recording session"
+        lore: ["<gray>Restore normal MOTD and login rules.","<gray>Existing independent server locks still apply.","<yellow>Click to turn recording OFF."]
+        action: "command record off"
         permission: "record"
       mute:
         slot: 20
@@ -447,7 +447,7 @@ menus:
     title: "<dark_gray>Recordings · {page}"
     heading: "<white><bold>Recordings · {page}"
     material: "CLOCK"
-    description: ["<gray>Choose a saved take, then select an NPC.","<gray>Use the green button below to create one.","<gray>Shift-right click an entry to delete it."]
+    description: ["<gray>Choose a saved take, then select an NPC.","<gray>Create takes with /actor act and /actor finish.","<gray>Unshared takes are removed with their NPC."]
   scenes:
     title: "<dark_gray>Scenes · {page}"
     heading: "<white><bold>Scenes · {page}"
@@ -457,7 +457,7 @@ menus:
     title: "<dark_gray>Costumes & kits · {page}"
     heading: "<white><bold>Costumes & kits · {page}"
     material: "CHEST"
-    description: ["<gray>Click to apply; right click to edit a copy.","<gray>Use the green button below to create one.","<gray>Shift-right click an entry to delete it."]
+    description: ["<gray>Choose a kit to see its controls and access.","<gray>Claiming replaces your inventory and equipment.","<gray>Operators can create, import and manage kits."]
     parent: "wardrobe"
   warps:
     title: "<dark_gray>Saved locations · {page}"
@@ -529,7 +529,23 @@ menus:
     heading: "<white><bold>{name} · Kit"
     material: "CHEST"
     parent: "kits"
-    description: ["<gray>Equip the kit, edit its slots, or import inventory.","<gray>Export copies a portable YAML file."]
+    description: ["<gray>Who can claim: <white>{access}","<gray>Claiming replaces hotbar, storage, armor and offhand.","<gray>Operators can edit, share or change access."]
+  kit-access:
+    title: "<dark_gray>{name} · Claim access"
+    heading: "<white><bold>Who can claim this kit?"
+    material: "TRIPWIRE_HOOK"
+    parent: "kits"
+    description: ["<gray>Current access: <white>{access}","<gray>Choose one rule. The selected rule glows.","<gray>Operators are always allowed."]
+  kit-provider:
+    title: "<dark_gray>Import · {name} · {page}"
+    heading: "<white><bold>Import from {name}"
+    material: "HOPPER"
+    description: ["<gray>Choose one kit, or Import all kits below.","<gray>Existing kits are kept; new IDs get a suffix.","<gray>Only item definitions are copied."]
+  kit-recipients:
+    title: "<dark_gray>{name} · Give kit"
+    heading: "<white><bold>Choose a recipient"
+    material: "PLAYER_HEAD"
+    description: ["<gray>This replaces the recipient's saved loadout.","<gray>Players receive inventory, armor and offhand.","<gray>Stop NPC playback before changing equipment."]
   actor:
     title: "<dark_gray>{name} · NPC overview"
     heading: "<white><bold>{name} · NPC overview"
@@ -570,8 +586,10 @@ entries:
     lore: ["<gray>ID: <white>{id}","<gray>{detail}","","<yellow>Click to open the timeline","<red>Shift-right click to delete"]
   kits:
     create: "<green>Create a new kit"
-    empty: "<white>No costumes saved yet"
+    empty: "<white>No kits available"
     lore: ["<gray>ID: <white>{id}","<gray>{detail}","","<yellow>Click to manage · Right click to edit","<red>Shift-right click to delete"]
+    claim-lore: ["<gray>ID: <white>{id}","<gray>Who can claim: <white>{detail}","","<yellow>Click for kit details","<gray>Claiming replaces your inventory."]
+    claim-empty-lore: ["<gray>No kits are available to you yet.","<gray>An operator can change a kit's claim access."]
   warps:
     create: "<green>Save my current location"
     empty: "<white>No locations saved yet"
@@ -586,6 +604,42 @@ entries:
     lore: ["<gray>ID: <white>{id}","<gray>{detail}","","<yellow>Click to spawn this template","<red>Shift-right click to delete"]
 dynamic:
   controls:
+    kits-import-all:
+      slot: 40
+      material: "CHEST_MINECART"
+      lore: ["<gray>Import every kit from this provider.","<gray>Runs one kit per tick and reports results.","<gray>Existing kits are kept. Only operators can import."]
+    kits-import-cancel:
+      slot: 42
+      material: "RED_CONCRETE"
+      lore: ["<gray>Stop the active bulk import.","<gray>Already imported kits remain saved."]
+    kit-give-player:
+      slot: 20
+      material: "PLAYER_HEAD"
+      lore: ["<gray>Choose one player or all online players.","<gray>Replaces their inventory and equipment.","<gray>Operator gifts bypass self-claim restrictions."]
+    kit-give-actor:
+      slot: 24
+      material: "ARMOR_STAND"
+      lore: ["<gray>Choose an NPC to receive this costume.","<gray>Stop its replay or acting session first.","<gray>The equipped costume is saved."]
+    kit-access:
+      slot: 31
+      material: "TRIPWIRE_HOOK"
+      lore: ["<gray>Current access: <white>{access}","<gray>Operators, everyone, or one selected player."]
+    kit-access-info:
+      slot: 13
+      material: "PAPER"
+      lore: ["<gray>Current access: <white>{access}","<gray>A selected player is saved by UUID.","<gray>Nickname changes do not change access."]
+    kit-access-operators:
+      slot: 20
+      material: "REDSTONE_TORCH"
+      lore: ["<gray>Only current server operators can claim.","<gray>Clears any previously selected player.","<yellow>Click to select this rule."]
+    kit-access-everyone:
+      slot: 22
+      material: "GRASS_BLOCK"
+      lore: ["<gray>Every player can claim this kit.","<gray>Clears any previously selected player.","<yellow>Click to select this rule."]
+    kit-access-player:
+      slot: 24
+      material: "PLAYER_HEAD"
+      lore: ["<gray>One selected player and all operators.","<gray>Choose the player from those online now.","<yellow>Click to choose or replace the player."]
     kits-import:
       slot: 40
       material: "HOPPER"
@@ -601,7 +655,7 @@ dynamic:
     kit-apply:
       slot: 11
       material: "LIME_CONCRETE"
-      lore: ["<gray>Equip this kit, replacing your inventory."]
+      lore: ["<gray>Replace your inventory, armor and offhand.","<gray>Who can claim: <white>{access}","<yellow>Click to claim this kit."]
     kit-edit:
       slot: 13
       material: "ANVIL"
@@ -866,9 +920,18 @@ dynamic:
   actor-immortal: "<white>Immortal: {state}"
   actor-tablist: "<white>Show in tab list: {state}"
   kits-import: "<aqua>Import kits"
+  kits-import-all: "<green>Import all kits"
+  kits-import-cancel: "<red>Stop import"
+  kit-give-player: "<aqua>Give to player"
+  kit-give-actor: "<aqua>Give to NPC"
+  kit-access: "<yellow>Who can claim?"
+  kit-access-info: "<white>Claim access: {access}"
+  kit-access-operators: "<white>Operators only"
+  kit-access-everyone: "<white>Everyone"
+  kit-access-player: "<white>One player + operators"
   kit-import-inventory: "<aqua>Import my inventory"
   kit-save-apply: "<green>Save & equip"
-  kit-apply: "<green>Equip kit"
+  kit-apply: "<green>Claim kit"
   kit-edit: "<aqua>Edit kit"
   kit-capture: "<aqua>Import my inventory"
   kit-export: "<aqua>Export kit YAML"

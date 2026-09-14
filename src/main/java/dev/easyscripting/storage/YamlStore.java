@@ -17,7 +17,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 /** Disk is owned by one bounded writer. Callers submit detached serialized snapshots. */
 public final class YamlStore implements AutoCloseable {
   private final Path root;
-  private final JavaPlugin plugin;
+  private final java.util.logging.Logger logger;
   private final ThreadPoolExecutor writer =
       new ThreadPoolExecutor(
           1,
@@ -33,8 +33,12 @@ public final class YamlStore implements AutoCloseable {
           new ThreadPoolExecutor.AbortPolicy());
 
   public YamlStore(JavaPlugin plugin) {
-    this.plugin = plugin;
-    root = plugin.getDataFolder().toPath().toAbsolutePath().normalize();
+    this(plugin.getDataFolder().toPath(), plugin.getLogger());
+  }
+
+  public YamlStore(Path directory, java.util.logging.Logger logger) {
+    this.logger = Objects.requireNonNull(logger);
+    root = directory.toAbsolutePath().normalize();
   }
 
   public Path path(String folder, String id) {
@@ -75,7 +79,7 @@ public final class YamlStore implements AutoCloseable {
                 try {
                   result.put(Checks.id(id), read(p));
                 } catch (IllegalArgumentException ex) {
-                  plugin.getLogger().warning(ex.getMessage());
+                  logger.warning(ex.getMessage());
                 }
               });
     } catch (IOException ex) {
@@ -150,12 +154,8 @@ public final class YamlStore implements AutoCloseable {
               operation.run();
               future.complete(null);
             } catch (Exception ex) {
-              plugin
-                  .getLogger()
-                  .log(
-                      Level.SEVERE,
-                      "Data could not be saved; check disk access and free space.",
-                      ex);
+              logger.log(
+                  Level.SEVERE, "Data could not be saved; check disk access and free space.", ex);
               future.completeExceptionally(ex);
             }
           });
@@ -188,14 +188,12 @@ public final class YamlStore implements AutoCloseable {
     writer.shutdown();
     try {
       if (!writer.awaitTermination(15, TimeUnit.SECONDS))
-        plugin
-            .getLogger()
-            .severe(
-                "Storage still draining after 15 seconds; do not terminate Java until writes"
-                    + " finish.");
+        logger.severe(
+            "Storage still draining after 15 seconds; do not terminate Java until writes"
+                + " finish.");
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
-      plugin.getLogger().warning("Interrupted while draining storage.");
+      logger.warning("Interrupted while draining storage.");
     }
   }
 

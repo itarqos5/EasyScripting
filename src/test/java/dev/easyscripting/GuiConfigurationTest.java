@@ -30,6 +30,33 @@ class GuiConfigurationTest {
   }
 
   @Test
+  void kitPagesRejectCollisionsAndAddMissingControlsOnUpgrade() {
+    var old = defaults();
+    old.set("dynamic.controls.kits-import-all", null);
+    old.set("dynamic.controls.kit-access-player", null);
+    old.set("dynamic.kit-access-everyone", "Custom public-kit label");
+    var loaded = GuiSchema.prepare(old, defaults());
+    validate(loaded);
+    assertEquals("Custom public-kit label", loaded.getString("dynamic.kit-access-everyone"));
+    loaded.set("dynamic.controls.kits-import-all.slot", 10);
+    assertThrows(IllegalArgumentException.class, () -> validate(loaded));
+    final var collision = defaults();
+    collision.set("dynamic.controls.kit-access-player.slot", 22);
+    assertThrows(IllegalArgumentException.class, () -> validate(collision));
+  }
+
+  @Test
+  void recordingButtonsMigrateToSessionCommands() {
+    var old = defaults();
+    old.set("menus.production.buttons.start.action", "input take start");
+    old.set("menus.production.buttons.stop.action", "command take stop reset");
+    var migrated = GuiSchema.prepare(old, defaults());
+    assertEquals("command record on", migrated.getString("menus.production.buttons.start.action"));
+    assertEquals("command record off", migrated.getString("menus.production.buttons.stop.action"));
+    validate(migrated);
+  }
+
+  @Test
   void outdatedCombatHelpIsUpdatedWithoutReplacingCustomText() {
     var custom = defaults();
     custom.set(

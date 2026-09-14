@@ -73,9 +73,12 @@ public final class CommandRouter implements CommandExecutor, TabCompleter {
       if (route == null)
         throw new IllegalArgumentException("Unknown command '" + name + "'. Use /es help.");
       access.require(sender, route.permission);
-      route.handler.accept(
-          sender,
-          new Args(args.length == 0 ? new String[0] : Arrays.copyOfRange(args, 1, args.length)));
+      Args values =
+          new Args(args.length == 0 ? new String[0] : Arrays.copyOfRange(args, 1, args.length));
+      try (var response = messages.track(sender)) {
+        route.handler.accept(sender, values);
+        if (!response.responded()) messages.ok(sender, CommandFeedback.describe(name, values));
+      }
       return true;
     } catch (IllegalArgumentException | IllegalStateException ex) {
       messages.error(sender, ex.getMessage());

@@ -173,8 +173,10 @@ public final class ActingService implements Listener, AutoCloseable {
           session.actor.entity().ifPresent(session.actorState::restore);
         }
         if (session.save && recordings.ids().contains(session.recording)) {
+          String previous = session.actor.definition.recording;
           session.actor.definition.recording = session.recording;
           actors.save(session.actor);
+          recordings.deleteUnused(previous);
         }
         if (session.save && session.restoreActor && !closing)
           recordings.requestAutoplay(session.actor.id());
