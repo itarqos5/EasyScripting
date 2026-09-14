@@ -213,7 +213,9 @@ final class ActingSmokeChecks implements CommandExecutor {
           var e = actor().requireEntity();
           e.setNoDamageTicks(0);
           e.damage(1000);
-          check(!e.isDead() && e.getHealth() > 0, "immortal NPC survives lethal hit");
+          check(
+              !e.isDead() && e.getHealth() > 0 && e.getHealth() < 20,
+              "immortal NPC receives positive damage and survives lethal hit");
         }
         case "mortal" -> {
           check(

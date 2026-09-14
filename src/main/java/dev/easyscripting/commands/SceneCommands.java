@@ -146,10 +146,9 @@ public final class SceneCommands {
             }
             case "stop" -> {
               access.require(s, "record");
-              recordings.stopPlayback(a.get(1));
+              recordings.stopActor(a.get(1));
             }
             case "mode" -> {
-              actors.available(a.get(1));
               actors.set(a.get(1), "mode", a.get(2));
             }
             case "autoplay" -> {
@@ -171,7 +170,6 @@ public final class SceneCommands {
               actors.set(a.get(1), "recording", a.get(2));
             }
             case "set" -> {
-              if (!List.of("hittable", "immortal").contains(a.get(2))) actors.available(a.get(1));
               actors.set(a.get(1), a.get(2), a.rest(3));
             }
             case "here" -> actors.teleport(a.get(1), Args.player(s).getLocation());
@@ -208,7 +206,6 @@ public final class SceneCommands {
               String group = a.get(1);
               for (ActorService.ManagedActor actor : actors.list())
                 if (group.equals("*") || actor.group().equals(group)) {
-                  actors.available(actor.id());
                   actors.set(actor.id(), a.get(2), a.rest(3));
                 }
             }
@@ -296,6 +293,7 @@ public final class SceneCommands {
                                             "hittable",
                                             "collidable",
                                             "nametag",
+                                            "tablist",
                                             "look",
                                             "wander",
                                             "pose",

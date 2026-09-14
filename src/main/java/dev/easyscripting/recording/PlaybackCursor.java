@@ -3,7 +3,7 @@ package dev.easyscripting.recording;
 /** Bounded frame index; reversal does not duplicate either endpoint. */
 public final class PlaybackCursor {
   private final int size;
-  private final PlaybackMode mode;
+  private PlaybackMode mode;
   private int index, direction;
 
   public PlaybackCursor(int size, PlaybackMode mode, boolean backwards) {
@@ -16,6 +16,13 @@ public final class PlaybackCursor {
 
   public int index() {
     return index;
+  }
+
+  public void mode(PlaybackMode mode) {
+    if (this.mode == mode) return;
+    this.mode = java.util.Objects.requireNonNull(mode);
+    // Leaving ping-pong playback resumes forward without moving the current frame.
+    if (mode != PlaybackMode.REVERSE) direction = 1;
   }
 
   public boolean advance() {

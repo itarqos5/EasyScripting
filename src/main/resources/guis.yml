@@ -272,16 +272,16 @@ menus:
       mute:
         slot: 20
         material: "RED_DYE"
-        name: "<white>Mute public chat"
-        lore: ["<gray>Pause public chat for the shoot.","","<yellow>Click to select"]
-        action: "command chat mute on"
+        name: "<white>Block public chat"
+        lore: ["<gray>Only operators can speak while blocked.","","<yellow>Click to select"]
+        action: "command chat block on"
         permission: "chat"
       unmute:
         slot: 24
         material: "LIME_DYE"
         name: "<white>Open public chat"
         lore: ["<gray>Allow public chat again.","","<yellow>Click to select"]
-        action: "command chat mute off"
+        action: "command chat block off"
         permission: "chat"
       lock:
         slot: 29
@@ -504,6 +504,11 @@ menus:
     heading: "<white><bold>Delete {name}?"
     material: "BARRIER"
     description: ["<gray>This permanently removes the selected item.","<gray>Choose Keep it to return without deleting."]
+  confirm-import:
+    title: "<dark_gray>Import inventory?"
+    heading: "<white><bold>Import your inventory?"
+    material: "CHEST"
+    description: ["<gray>Replace {name} with your inventory.","<gray>Your own inventory will be kept.","<gray>Back returns without changing the kit."]
   picker:
     title: "<dark_gray>{name} · {page}"
     heading: "<white><bold>{name} · {page}"
@@ -515,10 +520,16 @@ menus:
     material: "CHEST"
     description: ["<gray>This is a read-only view of the inventory.","<gray>Items cannot be taken from this page."]
   kit-editor:
-    title: "<dark_gray>{name} · Edit costume"
-    heading: "<white><bold>{name} · Edit costume"
+    title: "<dark_gray>{name} · Edit kit"
+    heading: "<white><bold>{name} · Edit kit"
     material: "CHEST"
     description: ["<gray>Click your inventory to copy an item.","<gray>Click a kit slot to place; right click clears.","<gray>Slots 0–8: hotbar · 9–35: storage","<gray>36–39: boots, legs, chest, helmet","<gray>40: offhand · Save commits your edits."]
+  kit-details:
+    title: "<dark_gray>{name} · Kit"
+    heading: "<white><bold>{name} · Kit"
+    material: "CHEST"
+    parent: "kits"
+    description: ["<gray>Equip the kit, edit its slots, or import inventory.","<gray>Export copies a portable YAML file."]
   actor:
     title: "<dark_gray>{name} · NPC overview"
     heading: "<white><bold>{name} · NPC overview"
@@ -558,9 +569,9 @@ entries:
     empty: "<white>Your first scene starts here"
     lore: ["<gray>ID: <white>{id}","<gray>{detail}","","<yellow>Click to open the timeline","<red>Shift-right click to delete"]
   kits:
-    create: "<green>Save my inventory as a kit"
+    create: "<green>Create a new kit"
     empty: "<white>No costumes saved yet"
-    lore: ["<gray>ID: <white>{id}","<gray>{detail}","","<yellow>Click to apply · Right click to edit","<red>Shift-right click to delete"]
+    lore: ["<gray>ID: <white>{id}","<gray>{detail}","","<yellow>Click to manage · Right click to edit","<red>Shift-right click to delete"]
   warps:
     create: "<green>Save my current location"
     empty: "<white>No locations saved yet"
@@ -575,6 +586,38 @@ entries:
     lore: ["<gray>ID: <white>{id}","<gray>{detail}","","<yellow>Click to spawn this template","<red>Shift-right click to delete"]
 dynamic:
   controls:
+    kits-import:
+      slot: 40
+      material: "HOPPER"
+      lore: ["<gray>Browse installed kit providers or exported YAML.","<gray>Imports copy items and preserve item metadata.","<gray>Commands, costs and cooldowns are not copied."]
+    kit-import-inventory:
+      slot: 46
+      material: "CHEST"
+      lore: ["<gray>Copy your entire inventory into this draft.","<gray>Your inventory is kept. Click Save when ready."]
+    kit-save-apply:
+      slot: 52
+      material: "LIME_CONCRETE"
+      lore: ["<gray>Save this draft and equip the saved kit.","<gray>This replaces your current inventory."]
+    kit-apply:
+      slot: 11
+      material: "LIME_CONCRETE"
+      lore: ["<gray>Equip this kit, replacing your inventory."]
+    kit-edit:
+      slot: 13
+      material: "ANVIL"
+      lore: ["<gray>Edit kit items and apply your changes."]
+    kit-capture:
+      slot: 15
+      material: "CHEST"
+      lore: ["<gray>Replace this kit with your current inventory.","<gray>You will be asked to confirm."]
+    kit-export:
+      slot: 29
+      material: "PAPER"
+      lore: ["<gray>Save a portable YAML copy in kit-exports/."]
+    kit-delete:
+      slot: 33
+      material: "BARRIER"
+      lore: ["<gray>Delete this saved kit after confirmation."]
     actor-tab-overview:
       slot: 0
       material: "BOOK"
@@ -698,7 +741,7 @@ dynamic:
     actor-stop:
       slot: 33
       material: "RED_CONCRETE"
-      lore: ["<gray>Return the NPC to its starting state.","<gray>Combat damage is kept."]
+      lore: ["<gray>Stop here and turn autoplay OFF.","<gray>Click Play when you want to start again."]
     actor-recording:
       slot: 38
       material: "WRITABLE_BOOK"
@@ -706,7 +749,7 @@ dynamic:
     actor-autoplay:
       slot: 42
       material: "REDSTONE_TORCH"
-      lore: ["<gray>ON: start after saving a performance.","<gray>Also starts when shown, respawned or loaded.","<gray>OFF does not stop an active replay.","<gray>Click to toggle."]
+      lore: ["<gray>ON: start after saving, spawning or loading.","<gray>Choose Repeat or Reverse to run forever.","<gray>Use Stop to stop and turn autoplay OFF.","<gray>Click to toggle."]
     actor-hittable:
       slot: 20
       material: "TARGET"
@@ -714,7 +757,11 @@ dynamic:
     actor-immortal:
       slot: 24
       material: "TOTEM_OF_UNDYING"
-      lore: ["<gray>ON: prevent lethal hits. OFF: this NPC can die.","<gray>Click to toggle."]
+      lore: ["<gray>ON: hits and knockback still work; never die.","<gray>OFF: damage can kill this NPC.","<gray>Click to toggle."]
+    actor-tablist:
+      slot: 40
+      material: "OAK_SIGN"
+      lore: ["<gray>Show this player NPC in the tab list.","<gray>Can be changed during playback.","<gray>Click to toggle."]
     actor-look:
       slot: 29
       material: "ENDER_EYE"
@@ -778,6 +825,8 @@ dynamic:
   cancel-slot: 24
   confirm-name: "<red>Delete permanently"
   cancel-name: "<green>Keep it & go back"
+  confirm-import-name: "<green>Import inventory"
+  cancel-import-name: "<white>Keep current items"
   actor-back: "<white>← Back"
   kit-help: "<gray>Copy an item from your inventory, then click a kit slot. Right click clears. Save below."
   actor-tab-overview: "<aqua>Overview"
@@ -815,6 +864,15 @@ dynamic:
   actor-autoplay: "<aqua>Autoplay: {autoplay}"
   actor-hittable: "<white>Hittable: {state}"
   actor-immortal: "<white>Immortal: {state}"
+  actor-tablist: "<white>Show in tab list: {state}"
+  kits-import: "<aqua>Import kits"
+  kit-import-inventory: "<aqua>Import my inventory"
+  kit-save-apply: "<green>Save & equip"
+  kit-apply: "<green>Equip kit"
+  kit-edit: "<aqua>Edit kit"
+  kit-capture: "<aqua>Import my inventory"
+  kit-export: "<aqua>Export kit YAML"
+  kit-delete: "<red>Delete kit"
   actor-look: "<white>Look at players: {state}"
   actor-wander: "<white>Wander: {state}"
   actor-collidable: "<white>Collision: {state}"

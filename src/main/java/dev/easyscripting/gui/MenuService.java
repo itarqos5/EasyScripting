@@ -40,6 +40,11 @@ public final class MenuService implements Listener, AutoCloseable {
   private final VillagerService villagers;
   private final Map<UUID, Pending> inputs = new ConcurrentHashMap<>();
   private final Set<UUID> viewers = new HashSet<>();
+  private dev.easyscripting.integration.KitImports kitImports;
+
+  public void kitImports(dev.easyscripting.integration.KitImports imports) {
+    this.kitImports = imports;
+  }
 
   private record Pending(String prefix, long expires, Runnable back) {}
 
@@ -280,9 +285,15 @@ public final class MenuService implements Listener, AutoCloseable {
             kits.ids(),
             page,
             Material.CHEST,
-            id -> command(p, "kit apply " + id),
+            id -> kitDetails(p, id),
             id -> "kit delete " + id,
-            () -> prompt(p, "kit save", "Enter the kit identifier to save your inventory."));
+            () ->
+                prompt(
+                    p,
+                    "kit create",
+                    "Enter a new kit ID. Then import your inventory or edit its slots."));
+        if (p.getOpenInventory().getTopInventory().getHolder() instanceof MenuHolder h)
+          control(h, "kits-import", 40, Material.HOPPER, c -> kitImportMenu(p));
       }
       case "warps" -> {
         access.require(p, "warp");
@@ -502,14 +513,18 @@ public final class MenuService implements Listener, AutoCloseable {
   }
 
   private void confirm(Player p, String name, Runnable action, Runnable back) {
-    MenuHolder h = base(p, "confirm", name, 0);
+    confirm(p, "confirm", name, action, back);
+  }
+
+  private void confirm(Player p, String menu, String name, Runnable action, Runnable back) {
+    MenuHolder h = base(p, menu, name, 0);
     h.refresh = back;
     h.actions.put(layout("back-slot"), c -> back.run());
     button(
         h,
         settings.file("guis").getInt("dynamic.confirm-slot"),
         Material.RED_CONCRETE,
-        label("confirm-name"),
+        label(menu.equals("confirm") ? "confirm-name" : "confirm-import-name"),
         c -> {
           p.closeInventory();
           action.run();
@@ -518,7 +533,7 @@ public final class MenuService implements Listener, AutoCloseable {
         h,
         settings.file("guis").getInt("dynamic.cancel-slot"),
         Material.LIME_CONCRETE,
-        label("cancel-name"),
+        label(menu.equals("confirm") ? "cancel-name" : "cancel-import-name"),
         c -> back.run());
     show(p, h);
   }
@@ -801,6 +816,9 @@ public final class MenuService implements Listener, AutoCloseable {
             });
         actorToggle(p, h, id, "glow", definition.glowing, 29, section);
         actorToggle(p, h, id, "nametag", definition.nametag, 33, section);
+        actorToggle(p, h, id, "tablist", definition.tablist, 40, section);
+        if (!definition.type.equals("PLAYER"))
+          disabled(h, "actor-tablist", "Only player NPCs appear in the tab list.");
         if (!definition.type.equals("PLAYER"))
           disabled(h, "actor-skin", "Skins are available for player NPCs.");
       }
@@ -914,18 +932,11 @@ public final class MenuService implements Listener, AutoCloseable {
         }
         if (acting.actor(p).isPresent() || recordings.capturing(p))
           disabled(h, "actor-act", "Finish your current recording first.");
-        if (!recordings.playing(id)) disabled(h, "actor-stop", "This NPC is not playing.");
         if (definition.recording.isBlank() || !recordings.ids().contains(definition.recording))
           disabled(h, "actor-play", "Record a performance or choose a saved one.");
         if (recordings.playing(id) || performing) {
-          for (String key :
-              List.of(
-                  "actor-act",
-                  "actor-play",
-                  "actor-recording",
-                  "actor-mode-stop",
-                  "actor-mode-repeat",
-                  "actor-mode-reverse")) disabled(h, key, "Finish acting or stop playback first.");
+          for (String key : List.of("actor-act", "actor-play", "actor-recording"))
+            disabled(h, key, "Finish acting or stop playback first.");
         }
         if (managed.entity().isEmpty()) {
           disabled(h, "actor-act", "Show or respawn this NPC first.");
@@ -1120,11 +1131,123 @@ public final class MenuService implements Listener, AutoCloseable {
           kits.save(id, Arrays.copyOf(h.inventory.getContents(), 41));
           open(p, "kits", 0);
         });
+    control(
+        h,
+        "kit-import-inventory",
+        46,
+        Material.CHEST,
+        c -> {
+          access.require(p, "kit.edit");
+          confirm(
+              p,
+              "confirm-import",
+              "the draft slots",
+              () -> {
+                ItemStack[] inventory = p.getInventory().getContents();
+                for (int i = 0; i < 41; i++)
+                  h.inventory.setItem(i, inventory[i] == null ? null : inventory[i].clone());
+                show(p, h);
+              },
+              () -> show(p, h));
+        });
+    control(
+        h,
+        "kit-save-apply",
+        52,
+        Material.LIME_CONCRETE,
+        c -> {
+          access.require(p, "kit.edit");
+          access.require(p, "kit");
+          players.available(p.getUniqueId());
+          kits.save(id, Arrays.copyOf(h.inventory.getContents(), 41));
+          kits.apply(id, p);
+          messages.ok(p, "Saved and equipped kit '" + id + "'.");
+        });
     messages.send(
         p,
         "info",
         PlainTextComponentSerializer.plainText().serialize(Messages.rich(label("kit-help"))));
     show(p, h);
+  }
+
+  public void kitDetails(Player p, String id) {
+    access.require(p, "kit");
+    kits.contents(id);
+    MenuHolder h = base(p, "kit-details", id, 0);
+    h.refresh = () -> kitDetails(p, id);
+    h.actions.put(layout("back-slot"), c -> open(p, "kits", 0));
+    control(h, "kit-apply", 11, Material.LIME_CONCRETE, c -> command(p, "kit apply " + id));
+    control(h, "kit-edit", 13, Material.ANVIL, c -> kitEditor(p, id));
+    control(
+        h,
+        "kit-capture",
+        15,
+        Material.CHEST,
+        c -> {
+          access.require(p, "kit.edit");
+          confirm(
+              p,
+              "confirm-import",
+              "kit '" + id + "'",
+              () -> {
+                kits.save(id, p);
+                kitEditor(p, id);
+              },
+              h.refresh);
+        });
+    control(h, "kit-export", 29, Material.PAPER, c -> command(p, "kits export " + id));
+    control(
+        h,
+        "kit-delete",
+        33,
+        Material.BARRIER,
+        c -> {
+          access.require(p, "kit.edit");
+          confirm(
+              p,
+              id,
+              () -> {
+                kits.delete(id);
+                open(p, "kits", 0);
+              },
+              h.refresh);
+        });
+    show(p, h);
+  }
+
+  public void kitImportMenu(Player p) {
+    access.require(p, "kit.edit");
+    picker(
+        p,
+        "Choose a kit provider",
+        kitImports.sources(),
+        0,
+        Material.HOPPER,
+        source ->
+            picker(
+                p,
+                "Import from " + source,
+                kitImports.names(source),
+                0,
+                Material.CHEST,
+                name -> {
+                  access.require(p, "kit.edit");
+                  String base =
+                      (source + "_" + name).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "_");
+                  base = base.substring(0, Math.min(40, base.length()));
+                  String destination = base;
+                  for (int suffix = 2; kits.ids().contains(destination); suffix++)
+                    destination = base + "_" + suffix;
+                  kitImports.importKit(source, name, destination, p);
+                  messages.ok(
+                      p,
+                      "Imported items as '"
+                          + destination
+                          + "'. Provider commands, prices and cooldowns are not copied.");
+                  kitEditor(p, destination);
+                },
+                () -> kitImportMenu(p)),
+        () -> open(p, "kits", 0));
   }
 
   public void prompt(Player p, String prefix, String question) {

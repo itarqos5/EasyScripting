@@ -48,7 +48,7 @@ Every action has a target. `at` and `victim` also accept bindings. Positions nee
 | potion | `effect`; optional `ticks=200;amplifier=0` | player |
 | flag | `name;value`, a supported player control | player |
 | fire | `ticks` (0..12000) | effects |
-| death | Set health to zero; scene reset can respawn an actor | destructive |
+| death | Set health to zero; mortal NPC deaths permanently delete the actor | destructive |
 | fake-death | Sound, hurt animation and particles; no corpse/disconnect | effects |
 | title | `text`; optional `subtitle;ticks=40` | effects |
 | actionbar / message | `text`, MiniMessage | effects / chat |
@@ -72,9 +72,9 @@ Every action has a target. `at` and `victim` also accept bindings. Positions nee
 | `/actor finish`, `/actor cancel` | Save or discard acting and restore your original state |
 | `/actor recording <id> <recording-id>` | Select an existing recording |
 | `/actor autoplay <id> <on\|off>` | Save autoplay preference; enabling starts an available NPC. Requires actor + record. Disabling does not stop an active replay |
-| `/actor mode <id> <stop\|repeat\|reverse>` | Choose final-position stop, teleport-to-start loop, or continuous forward/backward playback |
-| `/actor play <id>`, `/actor stop <id>` | Play selected recording/mode; explicit stop restores starting state while preserving damage received during replay |
-| `/actor set <id> <setting> <value>` | name, skin, group, immortal, hittable, collidable, nametag, look, wander, pose, glow, sneak, sprint |
+| `/actor mode <id> <stop\|repeat\|reverse>` | Choose final-position stop, teleport-to-start loop, or continuous forward/backward playback; change it live after recording |
+| `/actor play <id>`, `/actor stop <id>` | Play selected recording/mode; Stop holds current position, keeps damage and disables autoplay/wandering |
+| `/actor set <id> <setting> <value>` | name, skin, group, immortal, hittable, collidable, nametag, tablist, look, wander, pose, glow, sneak, sprint |
 | `/actor here <id>` | Teleport actor to director |
 | `/actor move <id> [speed]` | Navigate to director's current location |
 | `/actor copy <source> <new-id>` | Copy appearance/equipment here |
@@ -94,7 +94,7 @@ Every action has a target. `at` and `victim` also accept bindings. Positions nee
 
 Actor IDs remain unchanged when a name or skin is edited. `/actor set <id> name <name>` keeps the skin; `/actor set <id> skin <account>` keeps the name and supports hidden PLAYER actors. NPC skin values are Java account names, not PNG/NameMC URLs. Newly resolved signed textures are saved for reuse after restart; repeating the skin command deliberately refreshes them. Copying an actor keeps its appearance; pattern members receive new identities. See [USERGUIDE.md](USERGUIDE.md#2-create-an-npc-with-a-random-identity) for examples and pool customization.
 
-Autoplay defaults to ON, starts after a successful acting save and when an eligible NPC loads, is shown or respawns. Choose the end mode before recording. Stop playback before changing the mode or recording; Hittable, Immortal and Autoplay can be toggled during playback. Acting performers block direct melee damage/knockback but allow falls, projectiles and explosions. Hittable OFF applies the same melee-only restriction to NPCs; Immortal still prevents lethal NPC damage. Actual NPC death deletes the actor permanently, including scripted death actions.
+Autoplay defaults to ON, starts after a successful acting save and when an eligible NPC loads, is shown or respawns. Modes remain selected and editable before/after recording and during replay. Name, skin, random identity, tab-list, Hittable, Immortal and Autoplay can change during playback. Stop before replacing the recording or costume kit. Acting performers block direct melee damage/knockback but allow falls, projectiles and explosions. Hittable OFF applies the same melee-only restriction to NPCs; Immortal retains normal hits/knockback but prevents death; new NPCs default to mortal. Actual NPC death announces its name leaving and deletes the actor permanently, including scripted death actions.
 
 ## Player, takes and inventory
 
@@ -109,7 +109,13 @@ For a valueless operation on someone else, use a placeholder value: `/es player 
 | `/es take snapshot\|reset\|discard` | Your repeatable take |
 | `/es take start <id> [self\|all]` | Capture participants and begin session |
 | `/es take stop [reset\|keep]` | End session, optionally restore |
-| `/es kit save\|apply\|delete\|edit <id>`, `/es kit list` | Saved inventories; GUI editor copies items |
+| `/es kits` | Open the kit library: create, inventory import, edit, save/equip and export |
+| `/es kits imports` | Choose an installed kit provider or EasyScripting YAML export |
+| `/es kits import <provider> <kit> [new-id]` | Import item definitions; providers PlayerKits2, PlayerKits, Essentials, CMI, EasyScripting |
+| `/es kits export <id>` | Save a portable YAML into kit-exports/ |
+| `/es kit create\|save\|apply\|delete\|edit <id>`, `/es kit list` | Blank creation, inventory capture, equip and management; GUI editor copies items |
+| `/nickname <online-player-or-nickname>` | Assign an API-generated temporary username to a real player; also `/es nickname` |
+| `/nickname <player-or-nickname> off`, `/nickname off` | Reset one or all nicknames and pending requests |
 | `/es inventory view\|ender [player]` | Read-only copy, refreshed when reopened |
 | `/es inventory save\|history [player]` | Save/list inventory rollback snapshots |
 | `/es inventory restore <player> <snapshot-id>` | Restore inventory only |
@@ -147,7 +153,7 @@ For a valueless operation on someone else, use a placeholder value: `/es player 
 | `/es effect arrows\|snowballs\|rod\|wolves [amount]`, `railgun` | Combat/projectile tools; these can damage entities |
 | `/es effect destructive-explosion` | Explicitly opted-in real block destruction |
 | `/es effect bossbar <text\|off>`, `stop` | Bossbar or stop owned temporary effect entities/jobs |
-| `/es chat mute on\|off`, `clear [self]`, `broadcast <text>`, `join\|leave\|death <name>` | Production chat; fake messages do not connect/disconnect players |
+| `/es chat block [on\|off]`, `clear [self]`, `broadcast <text>`, `join\|leave\|death <name>` | Block restricts chat to current operators; simulated messages do not connect/disconnect/kill players |
 | `/es server lock on\|off`, `allow\|deny <name>`, `build\|break\|pvp on\|off` | Access and global production restrictions |
 | `/es team create\|delete <id>`, `join\|leave <id> [name]`, `set <id> <option> <value>`, `list` | Options color, glow, prefix, friendly-fire, see-invisible, nametags, collision |
 | `/es villager create\|spawn\|clear\|delete <id>`, `set <id> <option> <value>`, `list` | Template options name, profession, type, level |
@@ -156,4 +162,4 @@ For a valueless operation on someone else, use a placeholder value: `/es player 
 
 Menus execute the same permission-checked commands. Left-click opens/uses an entry, shift-right requests deletion confirmation, and right-clicking a kit opens its editor. Type `cancel` to abandon chat input. Input expires after 60 seconds.
 
-Broadcast sends both chat and an on-screen title: `/es chat broadcast <text>`. `/es chat mute on|off` announces actual mute-state changes to everyone. Templates are in messages.yml; title timings are in moderation.yml.
+Broadcast sends both chat and an on-screen title: `/es chat broadcast <text>`. `/es chat block [on|off]` announces block-state changes to everyone; no argument toggles. Only current operators may send while blocked. `chat.bypass` cannot bypass this. `/es chat death <name>` is a white simulated announcement and does not kill anyone. Templates are in messages.yml; title timings are in moderation.yml.

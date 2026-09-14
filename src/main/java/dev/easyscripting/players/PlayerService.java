@@ -235,6 +235,7 @@ public final class PlayerService implements Listener, AutoCloseable {
           .set(
               "controls.paused-effects",
               pausedEffects.getOrDefault(player.getUniqueId(), List.of()));
+      afterCapture.accept(player, snapshot);
     }
     return snapshot;
   }
@@ -259,6 +260,19 @@ public final class PlayerService implements Listener, AutoCloseable {
       saveFlags();
     }
     snapshot.restore(entity);
+    if (entity instanceof Player p) afterRestore.accept(p, snapshot);
+  }
+
+  private java.util.function.BiConsumer<Player, EntitySnapshot>
+      afterRestore = (player, snapshot) -> {},
+      afterCapture = (player, snapshot) -> {};
+
+  public void onRestore(java.util.function.BiConsumer<Player, EntitySnapshot> callback) {
+    afterRestore = callback;
+  }
+
+  public void onCapture(java.util.function.BiConsumer<Player, EntitySnapshot> callback) {
+    afterCapture = callback;
   }
 
   public void snapshot(Player p) {

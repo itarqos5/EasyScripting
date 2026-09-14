@@ -335,11 +335,14 @@ public final class RecordingService implements Listener, AutoCloseable {
               final PlaybackCursor cursor = new PlaybackCursor(frames.size(), mode, reverse);
               boolean completed;
               Boat vehicle;
+              int refreshWait;
 
               public boolean tick() {
-                if (!settings.enabled("actors")
-                    || !settings.enabled("recording")
-                    || actor.entity().isEmpty()) return false;
+                if (!settings.enabled("actors") || !settings.enabled("recording")) return false;
+                // Identity refreshes may need a few ticks before Citizens publishes the new entity.
+                if (actor.refreshing()) return ++refreshWait <= 100;
+                refreshWait = 0;
+                if (actor.entity().isEmpty()) return false;
                 LivingEntity e = actor.requireEntity();
                 if (e.isDead()) return false;
                 if (combatState.recovery.yieldToPhysics()) {
@@ -351,6 +354,7 @@ public final class RecordingService implements Listener, AutoCloseable {
                   return true;
                 }
                 Frame f = frames.get(cursor.index());
+                if (!restoreOnComplete) cursor.mode(actor.definition.playbackMode);
                 if (Bukkit.getWorld(f.location.getWorld().getUID()) != f.location.getWorld())
                   return false;
                 e.setGravity(false);
@@ -364,8 +368,8 @@ public final class RecordingService implements Listener, AutoCloseable {
                         (Boat) destination.getWorld().spawnEntity(destination, EntityType.OAK_BOAT);
                     vehicle.setPersistent(false);
                     vehicle.setGravity(false);
-                    vehicle.addPassenger(e);
                   }
+                  if (!vehicle.getPassengers().contains(e)) vehicle.addPassenger(e);
                   vehicle.teleport(
                       destination,
                       org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.PLUGIN,
@@ -413,34 +417,33 @@ public final class RecordingService implements Listener, AutoCloseable {
                 combat.remove(actorId);
                 actors.release(actorId, "recording " + recording);
                 if (vehicle != null) vehicle.remove();
-                actor
-                    .entity()
-                    .ifPresent(
-                        e -> {
-                          if (e.isDead()) return;
-                          e.setGravity(gravity);
-                          e.setVisualFire(visualFire);
-                          actor.stop();
-                          if (!completed || restoreOnComplete) {
-                            double health = e.getHealth();
-                            try {
-                              snapshot.restore(e);
-                            } finally {
-                              if (combatState.damaged && !e.isDead())
-                                e.setHealth(
-                                    Math.min(
-                                        health,
-                                        Objects.requireNonNull(
-                                                e.getAttribute(
-                                                    org.bukkit.attribute.Attribute.MAX_HEALTH))
-                                            .getValue()));
-                            }
-                          } else {
-                            e.setVelocity(new org.bukkit.util.Vector());
-                            actor.definition.wander = false;
-                            actors.save(actor);
-                          }
-                        });
+                actor.whenReady(
+                    e -> {
+                      if (e.isDead()) return;
+                      e.setGravity(gravity);
+                      e.setVisualFire(visualFire);
+                      actor.stop();
+                      if (restoreOnComplete) {
+                        double health = e.getHealth();
+                        try {
+                          snapshot.restore(e);
+                        } finally {
+                          if (combatState.damaged && !e.isDead())
+                            e.setHealth(
+                                Math.min(
+                                    health,
+                                    Objects.requireNonNull(
+                                            e.getAttribute(
+                                                org.bukkit.attribute.Attribute.MAX_HEALTH))
+                                        .getValue()));
+                        }
+                      } else {
+                        e.setVelocity(new org.bukkit.util.Vector());
+                        actor.definition.wander = false;
+                        actors.save(actor);
+                      }
+                      actors.presentation(actor);
+                    });
               }
             });
     playback.put(actorId, job);
@@ -465,6 +468,15 @@ public final class RecordingService implements Listener, AutoCloseable {
     if (job == null && pending) return;
     if (job == null) throw new IllegalArgumentException("Actor has no active recording playback.");
     ticks.cancel(job);
+  }
+
+  public void stopActor(String actorId) {
+    if (!playing(actorId)) actors.available(actorId);
+    autoplay(actorId, false);
+    if (playing(actorId)) stopPlayback(actorId);
+    actors.get(actorId).stop();
+    actors.get(actorId).definition.wander = false;
+    actors.save(actors.get(actorId));
   }
 
   public void delete(String id) {

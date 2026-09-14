@@ -1,0 +1,7 @@
+schema: 1
+# Random User generates readable usernames. No player name, UUID or address is sent.
+api-enabled: true
+api-timeout-millis: 4000
+# Use the varied name fragments from npc-identities.yml if the API is unavailable.
+local-fallback: true
+# Names are temporary for the current connection. Skins are preserved.

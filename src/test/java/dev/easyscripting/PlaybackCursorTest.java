@@ -59,4 +59,34 @@ class PlaybackCursorTest {
     assertEquals(PlaybackMode.REVERSE, PlaybackMode.parse("reverse"));
     assertThrows(IllegalArgumentException.class, () -> PlaybackMode.parse("random"));
   }
+
+  @Test
+  void modeChangesDoNotRestartTheCurrentFrame() {
+    var cursor = new PlaybackCursor(4, PlaybackMode.STOP, false);
+    cursor.advance();
+    cursor.advance();
+    cursor.mode(PlaybackMode.REPEAT);
+    assertEquals(2, cursor.index());
+    assertTrue(cursor.advance());
+    assertTrue(cursor.advance());
+    assertEquals(0, cursor.index());
+    cursor.mode(PlaybackMode.STOP);
+    assertTrue(cursor.advance());
+    assertTrue(cursor.advance());
+    assertTrue(cursor.advance());
+    assertFalse(cursor.advance());
+  }
+
+  @Test
+  void switchingFromReverseToStopContinuesForwardToTheLastFrame() {
+    var cursor = new PlaybackCursor(3, PlaybackMode.REVERSE, false);
+    cursor.advance();
+    cursor.advance();
+    cursor.advance();
+    assertEquals(1, cursor.index());
+    cursor.mode(PlaybackMode.STOP);
+    assertTrue(cursor.advance());
+    assertEquals(2, cursor.index());
+    assertFalse(cursor.advance());
+  }
 }

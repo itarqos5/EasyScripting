@@ -57,6 +57,32 @@ class GuiConfigurationTest {
   }
 
   @Test
+  void chatRenameAndNewControlsMigrateWithoutReplacingCustomLabels() {
+    var old = defaults();
+    old.set("menus.production.buttons.mute.action", "command chat mute on");
+    old.set("menus.production.buttons.mute.name", "My quiet set button");
+    old.set("dynamic.controls.actor-tablist", null);
+    old.set("dynamic.controls.kit-save-apply", null);
+    var loaded = GuiSchema.prepare(old, defaults());
+    assertEquals("command chat block on", loaded.getString("menus.production.buttons.mute.action"));
+    assertEquals("My quiet set button", loaded.getString("menus.production.buttons.mute.name"));
+    assertTrue(loaded.contains("dynamic.controls.actor-tablist.slot"));
+    assertTrue(loaded.contains("dynamic.controls.kit-save-apply.slot"));
+    validate(loaded);
+  }
+
+  @Test
+  void kitImportAndSaveApplyCannotOverwriteInventoryOrOtherButtons() {
+    var yaml = defaults();
+    yaml.set("dynamic.controls.kit-save-apply.slot", 39);
+    assertThrows(IllegalArgumentException.class, () -> validate(yaml));
+    var collision = defaults();
+    collision.set(
+        "dynamic.controls.kit-capture.slot", collision.getInt("dynamic.controls.kit-edit.slot"));
+    assertThrows(IllegalArgumentException.class, () -> validate(collision));
+  }
+
+  @Test
   void invalidSizeHasFileAndValue() {
     var yaml = defaults();
     yaml.set("layout.rows", 9);

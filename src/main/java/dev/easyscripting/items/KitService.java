@@ -66,4 +66,31 @@ public final class KitService {
     kits.remove(id);
     store.delete("loadouts", id);
   }
+
+  public void create(String id) {
+    if (kits.containsKey(id)) throw new IllegalArgumentException("Kit already exists: " + id);
+    save(id, new ItemStack[41]);
+  }
+
+  public void export(String id) {
+    contents(id);
+    store.save("kit-exports", id, kits.get(id));
+  }
+
+  public List<String> exports() {
+    return List.copyOf(store.load("kit-exports").keySet());
+  }
+
+  public void importExport(String source, String destination) {
+    if (kits.containsKey(destination))
+      throw new IllegalArgumentException("Kit already exists: " + destination);
+    YamlConfiguration yaml = store.read("kit-exports", source);
+    if (yaml.getInt("schema") != 1 || !yaml.isList("contents"))
+      throw new IllegalArgumentException("Expected an EasyScripting kit YAML in kit-exports/.");
+    List<?> contents = yaml.getList("contents", List.of());
+    if (contents.size() > 41
+        || contents.stream().anyMatch(item -> item != null && !(item instanceof ItemStack)))
+      throw new IllegalArgumentException("Invalid kit item data; nothing was imported.");
+    save(destination, EntitySnapshot.items(contents, 41));
+  }
 }

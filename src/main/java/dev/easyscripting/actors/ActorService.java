@@ -47,6 +47,15 @@ public final class ActorService implements Listener, AutoCloseable {
           "Actor '" + id + "' is busy with " + leases.get(id) + ". Stop it first.");
   }
 
+  public void editable(String id, String key) {
+    String owner = leases.get(id);
+    if (owner == null || key.equals("immortal") || key.equals("hittable")) return;
+    if (owner.startsWith("recording ")
+        && Set.of("name", "skin", "randomize", "mode", "tablist", "nametag", "glow", "group")
+            .contains(key)) return;
+    available(id);
+  }
+
   public void reserve(String id, String owner) {
     available(id);
     leases.put(id, owner);
@@ -138,10 +147,11 @@ public final class ActorService implements Listener, AutoCloseable {
     else if (blockedIdentity.test(id))
       throw new IllegalArgumentException("Actor name is blacklisted.");
     var defaults = settings.file("config");
-    definition.immortal = defaults.getBoolean("actors.defaults.immortal", true);
+    definition.immortal = defaults.getBoolean("actors.defaults.immortal", false);
     definition.hittable = defaults.getBoolean("actors.defaults.hittable", true);
     definition.collidable = defaults.getBoolean("actors.defaults.collidable", true);
     definition.nametag = defaults.getBoolean("actors.defaults.nametag", true);
+    definition.tablist = defaults.getBoolean("actors.defaults.tablist", false);
     definition.lookNearby = defaults.getBoolean("actors.defaults.look-nearby");
     definition.wander = defaults.getBoolean("actors.defaults.wander");
     definition.autoplay = defaults.getBoolean("actors.defaults.autoplay", true);
@@ -176,6 +186,16 @@ public final class ActorService implements Listener, AutoCloseable {
               + " protection.");
     }
     entities.put(e.getUniqueId(), actor);
+    actor.handle.onEntityChanged(
+        replacement -> {
+          if (actor.pendingDeletion || closing) return;
+          entities.values().removeIf(value -> value == actor);
+          entities.put(replacement.getUniqueId(), actor);
+          var update = actor.afterRefresh;
+          actor.afterRefresh = null;
+          if (update != null) update.accept(replacement);
+          presentation(actor);
+        });
     e.setCollidable(d.collidable);
     e.setCustomNameVisible(d.nametag);
     e.setGlowing(d.glowing);
@@ -202,7 +222,27 @@ public final class ActorService implements Listener, AutoCloseable {
         eq.setBootsDropChance(0);
       }
     }
+    presentation(actor);
     spawned.accept(actor);
+  }
+
+  /** Reapply current identity after a replay snapshot or Citizens refresh. */
+  public void presentation(ManagedActor actor) {
+    actor
+        .entity()
+        .ifPresent(
+            e -> {
+              e.setCustomNameVisible(actor.definition.nametag);
+              e.setCollidable(actor.definition.collidable);
+              if (e instanceof Player p) {
+                p.displayName(dev.easyscripting.config.Messages.rich(actor.definition.name));
+                p.playerListName(dev.easyscripting.config.Messages.rich(actor.definition.name));
+              }
+            });
+    if (actor.handle != null) {
+      actor.handle.appearance(actor.definition.nametag, actor.definition.collidable);
+      actor.handle.tablist(actor.definition.tablist);
+    }
   }
 
   public void save(ManagedActor actor) {
@@ -308,6 +348,7 @@ public final class ActorService implements Listener, AutoCloseable {
   }
 
   public void set(String id, String key, String value) {
+    editable(id, key);
     ManagedActor a = get(id);
     ActorDefinition d = a.definition;
     if ((key.equals("name") || key.equals("skin")) && blockedIdentity.test(value))
@@ -344,6 +385,11 @@ public final class ActorService implements Listener, AutoCloseable {
         d.nametag = Checks.bool(value);
         a.entity().ifPresent(e -> e.setCustomNameVisible(d.nametag));
       }
+      case "tablist" -> {
+        if (!d.type.equals("PLAYER"))
+          throw new IllegalArgumentException("Only player NPCs can appear in the tab list.");
+        d.tablist = Checks.bool(value);
+      }
       case "look" -> d.lookNearby = Checks.bool(value);
       case "wander" -> {
         d.wander = Checks.bool(value);
@@ -363,6 +409,7 @@ public final class ActorService implements Listener, AutoCloseable {
       }
       default -> throw new IllegalArgumentException("Unknown actor setting '" + key + "'.");
     }
+    presentation(a);
     save(a);
   }
 
@@ -406,7 +453,7 @@ public final class ActorService implements Listener, AutoCloseable {
 
   public void randomize(String id) {
     settings.require("actors");
-    available(id);
+    editable(id, "randomize");
     ManagedActor actor = get(id);
     // Choose completely before touching the live NPC, so pool exhaustion leaves it intact.
     ActorDefinition next = ActorDefinition.read(id, actor.definition.yaml());
@@ -419,6 +466,7 @@ public final class ActorService implements Listener, AutoCloseable {
     actor.definition.skin = next.skin;
     actor.definition.skinTexture = "";
     actor.definition.skinSignature = "";
+    presentation(actor);
     save(actor);
   }
 
@@ -444,6 +492,8 @@ public final class ActorService implements Listener, AutoCloseable {
   }
 
   public void kill(String id) {
+    if (get(id).definition.immortal)
+      throw new IllegalArgumentException("Turn Immortal OFF before killing this NPC.");
     get(id).requireEntity().setHealth(0);
   }
 
@@ -540,12 +590,39 @@ public final class ActorService implements Listener, AutoCloseable {
       event.setCancelled(true);
       return;
     }
-    LivingEntity e = a.requireEntity();
-    if (a.definition.immortal && event.getFinalDamage() >= e.getHealth()) {
-      event.setCancelled(true);
-      e.playHurtAnimation(0);
-      e.setHealth(Math.max(1, e.getHealth()));
+    LivingEntity entity =
+        event.getEntity() instanceof LivingEntity living ? living : a.requireEntity();
+    if (a.definition.immortal && event.getFinalDamage() >= entity.getHealth()) {
+      double maximum =
+          Objects.requireNonNull(entity.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH))
+              .getValue();
+      double health = ImmortalDamage.healthBeforeHit(entity.getHealth(), maximum);
+      // Citizens schedules removal after die(), even if Paper cancels its death event.
+      // Keep lethal hits positive but nonlethal so the native hit/knockback path is retained.
+      ImmortalDamage.limit(
+          event.getDamage(),
+          health - ImmortalDamage.floor(maximum),
+          raw -> {
+            event.setDamage(raw);
+            return event.getFinalDamage();
+          });
+      if (health != entity.getHealth()) entity.setHealth(health);
     }
+  }
+
+  // LOWEST precedes Citizens' LOW death listener. Damage itself stays uncancelled,
+  // so native hurt feedback, armor wear and knockback still happen on lethal hits.
+  @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+  public void preventDeath(EntityDeathEvent event) {
+    ManagedActor actor = entities.get(event.getEntity().getUniqueId());
+    if (actor == null || !actor.definition.immortal) return;
+    event.setReviveHealth(
+        Math.min(
+            1,
+            Objects.requireNonNull(
+                    event.getEntity().getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH))
+                .getValue()));
+    event.setCancelled(true);
   }
 
   @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
@@ -562,6 +639,17 @@ public final class ActorService implements Listener, AutoCloseable {
     // Tombstone immediately: restoration and shutdown saves must not resurrect this definition.
     actor.pendingDeletion = true;
     store.delete("actors", actor.id());
+    if (settings.file("config").getBoolean("actors.announce-death-leave", true))
+      Bukkit.broadcast(
+          new dev.easyscripting.config.Messages(settings)
+              .text(
+                  "actor-left",
+                  Map.of(
+                      "name",
+                      net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                          .plainText()
+                          .serialize(
+                              dev.easyscripting.config.Messages.rich(actor.definition.name)))));
     Runnable cleanup =
         () -> {
           try {
@@ -620,6 +708,7 @@ public final class ActorService implements Listener, AutoCloseable {
     private ActorBackend.Handle handle;
     private Chunk chunk;
     private boolean pendingDeletion;
+    private java.util.function.Consumer<LivingEntity> afterRefresh;
 
     private ManagedActor(ActorDefinition definition) {
       this.definition = definition;
@@ -635,6 +724,16 @@ public final class ActorService implements Listener, AutoCloseable {
 
     public Optional<LivingEntity> entity() {
       return Optional.ofNullable(pendingDeletion || handle == null ? null : handle.entity());
+    }
+
+    public boolean refreshing() {
+      return !pendingDeletion && handle != null && handle.refreshing();
+    }
+
+    /** Replay cleanup must also apply if Stop coincides with a Citizens identity refresh. */
+    public void whenReady(java.util.function.Consumer<LivingEntity> update) {
+      if (refreshing()) afterRefresh = update;
+      else entity().ifPresent(update);
     }
 
     public LivingEntity requireEntity() {

@@ -97,15 +97,24 @@ public final class PlayerCommands {
     router.add(
         "kit",
         "kit",
-        "save|apply|delete|edit <id> | list",
+        "create|save|apply|delete|edit <id> | list",
         (s, a) -> {
           settings.require("kits");
           switch (a.get(0, "list")) {
+            case "create" -> {
+              access.require(s, "kit.edit");
+              kits.create(a.get(1));
+              messages.ok(
+                  s, "Created kit '" + a.get(1) + "'. Open /es kits to edit or import inventory.");
+            }
             case "save" -> {
               access.require(s, "kit.edit");
               kits.save(a.get(1), Args.player(s));
             }
-            case "apply" -> kits.apply(a.get(1), Args.player(s));
+            case "apply" -> {
+              players.available(Args.player(s).getUniqueId());
+              kits.apply(a.get(1), Args.player(s));
+            }
             case "delete" -> {
               access.require(s, "kit.edit");
               kits.delete(a.get(1));
@@ -118,7 +127,10 @@ public final class PlayerCommands {
             default -> throw new IllegalArgumentException("Unknown kit operation.");
           }
         },
-        (s, a) -> a.size() == 1 ? List.of("save", "apply", "delete", "edit", "list") : kits.ids());
+        (s, a) ->
+            a.size() == 1
+                ? List.of("create", "save", "apply", "delete", "edit", "list")
+                : kits.ids());
     router.add(
         "warp",
         "warp",

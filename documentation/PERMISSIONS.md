@@ -2,7 +2,7 @@
 
 Acting as an NPC and playing its selected recording require both `easyscripting.actor` and `easyscripting.record`. Finish/cancel restore the current performer's own session. Actor GUI sections and Hittable/Immortal toggles use `easyscripting.actor`; all buttons still dispatch permission-checked commands.
 
-Every command requires `easyscripting.use`. Permission checks apply to GUI actions too. A permission plugin may grant or deny these nodes; operator status is only the default policy.
+Every command requires `easyscripting.use`. Permission checks apply to GUI actions too. A permission plugin may grant or deny these nodes; operator status is the default policy for command access. Public chat blocking is the exception: only current operators may speak while blocked.
 
 | Node | Default | Capability |
 | --- | --- | --- |
@@ -14,9 +14,9 @@ Every command requires `easyscripting.use`. Permission checks apply to GUI actio
 | `easyscripting.record` | op | Record movement and manage takes |
 | `easyscripting.player` | op | Change own player state |
 | `easyscripting.player.others` | op | Change other players |
-| `easyscripting.identity` | op | Set temporary names and skins |
+| `easyscripting.identity` | op | Set temporary names and skins; use /nickname |
 | `easyscripting.kit` | op | List and apply kits |
-| `easyscripting.kit.edit` | op | Save edit and delete kits |
+| `easyscripting.kit.edit` | op | Create, save, edit, import, export and delete kits |
 | `easyscripting.warp` | op | Use permitted warps and spawn |
 | `easyscripting.warp.edit` | op | Save and delete warps |
 | `easyscripting.warp.admin` | op | Use operator-access warps |
@@ -28,7 +28,7 @@ Every command requires `easyscripting.use`. Permission checks apply to GUI actio
 | `easyscripting.death` | op | Set player death behavior |
 | `easyscripting.death.spectator` | op | Allow automatic spectator mode after death |
 | `easyscripting.chat` | op | Manage production chat |
-| `easyscripting.chat.bypass` | op | Talk while production chat is muted |
+| `easyscripting.chat.bypass` | op | Bypass recording-session chat suppression; never bypass /es chat block |
 | `easyscripting.world` | op | Set environment and view limits |
 | `easyscripting.world.edit` | op | Capture and restore selected blocks |
 | `easyscripting.world.bypass` | op | Bypass dimension and build restrictions |
@@ -70,3 +70,5 @@ Use `/es permissions scene.play production.director` or the permission GUI. Admi
 To delegate a director role, grant use, scene.play, scene.edit, actor, record, kit, kit.edit, player, effects and the other feature nodes they need. Grant player.others only when that director may control other performers. Grant command/destructive nodes individually when the production requires them.
 
 Autoplay configuration requires both `easyscripting.actor` and `easyscripting.record`, like manual NPC playback. Runtime autoplay follows the saved actor configuration and feature switches; it does not execute commands or use a logged-out director's permissions. Hittable/Immortal changes require `easyscripting.actor` and are allowed during replay.
+
+`/nickname` requires `identity`; targeting another real player or `/nickname off` additionally requires `player.others`. Resets remain available when the identity feature is disabled. Kits require `kit`, and importing/exporting/editing also requires `kit.edit`. Save & equip checks both permissions. Nicknames cannot target Citizens NPCs.

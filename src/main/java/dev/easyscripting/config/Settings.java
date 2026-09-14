@@ -56,6 +56,8 @@ public final class Settings {
         List.of(
             "config",
             "npc-identities",
+            "nicknames",
+            "kits",
             "messages",
             "features",
             "moderation",
@@ -71,11 +73,12 @@ public final class Settings {
       next.put(file, YamlStore.read(path));
       if (file.equals("messages") || file.equals("moderation")) {
         try (var input = plugin.getResource(file + ".yml")) {
-          inheritMissing(
-              next.get(file),
+          var defaults =
               YamlConfiguration.loadConfiguration(
                   new java.io.InputStreamReader(
-                      Objects.requireNonNull(input), java.nio.charset.StandardCharsets.UTF_8)));
+                      Objects.requireNonNull(input), java.nio.charset.StandardCharsets.UTF_8));
+          inheritMissing(next.get(file), defaults);
+          if (file.equals("messages")) migrateMessages(next.get(file), defaults);
         } catch (java.io.IOException ex) {
           throw new IllegalStateException("Could not read bundled " + file + " defaults", ex);
         }
@@ -98,6 +101,17 @@ public final class Settings {
     }
     YamlConfiguration config = next.get("config");
     validateModeration(next.get("moderation"));
+    validateNicknames(next.get("nicknames"));
+    if (next.get("kits").getInt("schema") != 1
+        || !(next.get("kits").get("max-provider-kits") instanceof Integer)
+        || next.get("kits").getInt("max-provider-kits") < 1
+        || next.get("kits").getInt("max-provider-kits") > 10000)
+      throw new IllegalArgumentException(
+          "kits.yml: use schema 1 and max-provider-kits from 1..10000.");
+    for (String provider : List.of("PlayerKits2", "PlayerKits", "Essentials", "CMI"))
+      if (!(next.get("kits").get("providers." + provider) instanceof Boolean))
+        throw new IllegalArgumentException(
+            "kits.yml: providers." + provider + " must be true or false.");
     bounded(config, "schema", 1, 1);
     bounded(config, "limits.actors", 1, 1000);
     bounded(config, "limits.active-scenes", 1, 100);
@@ -127,6 +141,19 @@ public final class Settings {
     }
     validateMenus.accept(next.get("guis"));
     NpcIdentities nextIdentities = NpcIdentities.read(next.get("npc-identities"));
+    if (ActorDefaults.migrate(config)) {
+      Path path = plugin.getDataFolder().toPath().resolve("config.yml");
+      Path backup = path.resolveSibling("config-before-0.1.5-" + UUID.randomUUID() + ".yml");
+      try {
+        java.nio.file.Files.copy(path, backup);
+        store.write(path, config.saveToString()).join();
+        plugin
+            .getLogger()
+            .info("New NPCs now default to mortal. Previous config: " + backup.getFileName());
+      } catch (java.io.IOException | java.util.concurrent.CompletionException ex) {
+        throw new IllegalStateException("Could not migrate NPC creation defaults", ex);
+      }
+    }
     if (upgradeGui) {
       Path path = plugin.getDataFolder().toPath().resolve("guis.yml");
       Path backup = path.resolveSibling("guis-v1-backup-" + UUID.randomUUID() + ".yml");
@@ -168,6 +195,19 @@ public final class Settings {
         target.set(key, defaults.get(key));
   }
 
+  public static void migrateMessages(YamlConfiguration target, YamlConfiguration defaults) {
+    Map<String, String> old =
+        Map.of(
+            "fake-death", "<gray><detail> died",
+            "chat-muted", "<dark_gray>[<aqua>EasyScripting<dark_gray>] <red>Chat has been muted.",
+            "chat-unmuted",
+                "<dark_gray>[<aqua>EasyScripting<dark_gray>] <green>Chat has been unmuted.");
+    old.forEach(
+        (key, value) -> {
+          if (value.equals(target.get(key))) target.set(key, defaults.get(key));
+        });
+  }
+
   public static void validateModeration(YamlConfiguration yaml) {
     String enabled = "broadcast-title.enabled";
     if (yaml.contains(enabled) && !(yaml.get(enabled) instanceof Boolean))
@@ -182,6 +222,18 @@ public final class Settings {
         throw new IllegalArgumentException(
             "moderation.yml: " + key + " must be an integer from " + minimum + " to 1200.");
     }
+  }
+
+  public static void validateNicknames(YamlConfiguration yaml) {
+    if (yaml.getInt("schema") != 1)
+      throw new IllegalArgumentException("nicknames.yml: schema must be 1.");
+    for (String key : List.of("api-enabled", "local-fallback"))
+      if (!(yaml.get(key) instanceof Boolean))
+        throw new IllegalArgumentException("nicknames.yml: " + key + " must be true or false.");
+    if (!(yaml.get("api-timeout-millis") instanceof Integer)
+        || yaml.getInt("api-timeout-millis") < 500
+        || yaml.getInt("api-timeout-millis") > 10000)
+      throw new IllegalArgumentException("nicknames.yml: api-timeout-millis must be 500..10000.");
   }
 
   /** Merge new actor-menu leaves in memory; preserve customized values and the original file. */

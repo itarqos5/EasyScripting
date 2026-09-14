@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.5 — 2026-09-14
+
+* Immortal NPCs retain hit feedback and knockback but cannot die from normal damage. New NPCs default to mortal; a backed-up migration changes the creation default once without changing existing actors. Citizens' extra spawn damage immunity is disabled.
+* Actual NPC death announces its name leaving the game before permanent deletion. Hittable remains melee-only; acting players still take environmental/projectile damage.
+* Name, skin, random identity and mode changes work during recorded playback. Selected modes remain highlighted after capture. Stop holds the current position and disables autoplay/wandering; repeat/reverse can run continuously. Added a saved PLAYER NPC tab-list toggle.
+* Added `/nickname <real-player-or-nickname>`, per-player `off` and global `off`. API-generated names preserve skins, reserve real names/aliases, update profile/tab/display/death/quit names and expire on disconnect. Added bounded HTTPS lookup and configurable local fallback in nicknames.yml. No additional protocol plugin is required.
+* Renamed `/es chat mute` to `/es chat block [on|off]`. Only current operators can send public messages while blocked, regardless of bypass permissions. Block transitions announce in chat. Simulated death announcements now use vanilla-style white text.
+* Added `/es kits`, kit controls, blank creation, inventory import, draft editing, Save & equip and portable YAML export/import. Item adapters support installed PlayerKits 2, legacy PlayerKits, EssentialsX and CMI. Provider commands, costs and cooldowns are not imported. Added kits.yml and configurable GUI controls.
+* Added regression/contract tests and updated documentation. Build, unit, compile and artifact checks only; no Minecraft server/client or running kit-provider acceptance test was started.
+
 ## 0.1.4 — 2026-09-14
 
 * Fixed shutdown trying to register actor behavior/autoplay tasks after Paper disables the plugin. The scheduler stops accepting work before service cleanup and failed registration no longer retains a phantom job.

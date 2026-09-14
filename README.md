@@ -14,7 +14,7 @@ Use JDK 25 and the included Gradle wrapper:
 
 On Windows, use `.\gradlew.bat build`.
 
-Copy `build/libs/EasyScripting-0.1.4.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
+Copy `build/libs/EasyScripting-0.1.5.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
 
 The primary target is Paper 26.2 with Java 25. The plugin produces Java 21 bytecode and uses the shared Paper API surface for 1.21.8, 1.21.11 and 26.1 compatibility. Test evidence and its limits are in [TESTING.md](documentation/TESTING.md). Purpur is a compatibility target; Folia and Spigot are not supported.
 
@@ -25,11 +25,19 @@ Optional integrations:
 
 Neither dependency is bundled. Without them the rest of the plugin loads and their commands explain what is missing.
 
+## Nicknames, chat and kits
+
+* `/nickname <real-player-or-nickname>` assigns an API-generated username while preserving the skin. `/nickname <player-or-nickname> off` resets one; `/nickname off` resets everyone. Names expire on disconnect. Tab, nametag and ordinary death/quit messages use the nickname; the client's authenticated account name cannot be changed by a server plugin.
+* `/es chat block on` restricts public chat to current operators; `off` restores it. No argument toggles. `/es chat death <name>` prints a white simulated death message without killing anyone; broadcast sends chat and a title.
+* `/es kits` opens the kit library: create, import inventory, edit, Save or Save & equip, and export YAML. Import items from installed PlayerKits 2, legacy PlayerKits, EssentialsX and CMI, or another EasyScripting export. Provider commands, prices and cooldowns are not copied.
+
+See the [usage guide](documentation/USERGUIDE.md#7-nickname-real-players), [kit workflow](documentation/USERGUIDE.md#9-create-edit-and-import-kits) and [configuration reference](documentation/CONFIGURATION.md).
+
 ## First shot
 
 With Citizens installed, `/actor create guard_1` automatically assigns a random displayed username and skin. Keep the result as-is, use `/actor set guard_1 name RiverScout` or `/actor set guard_1 skin Notch` to change one part, or `/actor randomize guard_1` to reroll both. `/actor info guard_1` shows the identity; the actor's ID remains `guard_1`. Names, skin owners and resolved skin textures persist across restarts. Pools and automatic assignment are configured in `npc-identities.yml`; existing actors are unchanged on upgrade.
 
-`/actor gui guard_1` opens a tabbed NPC panel with Appearance, Movement, Acting & Playback, and Combat sections. Choose an end mode (`stop`, `repeat` or `reverse`) before recording. `/actor act guard_1 entrance` puts you in the NPC's place and costume; `/actor finish` restores you, saves the performance and starts it automatically. Autoplay is enabled by default; use `/actor autoplay guard_1 off` for manual playback. While acting, direct melee is blocked but falls, projectiles and explosions can hurt you. On NPCs, Hittable only controls melee; Immortal prevents lethal damage. NPC deaths permanently remove the actor, including from saved data. See [the acting workflow](documentation/USERGUIDE.md#act-as-an-npc-and-save-its-performance).
+`/actor gui guard_1` opens a tabbed NPC panel with Appearance, Movement, Acting & Playback, and Combat sections. Choose or change the end mode (`stop`, `repeat` or `reverse`) before recording, afterward or during playback. Name, skin and random identity can also change during playback. Appearance includes a tab-list toggle for PLAYER NPCs. `/actor act guard_1 entrance` puts you in the NPC's place and costume; `/actor finish` restores you, saves the performance and starts it automatically. Autoplay is enabled by default; use `/actor autoplay guard_1 off` for manual playback. While acting, direct melee is blocked but falls, projectiles and explosions can hurt you. On NPCs, Hittable only controls melee; Immortal keeps hits and knockback but prevents death. New NPCs default to Immortal OFF. NPC deaths permanently remove the actor, including from saved data, and announce its name leaving the game. `/actor stop guard_1` holds its current position and disables autoplay. See [the acting workflow](documentation/USERGUIDE.md#act-as-an-npc-and-save-its-performance).
 
 The redesigned studio groups tools into clear categories, provides saved-recording/costume pickers and uses consistent Back, Home and Close buttons. All menus are configured in `guis.yml`. Upgrading from the old layout saves a `guis-v1-backup-<unique-id>.yml` beside it before installing layout schema 2. Other project documentation is in [`documentation/`](documentation/USERGUIDE.md).
 
@@ -75,4 +83,4 @@ See [USERGUIDE.md](documentation/USERGUIDE.md), [COMMANDS.md](documentation/COMM
 
 Use a staging copy of an important production world for acceptance testing. Snapshot restoration can be vetoed by another plugin's teleport handler and will report that failure. Completed take snapshots are session-local; deferred player restores are persisted when a player disconnects or dies. A hard process crash cannot guarantee recovery of an active in-memory take.
 
-Player NPCs use Citizens. Raw PNG/NameMC skin conversion, per-viewer team colors/glow, silent container animations during vanish and proprietary kit import formats are not implemented. Region storage preserves block data, container contents and sign text; it does not preserve every specialized block entity. Camera interpolation is limited by the vanilla client. See the parity matrix for the complete qualification.
+Player NPCs use Citizens. Raw PNG/NameMC skin conversion, per-viewer team colors/glow and silent container animations during vanish are not implemented. Kit imports support the four documented providers; unsupported formats can use inventory capture. Region storage preserves block data, container contents and sign text; it does not preserve every specialized block entity. Camera interpolation is limited by the vanilla client. See the parity matrix for the complete qualification.

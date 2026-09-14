@@ -123,11 +123,12 @@ public final class ProductionCommands {
     router.add(
         "chat",
         "chat",
-        "mute on|off | clear [self] | broadcast <text> | join|leave|death <name>",
+        "block [on|off] | clear [self] | broadcast <text> | join|leave|death <name>",
         (s, a) -> {
           settings.require("chat");
           switch (a.get(0)) {
-            case "mute" -> moderation.mute(Checks.bool(a.get(1)));
+            case "block" ->
+                moderation.mute(a.size() == 1 ? !moderation.muted() : Checks.bool(a.get(1)));
             case "clear" ->
                 moderation.clear(a.get(1, "all").equals("self") ? Args.player(s) : null);
             case "broadcast" -> moderation.announce(a.rest(1));
@@ -135,7 +136,7 @@ public final class ProductionCommands {
             default -> throw new IllegalArgumentException("Unknown chat operation.");
           }
         },
-        "mute",
+        "block",
         "clear",
         "broadcast",
         "join",

@@ -1,11 +1,11 @@
 # EasyScripting user guide
 
-This guide covers EasyScripting 0.1.4: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
+This guide covers EasyScripting 0.1.5: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
 
 ## 1. Install and open the studio
 
 1. Stop your Paper/Purpur server. The primary tested target is Paper 26.2 on Java 25; see [TESTING.md](TESTING.md) for other versions.
-2. Put `build/libs/EasyScripting-0.1.4.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
+2. Put `build/libs/EasyScripting-0.1.5.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
 3. For human NPCs and skins, also install a Citizens build compatible with your exact Minecraft version. Mob actors work without Citizens.
 4. Start the server. EasyScripting creates its YAML files under `plugins/EasyScripting/`.
 5. Join with operator access or the appropriate [permissions](PERMISSIONS.md), then run `/es`. Use `/es help` for commands you can access, and `/es status` to check loaded actors, scenes and active jobs.
@@ -49,7 +49,7 @@ To choose another random name and skin together:
 /actor randomize guard_1
 ```
 
-Randomization keeps the actor ID, position, equipment and behavior settings. It excludes names already used by actors or online player account names, as well as blacklisted names. It chooses a different skin owner when another allowed owner is available. Different actors can share a skin; there are more generated names than default skin choices.
+Name, skin and random identity can be changed while a recorded performance is playing, including continuous autoplay. Citizens may briefly refresh the entity; the replay continues with the current recording and mode. Randomization keeps the actor ID, position, equipment and behavior settings. It excludes names already used by actors or online player account names, as well as blacklisted names. It chooses a different skin owner when another allowed owner is available. Different actors can share a skin; there are more generated names than default skin choices.
 
 The chosen name and skin owner are saved immediately. Skin lookup can take several seconds and needs access to Minecraft's profile services. Once Citizens resolves the skin, EasyScripting also saves its signed texture so subsequent spawns can retain that appearance. Hide/show, respawn and restart do not reroll identities. To deliberately refresh an account's skin later, run `/actor set guard_1 skin <account>` again.
 
@@ -67,7 +67,7 @@ Mobs receive a random displayed name and keep their natural entity appearance. T
 
 Run `/actor gui guard_1`, or open `/es` → Actors → your actor. Choose a section:
 
-* **Appearance:** name, skin, random identity, costume kit and identity details.
+* **Appearance:** name, skin, random identity, costume kit, nametag visibility, glow and a PLAYER NPC tab-list switch.
 * **Movement:** teleport, walk, hide, respawn and behavior settings.
 * **Acting & Playback:** act as the NPC, finish/cancel, browse saved recordings, select an end mode, toggle autoplay, play and stop.
 * **Combat:** Hittable and Immortal switches, plus Reset NPC spawn for living/hidden NPCs.
@@ -108,7 +108,7 @@ Put the desired costume in your own inventory, armor and hands, then save a kit:
 /actor set guard_1 wander off
 ```
 
-`immortal` prevents lethal damage while `hittable off` blocks direct melee attacks and sweeps only. Falls, projectiles (including wither skulls), explosions and other environmental damage remain enabled. `look` and `wander` enable ambient behavior; turn them off for a stationary shot. Actor settings also include collision, nametag visibility, pose, glow, sneak, sprint and group.
+`immortal` lets the NPC receive hits, hurt feedback and knockback but prevents death; new NPCs default to Immortal OFF. `hittable off` blocks direct melee attacks and sweeps only. Falls, projectiles (including wither skulls), explosions and other environmental damage remain enabled. `look` and `wander` enable ambient behavior; turn them off for a stationary shot. Actor settings also include collision, nametag visibility, pose, glow, sneak, sprint and group.
 
 To reposition the actor, stand at the destination and use `/actor here guard_1` for a teleport or `/actor move guard_1 1` for navigation. Hide it with `/actor hide guard_1` and return it with `/actor show guard_1`. Remove it with `/actor delete guard_1`.
 
@@ -154,15 +154,15 @@ For manual playback, disable autoplay, then select playback in the GUI or run:
 | `repeat` | Teleports to the first recorded position and repeats continuously |
 | `reverse` | Reverses along the recorded path, then plays forward again, continuously; the endpoints are not duplicated |
 
-Normal gravity and collisions resume when playback completes; finish on solid ground to hold that position. `/actor stop guard_1` stops playback and restores its starting state while keeping damage received during the replay. Stop before changing mode, costume or recording. To use another saved route, choose **Choose saved recording** or `/actor recording guard_1 another_take`.
+Normal gravity and collisions resume when playback completes; finish on solid ground to hold that position. `/actor stop guard_1` stops at the current position, keeps damage received, disables wandering and turns Autoplay OFF. You can change the selected mode after recording and during replay; the highlighted selection changes immediately and the current frame continues. Name/skin/random identity edits also work during replay. Stop before changing the assigned recording or costume kit. To use another saved route, choose **Choose saved recording** or `/actor recording guard_1 another_take`.
 
-The recording, end mode and autoplay setting survive restarts. Autoplay also starts a visible, idle NPC on server startup, show or respawn, or when switched ON. A hidden, dead or busy NPC does not start; it does not queue behind an active scene. Explicit Stop keeps it stopped until a new autoplay trigger or manual Play. Switching autoplay OFF does not interrupt an existing replay; use Stop for that. `stop` still plays once; use `repeat` or `reverse` for continuous action. Old actor files without an autoplay field default to ON; set `/actor autoplay <id> off` to retain manual playback.
+The recording, end mode and autoplay setting survive restarts. Autoplay also starts a visible, idle NPC on server startup, show or respawn, or when switched ON. A hidden, dead or busy NPC does not start; it does not queue behind an active scene. Explicit Stop turns Autoplay OFF, including across restart, until you enable it again. Manual Play still works. Switching autoplay OFF does not interrupt an existing replay; use Stop for that. `stop` still plays once; use `repeat` or `reverse` for continuous action. Old actor files without an autoplay field default to ON; set `/actor autoplay <id> off` to retain manual playback.
 
 The older `/es record play <recording> <actor> [loop] [reverse]` command keeps its original behavior: `reverse` plays backward from the outset, and a completed single run restores the previous actor state. Use the actor GUI or `/actor play` for the three modes above.
 
 ### Allow hits and death
 
-Open **Combat**. **Hittable: ON** allows direct melee damage and knockback; **OFF** blocks melee and sweeps only. Both settings allow falls, projectiles, wither skulls, explosions and environmental damage under normal Minecraft rules. **Immortal: ON** still prevents lethal damage from any normal damage source; set it **OFF** to allow death. Both switches can be changed during replay.
+Open **Combat**. **Hittable: ON** allows direct melee damage and knockback; **OFF** blocks melee and sweeps only. Both settings allow falls, projectiles, wither skulls, explosions and environmental damage under normal Minecraft rules. **Immortal: ON** prevents death while retaining ordinary hit feedback and knockback, including hits that would otherwise kill it. EasyScripting removes Citizens' extra spawn-immunity timer so a new NPC can receive its first hit; normal Minecraft combat cooldowns still apply. **Immortal defaults to OFF** for newly created NPCs, so they can die unless you enable it. Both switches can be changed during replay.
 
 When a replaying NPC is knocked back, the recorded timeline pauses for 12 ticks so normal physics can move it, then blends back to the route over 10 ticks. Hits do not get erased by the next recorded teleport. Further hits restart this recovery interval. Armor, attack cooldowns and other plugins still affect actual damage and knockback. `recording.yml` exposes both timings as integers from 1 to 100. Death ends the replay; it does not resurrect the NPC or drop copied equipment.
 
@@ -171,7 +171,7 @@ When a replaying NPC is knocked back, the recorded timeline pauses for 12 ticks 
 /actor set guard_1 immortal off
 ```
 
-When an NPC dies, it is removed from the actor list and its saved definition is deleted from active storage. Playback stops; show, respawn, autoplay, scene reset and server restart cannot bring it back. This includes scripted NPC death actions. Its recording stays available for reuse. Deleted YAML uses the existing `trash/` retention mechanism, without automatic recovery. To use the same ID again, create a new actor with `/actor create guard_1`. **Reset NPC spawn** / `/actor respawn` only recreates an existing living or hidden NPC. Deaths drop no copied equipment or experience.
+When an NPC dies, everyone sees a yellow `<NPC name> left the game` message. It is removed from the actor list and its saved definition is deleted from active storage. The message can be changed in `messages.yml` (`actor-left`) or disabled with `actors.announce-death-leave: false`. Playback stops; show, respawn, autoplay, scene reset and server restart cannot bring it back. This includes scripted NPC death actions. Its recording stays available for reuse. Deleted YAML uses the existing `trash/` retention mechanism, without automatic recovery. To use the same ID again, create a new actor with `/actor create guard_1`. **Reset NPC spawn** / `/actor respawn` only recreates an existing living or hidden NPC. Deaths drop no copied equipment or experience.
 
 ## 4. Build and play your first scene
 
@@ -202,7 +202,7 @@ Control a running scene with:
 /scene stop opening
 ```
 
-Stop cancels playback and restores the take. With automatic restoration disabled, `/scene reset opening` restores a completed take. Use `/scene remove opening 2` to remove the second displayed action; action numbers are one-based. Actors controlled by a running scene or recording cannot be edited by another operation until released.
+Stop cancels playback and restores the take. With automatic restoration disabled, `/scene reset opening` restores a completed take. Use `/scene remove opening 2` to remove the second displayed action; action numbers are one-based. Running scenes retain exclusive control of their targets. Running recordings permit name, skin, random identity, playback mode, tab-list, nametag and combat-switch changes; operations such as replacing the recording or costume still require Stop.
 
 See [all scene actions](COMMANDS.md#action-types) for movement, equipment, health, potion, sound, particles, world controls and other cues. Arguments are separated by semicolons, as in `sound=entity.player.levelup;volume=1;pitch=1`. Actions at the same tick execute in their saved order. Some actions require additional permissions; command execution and destructive effects also require explicit configuration switches.
 
@@ -261,7 +261,79 @@ Useful set preparation commands:
 
 To restore a physical set, select corners with `/es region pos1` and `/es region pos2`, then `/es region save stage`. After capture finishes, modify the set. `/es region restore stage` restores the saved blocks, container contents and sign text incrementally. Capture before making changes and keep the chunks loaded. Specialized block entities are not all covered; see [configuration and storage](CONFIGURATION.md).
 
-## 7. Customize YAML and menus
+## 7. Nickname real players
+
+```text
+/nickname Alex
+/nickname Alex off
+/nickname SilverOtter off
+/nickname off
+```
+
+The first command assigns Alex a random readable username from the [Random User API](https://randomuser.me/documentation). The next two examples reset one player using their real account name or current nickname; the last resets every current nickname and cancels pending requests. `/es nickname` is the namespaced equivalent. Targets must be online real players; NPCs are excluded. The command uses `easyscripting.identity`, plus `easyscripting.player.others` when targeting another player or resetting everyone.
+
+The nickname appears in the tab list, overhead nametag, normal display-name chat, victim/killer death messages and the leave message. It preserves the current skin. On disconnect the nickname expires; the next join uses the real username. Nicknames are unique without regard to case and cannot take another online player's real name or nickname. The API path also excludes NPC names and the configured identity blacklist. Reset/quit/shutdown invalidate unfinished lookups.
+
+Your own tab and display-name chat can show the nickname too. A vanilla server cannot replace the account name authenticated by your launcher, so client mods, account screens or third-party plugins that deliberately show account names may still use the real one. No client mod, ProtocolLib or PacketEvents is required for this feature. Other plugins can override chat/scoreboard formatting; EasyScripting preserves suppressed messages.
+
+Configure API enablement, timeout and local fallback in `nicknames.yml`. Failed/unavailable lookups use the varied `npc-identities.yml` name pool by default. No player username, UUID or IP address is placed in the API request; the external service receives the server's normal network connection. For a chosen name instead, use `/es nick set RiverScout`; `/es nick reset` restores your identity. All nicknames are temporary for the connection.
+
+## 8. Control production chat
+
+| Command | What it does |
+| --- | --- |
+| `/es chat block` | Toggle blocking; announce the change to everyone |
+| `/es chat block on` | Only current server operators can send public chat |
+| `/es chat block off` | Allow ordinary public chat again |
+| `/es chat clear` | Send blank lines to clear the visible chat area for everyone |
+| `/es chat clear self` | Clear only your visible chat area |
+| `/es chat broadcast Filming starts now` | Send the message in chat and as a configurable title |
+| `/es chat join RiverScout` | Print a yellow simulated join message |
+| `/es chat leave RiverScout` | Print a yellow simulated leave message |
+| `/es chat death RiverScout` | Print a white `RiverScout died` announcement |
+
+`block` replaces the old `mute` subcommand. Being de-opped takes effect on the next message, even if a permission plugin still grants `easyscripting.chat.bypass`; that node only bypasses recording-session chat suppression. Other moderation filters still apply. Join/leave/death above only print announcements: they do not connect, disconnect or kill a player. `/es death ...` is a separate command for what happens after a real player death.
+
+Templates are in `messages.yml`, including `fake-death`, `chat-muted` and `chat-unmuted` (the existing internal keys are retained). Title settings are in `moderation.yml`. Old default gray death text upgrades to white; customized templates remain yours to edit.
+
+## 9. Create, edit and import kits
+
+Run `/es kits` or open Studio → Wardrobe → Kits.
+
+1. Click **Create a new kit** and enter a unique ID such as `guard_costume`.
+2. Click the kit to open its controls. **Import my inventory** copies your current storage, hotbar, armor and offhand; replacing an existing kit requires confirmation. **Edit kit** opens the 41-slot editor.
+3. Edit the copied items. **Import my inventory** inside the editor replaces the draft slots. **Save kit** saves and returns to the library; **Save & equip** saves and applies it to you. Leaving the editor without saving discards draft changes. Item editing is intentionally a staff duplication tool.
+4. Use **Equip kit** to apply it later, or `/actor kit guard_1 guard_costume` to dress an NPC. A recorded performance supplies its own recorded equipment, so stop it before changing its costume kit.
+
+Editor slots 0–35 are hotbar/storage, 36 boots, 37 leggings, 38 chestplate, 39 helmet and 40 offhand. The footer contains controls and is never saved as kit contents. Commands also work: `/es kit create <id>` creates a blank kit, `/es kit save <id>` copies your inventory, `/es kit edit <id>` opens its editor and `/es kit apply <id>` equips it.
+
+### Import from another plugin
+
+In the library click **Import kits**, choose an installed provider, then choose a kit. EasyScripting generates an unused destination ID and opens the imported kit for editing. Supported providers are **PlayerKits 2**, **legacy PlayerKits**, **EssentialsX** and **CMI**. They must already be installed/enabled and allowed in `kits.yml`. EasyScripting's adapter code is included in its JAR; it does not bundle those other plugins.
+
+```text
+/es kits imports
+/es kits import PlayerKits2 starter imported_starter
+/es kits import PlayerKits starter imported_legacy
+/es kits import Essentials tools imported_tools
+/es kits import CMI starter imported_cmi
+```
+
+Imports read item definitions without claiming the kit, executing reward commands or charging currency. Provider item conversion preserves supported item metadata. PlayerKits auto-armor/offhand and CMI armor/offhand slots are retained; Essentials supports ordinary item metadata, serialized items and explicit slots. Player-specific placeholder values are resolved for the importing player and then saved. Claims, permissions, cooldowns, prices and commands stay with the original provider. Dynamic/nested formats outside the adapter's supported item definitions produce an error; they are not silently approximated. Oversized kits and conflicting item slots are rejected before saving.
+
+Provider APIs can change. If an adapter reports an unsupported signature, or you use another kit plugin, claim/equip that kit yourself and choose **Import my inventory**. This also captures the final result of custom-item or reward systems. The four adapters have source/compile checks and isolated contract fixtures, but this release has not been tested against running installations of all four providers.
+
+### Export and move EasyScripting kits
+
+Use a kit's **Export kit YAML** control or `/es kits export guard_costume`. The writer saves `plugins/EasyScripting/kit-exports/guard_costume.yml`. Copy that file into the destination server's `plugins/EasyScripting/kit-exports/`, then select the **EasyScripting** import source or run:
+
+```text
+/es kits import EasyScripting guard_costume imported_guard
+```
+
+Use a new destination ID: imports never overwrite an existing kit. This format is EasyScripting's own schema-1 `contents` list, not a generic converter for arbitrary plugin YAML. Keep the destination on a compatible Minecraft version for its serialized items.
+
+## 10. Customize YAML and menus
 
 All editable files are under `plugins/EasyScripting/`:
 
@@ -273,11 +345,12 @@ All editable files are under `plugins/EasyScripting/`:
 | `guis.yml` | Inventory titles, icons, slots, labels, lore and workflow buttons |
 | `messages.yml` | Feedback text and optional command sounds |
 | `permissions.yml` | Feature permission overrides |
+| `nicknames.yml`, `kits.yml` | Username API/fallback and installed kit import providers |
 | `recording.yml` | Production-session behavior and replay knockback/recovery timing |
 | `moderation.yml`, `death.yml` | Join/chat/world rules and death behavior |
 | `items.yml`, `potions.yml`, `effects.yml` | Item pools, potion presets and effect settings |
 
-After editing settings, run `/es reload`. Invalid settings produce an error and leave the previous active configuration in use. Existing files are preserved on upgrade; missing top-level files are supplied automatically. Actor and scene YAML definitions edited by hand load on a full restart, not `/es reload`.
+After editing settings, run `/es reload`. Invalid settings produce an error and leave the previous active configuration in use. Missing top-level files are supplied automatically. The documented GUI and new-actor-default migrations create backups; individual actors and custom schema-2 GUI values are preserved. Actor and scene YAML definitions edited by hand load on a full restart, not `/es reload`.
 
 For example, change the randomize button by editing the existing keys under `dynamic` in `guis.yml`:
 
@@ -296,13 +369,13 @@ dynamic:
       lore: ['<gray>Show the ID, name and skin account.']
 ```
 
-Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. The randomize control is on Appearance; the identity summary is on Overview. Version 0.1.4 replaces legacy GUI layouts after validation and saves the original as `guis-v1-backup-<unique-id>.yml` in the plugin folder. Reapply custom labels to the new layout; do not merge the old slot arrangement into it. Schema-2 customizations are preserved on reload.
+Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. The randomize control is on Appearance; the identity summary is on Overview. Version 0.1.5 replaces legacy GUI layouts after validation and saves the original as `guis-v1-backup-<unique-id>.yml` in the plugin folder. Reapply custom labels to the new layout; do not merge the old slot arrangement into it. Schema-2 customizations are preserved on reload.
 
 Custom buttons execute as the clicking player and obey the same permissions as commands. Opening a menu does not grant control over another player. See [PERMISSIONS.md](PERMISSIONS.md) before granting staff access and [CONFIGURATION.md](CONFIGURATION.md) for complete YAML rules.
 
 ## Broadcasts and chat moderation
 
-`/es chat broadcast Filming starts now` sends the text to chat and displays it as a title to every online player. `/es chat mute on` and `/es chat mute off` announce the state change to everyone. Repeating the current mute state does not repeat the announcement. These commands work through the same `easyscripting.chat` permission and chat feature switch.
+`/es chat broadcast Filming starts now` sends the text to chat and displays it as a title to every online player. `/es chat block on` and `/es chat block off` announce the state change to everyone. Repeating the current block state does not repeat the announcement. These commands work through the same `easyscripting.chat` permission and chat feature switch.
 
 Edit `broadcast`, `broadcast-title`, `broadcast-subtitle`, `chat-muted` and `chat-unmuted` in `messages.yml`. Broadcast text is inserted as plain text through `<detail>`. `moderation.yml` controls title enablement and timing; run `/es reload` to apply edits. Missing new keys inherit defaults on existing servers.
 
@@ -315,7 +388,7 @@ Edit `broadcast`, `broadcast-title`, `broadcast-subtitle`, `chat-muted` and `cha
 | A skin account changed its skin but the NPC did not | Cached appearances are intentional; repeat `/actor set <id> skin <account>` to refresh |
 | Renamed NPC cannot be found in a command | Use its original ID, shown by `/actor list` and `/actor info <id>` |
 | Randomization reports no names available | Expand the prefix/suffix pools, remove unused actors, or review the identity blacklist |
-| NPC edit reports the actor is in use | Stop the owning scene or movement playback before editing |
+| NPC edit reports the actor is in use | Name/skin/mode edits work during replay; stop the owning scene or finish acting for operations still held by a take |
 | Scene commands reject an action | Check its permission, target, arguments and feature switch; command/destructive actions have extra gates |
 | A GUI edit does not appear | Run `/es reload` and reopen it; check errors for invalid slots or YAML |
 | Changes disappear after a crash | Use a graceful server stop to drain queued saves; active in-memory takes are not crash recovery backups |

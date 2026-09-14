@@ -57,6 +57,41 @@ public final class GuiSchema {
         (key, old) -> {
           if (Objects.equals(result.get(key), old)) result.set(key, defaults.get(key));
         });
+    Map<String, Object> old015 =
+        Map.of(
+            "dynamic.controls.actor-stop.lore",
+                List.of(
+                    "<gray>Return the NPC to its starting state.", "<gray>Combat damage is kept."),
+            "dynamic.controls.actor-autoplay.lore",
+                List.of(
+                    "<gray>ON: start after saving a performance.",
+                    "<gray>Also starts when shown, respawned or loaded.",
+                    "<gray>OFF does not stop an active replay.",
+                    "<gray>Click to toggle."),
+            "dynamic.controls.actor-immortal.lore",
+                List.of(
+                    "<gray>ON: prevent lethal hits. OFF: this NPC can die.",
+                    "<gray>Click to toggle."),
+            "entries.kits.create", "<green>Save my inventory as a kit",
+            "entries.kits.lore",
+                List.of(
+                    "<gray>ID: <white>{id}",
+                    "<gray>{detail}",
+                    "",
+                    "<yellow>Click to apply · Right click to edit",
+                    "<red>Shift-right click to delete"),
+            "menus.production.buttons.mute.name", "<white>Mute public chat",
+            "menus.production.buttons.mute.lore",
+                List.of("<gray>Pause public chat for the shoot.", "", "<yellow>Click to select"));
+    old015.forEach(
+        (key, old) -> {
+          if (Objects.equals(result.get(key), old)) result.set(key, defaults.get(key));
+        });
+    for (String key : result.getKeys(true))
+      if (key.endsWith(".action")
+          && result.get(key) instanceof String action
+          && action.startsWith("command chat mute "))
+        result.set(key, action.replace("command chat mute ", "command chat block "));
     return result;
   }
 
@@ -144,7 +179,8 @@ public final class GuiSchema {
                 "actor-kit",
                 "actor-randomize",
                 "actor-glow",
-                "actor-nametag"),
+                "actor-nametag",
+                "actor-tablist"),
             List.of(
                 "actor-here",
                 "actor-walk",
@@ -187,6 +223,13 @@ public final class GuiSchema {
     kit.remove(y.getInt("dynamic.create-slot"));
     for (int i = 0; i < 45; i++) kit.add(i);
     takeControl(y, "kit-save", kit);
+    takeControl(y, "kit-import-inventory", kit);
+    takeControl(y, "kit-save-apply", kit);
+    Set<Integer> kitLibrary = new HashSet<>(taken);
+    takeControl(y, "kits-import", kitLibrary);
+    Set<Integer> kitDetails = new HashSet<>(navigation);
+    for (String key : List.of("kit-apply", "kit-edit", "kit-capture", "kit-export", "kit-delete"))
+      takeControl(y, key, kitDetails);
     validateMaterial.accept(y.getString("layout.filler", "BLACK_STAINED_GLASS_PANE"));
     ConfigurationSection menus = y.getConfigurationSection("menus");
     if (menus == null) throw new IllegalArgumentException("guis.yml: menus is required.");

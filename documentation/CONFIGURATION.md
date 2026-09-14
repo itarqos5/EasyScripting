@@ -1,6 +1,6 @@
 # Configuration and storage
 
-Files are generated under `plugins/EasyScripting/`. Keep your existing files when updating. Missing top-level files are copied from the JAR, but existing files are never silently replaced. Reload uses `/es reload`; definitions edited outside the plugin load during a server restart. Invalid YAML is preserved and its path is logged.
+Files are generated under `plugins/EasyScripting/`. Keep your existing files when updating. Missing top-level files are copied from the JAR. Existing values are preserved except for the documented, backed-up GUI/default migrations below; exact old shipped message/help text is updated in memory. Reload uses `/es reload`; definitions edited outside the plugin load during a server restart. Invalid YAML is preserved and its path is logged.
 
 ## Top-level YAML
 
@@ -8,6 +8,8 @@ Files are generated under `plugins/EasyScripting/`. Keep your existing files whe
 | --- | --- |
 | config.yml | Limits, security gates, actor backend/defaults, optional item autoclear |
 | npc-identities.yml | Automatic NPC identities, username prefixes/suffixes and Java account skin pool |
+| nicknames.yml | Username API enablement, timeout and local fallback; connection-only nicknames preserve skins |
+| kits.yml | Enabled kit import providers and maximum provider list size |
 | features.yml | Boolean feature groups: actors, scenes, recording, players, identity, kits, warps, items, inventory, locks, death, chat, world, regions, teams, villagers, effects, voice |
 | messages.yml | MiniMessage templates and unparsed `<detail>`; feedback.enabled/success/error control optional command sounds |
 | guis.yml | Titles, content slots, navigation, controls, item icons, lore, configured command/input/menu buttons |
@@ -29,7 +31,7 @@ Region jobs permit one operation per world and at most `limits.active-scenes` jo
 
 `security.allow-command-actions` and `security.destructive-effects` default to false. Both need additional permissions. Time/weather commands and selected region restoration intentionally alter the world; scene time/weather actions snapshot their original environment.
 
-`actors.default-type` defaults to PLAYER. Set it to ZOMBIE on a server without Citizens. `actors.defaults` controls immortal, hittable, collidable, nametag, look-nearby, wander and autoplay for newly created actors. Autoplay defaults to true. Actor-specific files persist their own choices; old actor files without an autoplay key default to true.
+`actors.default-type` defaults to PLAYER. Set it to ZOMBIE on a server without Citizens. `actors.defaults` controls immortal, hittable, collidable, nametag, tablist, look-nearby, wander and autoplay for newly created actors. Autoplay defaults to true, Immortal to false and tablist to false. Upgrade 0.1.5 backs up `config.yml` as `config-before-0.1.5-<UUID>.yml`, sets the creation default `immortal: false` and records `actors.defaults.version: 2`. This is a one-time migration; afterward you may change that default again. Individual saved actor Immortal values are preserved. Actor-specific files persist their own choices; old actor files without an autoplay key default to true.
 
 In `recording.yml`, `playback.knockback-pause-ticks: 12` controls how long replay yields to native physics after a hit, and `playback.return-to-route-ticks: 10` controls the following blend back to its recorded route. Both must be integers from 1 to 100. Missing keys on an older installation use these defaults. The recording cursor pauses during the physics interval; subsequent hits restart it. These settings do not change combat damage or bypass Hittable/Immortal.
 
@@ -56,7 +58,7 @@ break: true
 pvp: true
 ```
 
-Names are compared without case for whitelists. Chat/sign filtering uses literal, case-insensitive substrings, not regex. Command blocking normalizes the command root and namespace; it is not a replacement for a server permission system. Chat bypass permission changes take effect on join, session start or `/es reload`.
+Names are compared without case for whitelists. Chat/sign filtering uses literal, case-insensitive substrings, not regex. Command blocking normalizes the command root and namespace; it is not a replacement for a server permission system. `/es chat block [on|off]` uses the current operator status on each message. The stored `chat-muted` boolean retains its original internal key. `easyscripting.chat.bypass` only affects recording-session suppression, not public blocking.
 
 ### Random NPC identities
 
@@ -80,7 +82,7 @@ broadcast-title:
 
 Fade timings accept 0–1200; stay accepts 1–1200. All timings must be YAML integers. `messages.yml` supplies `broadcast-title`, `broadcast-subtitle`, `chat-muted` and `chat-unmuted`; `<detail>` is unparsed broadcast text. Missing keys inherit bundled defaults in memory without replacing customized messages or moderation settings.
 
-Hittable OFF now blocks melee/sweep only, for both idle and replaying NPCs. Falls, projectiles and explosions remain damage sources. Acting players always block melee only and otherwise take normal damage. Dead NPCs are permanently removed from active actor storage; their old YAML is retained only by the existing trash mechanism.
+`actors.announce-death-leave: true` announces an actual NPC death using `messages.yml` key `actor-left` with `<name>`. Hittable OFF blocks melee/sweep only, for both idle and replaying NPCs. Falls, projectiles and explosions remain damage sources. Acting players always block melee only and otherwise take normal damage. Dead NPCs are permanently removed from active actor storage; their old YAML is retained only by the existing trash mechanism.
 
 ## GUI customization
 
@@ -94,15 +96,16 @@ Titles accept `{name}` and `{page}`. `entries.<menu>` configures create labels, 
 
 Changing a YAML button cannot grant permissions or cause it to execute as console. Chat input is bound to the initiating player's UUID, expires in 60 seconds and is never treated as an arbitrary root command.
 
-Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. Navigation uses `dynamic.controls.actor-section-*` and persistent `actor-tab-*` tabs. Acting controls include `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording`, `actor-autoplay` and `actor-mode-stop/repeat/reverse`. Combat controls are `actor-health`, `actor-hittable`, `actor-immortal`, `actor-combat-respawn`. Placeholders include `{id}`, `{name}`, `{skin}`, `{mode}`, `{recording}`, `{acting}`, `{autoplay}`, `{health}`, `{status}`; toggle labels use `{state}`.
+Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. Navigation uses `dynamic.controls.actor-section-*` and persistent `actor-tab-*` tabs. Acting controls include `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording`, `actor-autoplay` and `actor-mode-stop/repeat/reverse`. Appearance includes `actor-tablist`. Combat controls are `actor-health`, `actor-hittable`, `actor-immortal`, `actor-combat-respawn`. Placeholders include `{id}`, `{name}`, `{skin}`, `{mode}`, `{recording}`, `{acting}`, `{autoplay}`, `{health}`, `{status}`; toggle labels use `{state}`.
 
 ## Definitions and state
 
 | Directory/file | Contents |
 | --- | --- |
 | scenes/ | Schema-1 timelines |
-| actors/ | Actor type, transform, behavior, equipment, name, skin owner, optional cached signed texture, recording, playback-mode and autoplay |
+| actors/ | Actor type, transform, behavior, equipment, name, skin owner, optional cached signed texture, recording, playback-mode, autoplay and tablist |
 | loadouts/ | Saved 41-slot kits |
+| kit-exports/ | Portable EasyScripting schema-1 kit YAML; explicit import/export |
 | recordings/ | Schema-2 frame lists with transforms, hands, armor, pose, animation/fire cues and movement state; legacy schema-1 files remain readable |
 | warps/ | Locations and individual access nodes |
 | regions/ | Selected block data, container contents and sign text |
@@ -145,3 +148,11 @@ actions:
 Actions sort by tick, preserving YAML order for equal ticks. World positions require a loaded world and finite bounded coordinates. Unknown actions, malformed list entries and invalid identifiers are rejected. A missing actor is an execution preflight error, allowing definitions to be loaded before the cast is created.
 
 Snapshots restore location/rotation, inventory/equipment, health, food, XP, gamemode/flight/speeds, potion effects, velocity, fire, air, fall state, glow/invisibility/invulnerability/gravity, pose and player control flags. Display/list names are captured; the identity service's underlying profile history/skin policy is separate. Scoreboard membership, custom borders and arbitrary third-party state are not part of a take snapshot.
+
+## Nicknames and kit imports (0.1.5)
+
+`nicknames.yml`: `schema: 1`, `api-enabled: true`, `api-timeout-millis: 4000` (integer 500–10000), `local-fallback: true`. The fixed HTTPS Random User endpoint generates names; no Minecraft player data is sent in the request. Its response is bounded to 16 KiB, eight candidates and two worker threads with a bounded queue. Disable the API to use the local NPC prefix/suffix pool only. Skin properties are preserved. Nicknames expire on disconnect; stale saved `state/identities.yml` active aliases are cleared at startup.
+
+`kits.yml`: `schema: 1`, boolean `providers.PlayerKits2`, `providers.PlayerKits`, `providers.Essentials`, `providers.CMI` (all true), and `max-provider-kits: 1000` (integer 1–10000). Imports require the provider installed and enabled. Only items are copied; actions, costs, permissions and cooldowns are excluded. Supported public API adapters live in the EasyScripting JAR, without redistributing another plugin. Unknown formats can be captured through your inventory. See [kit import usage](USERGUIDE.md#9-create-edit-and-import-kits).
+
+Kit GUI additions use `menus.kit-details`, `dynamic.controls.kits-import`, `kit-apply`, `kit-edit`, `kit-capture`, `kit-export`, `kit-delete`, `kit-import-inventory`, and `kit-save-apply`. Their names/lore/icons/slots are configurable. The library importer defaults to slot 40; editor Import inventory uses 46 and Save & equip uses 52. Schema-2 layouts inherit these missing leaves; collisions with custom slots are reported for you to resolve. Old configured `command chat mute ...` buttons are rewritten to `command chat block ...` in memory.

@@ -17,12 +17,15 @@ actors:
   default-type: PLAYER
   # Player actors need a matching Citizens release. Mob actors are built in.
   citizens-enabled: true
+  announce-death-leave: true
   defaults:
+    version: 2
     autoplay: true
-    immortal: true
+    immortal: false
     hittable: true
     collidable: true
     nametag: true
+    tablist: false
     look-nearby: false
     wander: false
 spawn:

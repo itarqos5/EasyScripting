@@ -22,6 +22,13 @@ public final class IdentityService implements Listener, AutoCloseable {
   private final Messages messages;
   private YamlConfiguration data;
   private final Map<UUID, PlayerProfile> originals = new HashMap<>();
+  private final Map<UUID, Component> originalDisplay = new HashMap<>(),
+      originalTab = new HashMap<>();
+  private final Map<UUID, PlayerProfile> accounts = new HashMap<>();
+  private final NicknameDirectory directory = new NicknameDirectory();
+  private java.util.function.Consumer<Player> available = p -> {};
+  private java.util.function.Predicate<Player> acting = p -> false;
+  private java.util.function.Consumer<UUID> cancelNickname = id -> {};
   private final Map<UUID, UUID> requests = new HashMap<>();
   private java.util.function.Consumer<String> purgeIdentity = name -> {};
 
@@ -42,6 +49,12 @@ public final class IdentityService implements Listener, AutoCloseable {
 
   public void load() {
     data = store.read("state", "identities");
+    // A nickname belongs to one connection; never restore an alias from disk on login.
+    if (data.contains("active")) {
+      data.set("active", null);
+      save();
+    }
+    Bukkit.getOnlinePlayers().stream().filter(IdentityService::realPlayer).forEach(this::connected);
     if (!data.contains("profiles.default"))
       data.set(
           "profiles.default",
@@ -54,16 +67,20 @@ public final class IdentityService implements Listener, AutoCloseable {
 
   public void nick(Player p, String name) {
     settings.require("identity");
+    requireAvailable(p);
     validate(name);
-    for (Player other : Bukkit.getOnlinePlayers())
-      if (!other.getUniqueId().equals(p.getUniqueId()) && other.getName().equalsIgnoreCase(name))
-        throw new IllegalArgumentException("Nickname is already in use.");
+    if (directory.get(p.getUniqueId()) == null) connected(p);
+    if (!directory.available(p.getUniqueId(), name))
+      throw new IllegalArgumentException("Nickname is already in use.");
+    cancelNickname.accept(p.getUniqueId());
     remember(p);
     PlayerProfile profile = Bukkit.createProfileExact(p.getUniqueId(), name);
+    profile.clearProperties();
     profile.setProperties(p.getPlayerProfile().getProperties());
     p.setPlayerProfile(profile);
     p.displayName(Component.text(name));
     p.playerListName(Component.text(name));
+    directory.assign(p.getUniqueId(), name);
     data.set("active." + p.getUniqueId(), name);
     List<String> history =
         new ArrayList<>(data.getStringList("history." + name.toLowerCase(Locale.ROOT)));
@@ -75,11 +92,91 @@ public final class IdentityService implements Listener, AutoCloseable {
 
   private void remember(Player p) {
     originals.putIfAbsent(p.getUniqueId(), p.getPlayerProfile().clone());
+    originalDisplay.putIfAbsent(p.getUniqueId(), p.displayName());
+    originalTab.putIfAbsent(p.getUniqueId(), p.playerListName());
+  }
+
+  public static boolean realPlayer(Player p) {
+    return p.isOnline() && !p.hasMetadata("NPC");
+  }
+
+  public void guards(
+      java.util.function.Consumer<Player> available, java.util.function.Predicate<Player> acting) {
+    this.available = available;
+    this.acting = acting;
+  }
+
+  public void onNicknameChange(java.util.function.Consumer<UUID> cancel) {
+    cancelNickname = cancel;
+  }
+
+  public NicknameDirectory directory() {
+    return directory;
+  }
+
+  public String accountName(Player p) {
+    var entry = directory.get(p.getUniqueId());
+    return entry == null ? p.getName() : entry.account();
+  }
+
+  public void requireAvailable(Player p) {
+    if (!realPlayer(p))
+      throw new IllegalArgumentException("Choose an online real player, not an NPC.");
+    available.accept(p);
+  }
+
+  private void connected(Player p) {
+    for (UUID displaced : directory.join(p.getUniqueId(), p.getName())) {
+      Player owner = Bukkit.getPlayer(displaced);
+      if (owner != null) reset(owner);
+    }
+    accounts.put(p.getUniqueId(), p.getPlayerProfile().clone());
+  }
+
+  public void captureIdentity(Player p, EntitySnapshot snapshot) {
+    if (!directory.nicknamed(p.getUniqueId())) return;
+    var mini = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage();
+    snapshot
+        .yaml()
+        .set(
+            "nickname.original-display",
+            mini.serialize(
+                originalDisplay.getOrDefault(p.getUniqueId(), Component.text(accountName(p)))));
+    snapshot
+        .yaml()
+        .set(
+            "nickname.original-tab",
+            mini.serialize(
+                originalTab.getOrDefault(p.getUniqueId(), Component.text(accountName(p)))));
+  }
+
+  public void afterRestore(Player p, EntitySnapshot snapshot) {
+    if (!realPlayer(p) || acting.test(p)) return;
+    var entry = directory.get(p.getUniqueId());
+    if (entry == null) return;
+    String name = entry.visible();
+    if (entry.nickname() == null
+        && (!name.equals(p.getPlayerProfile().getName()) || snapshot.yaml().contains("nickname"))) {
+      if (!name.equals(p.getPlayerProfile().getName())) {
+        PlayerProfile account = accounts.get(p.getUniqueId());
+        if (account != null) p.setPlayerProfile(account.clone());
+      }
+      var mini = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage();
+      p.displayName(mini.deserialize(snapshot.yaml().getString("nickname.original-display", name)));
+      p.playerListName(mini.deserialize(snapshot.yaml().getString("nickname.original-tab", name)));
+    } else if (entry.nickname() != null) {
+      PlayerProfile profile = Bukkit.createProfileExact(p.getUniqueId(), name);
+      profile.clearProperties();
+      profile.setProperties(p.getPlayerProfile().getProperties());
+      if (!name.equals(p.getPlayerProfile().getName())) p.setPlayerProfile(profile);
+      p.displayName(Component.text(name));
+      p.playerListName(Component.text(name));
+    }
   }
 
   public void validate(String name) {
-    if (!name.matches("[A-Za-z0-9_]{1,16}"))
-      throw new IllegalArgumentException("Identity must be 1..16 letters, digits or underscores.");
+    if (!name.matches("[A-Za-z0-9_]{3,16}"))
+      throw new IllegalArgumentException("Identity must be 3..16 letters, digits or underscores.");
     if (data.getStringList("blacklist").stream().anyMatch(s -> s.equalsIgnoreCase(name)))
       throw new IllegalArgumentException("This name is blacklisted.");
   }
@@ -127,11 +224,17 @@ public final class IdentityService implements Listener, AutoCloseable {
   }
 
   public void reset(Player p) {
+    cancelNickname.accept(p.getUniqueId());
     requests.remove(p.getUniqueId());
     PlayerProfile profile = originals.remove(p.getUniqueId());
-    if (profile != null) p.setPlayerProfile(profile);
-    p.displayName(Component.text(p.getName()));
-    p.playerListName(Component.text(p.getName()));
+    Component display = originalDisplay.remove(p.getUniqueId()),
+        tab = originalTab.remove(p.getUniqueId());
+    if (!acting.test(p)) {
+      if (profile != null) p.setPlayerProfile(profile);
+      p.displayName(display == null ? Component.text(accountName(p)) : display);
+      p.playerListName(tab == null ? Component.text(accountName(p)) : tab);
+    }
+    directory.reset(p.getUniqueId());
     data.set("active." + p.getUniqueId(), null);
     save();
   }
@@ -142,6 +245,7 @@ public final class IdentityService implements Listener, AutoCloseable {
 
   public void skin(Player p, String value, String model) {
     settings.require("identity");
+    requireAvailable(p);
     if (!List.of("auto", "slim", "classic").contains(model))
       throw new IllegalArgumentException("Skin model must be auto, slim or classic.");
     remember(p);
@@ -187,7 +291,13 @@ public final class IdentityService implements Listener, AutoCloseable {
                         if (!token.equals(requests.get(id))) return;
                         requests.remove(id);
                         Player live = Bukkit.getPlayer(id);
-                        if (live == null || !settings.enabled("identity")) return;
+                        if (live != p || !settings.enabled("identity")) return;
+                        try {
+                          requireAvailable(live);
+                        } catch (IllegalArgumentException ex) {
+                          messages.error(live, ex.getMessage());
+                          return;
+                        }
                         if (error != null || profile == null || !profile.hasTextures()) {
                           messages.error(
                               live,
@@ -211,23 +321,33 @@ public final class IdentityService implements Listener, AutoCloseable {
             });
   }
 
-  @EventHandler
+  @EventHandler(priority = EventPriority.LOW)
   public void join(PlayerJoinEvent e) {
     Player p = e.getPlayer();
-    String nick = data.getString("active." + p.getUniqueId());
-    if (nick != null && settings.enabled("identity")) {
-      try {
-        nick(p, nick);
-      } catch (IllegalArgumentException ex) {
-        plugin.getLogger().warning(ex.getMessage());
-      }
-    }
+    if (realPlayer(p)) connected(p);
   }
 
-  @EventHandler
+  @EventHandler(priority = EventPriority.HIGH)
+  public void leaving(PlayerQuitEvent e) {
+    e.quitMessage(NicknameMessages.rewrite(e.quitMessage(), directory.replacements()));
+  }
+
+  @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+  public void death(org.bukkit.event.entity.PlayerDeathEvent e) {
+    e.deathMessage(NicknameMessages.rewrite(e.deathMessage(), directory.replacements()));
+  }
+
+  @EventHandler(priority = EventPriority.MONITOR)
   public void quit(PlayerQuitEvent e) {
+    cancelNickname.accept(e.getPlayer().getUniqueId());
     requests.remove(e.getPlayer().getUniqueId());
     originals.remove(e.getPlayer().getUniqueId());
+    originalDisplay.remove(e.getPlayer().getUniqueId());
+    originalTab.remove(e.getPlayer().getUniqueId());
+    accounts.remove(e.getPlayer().getUniqueId());
+    directory.leave(e.getPlayer().getUniqueId());
+    data.set("active." + e.getPlayer().getUniqueId(), null);
+    save();
   }
 
   @Override
@@ -237,10 +357,18 @@ public final class IdentityService implements Listener, AutoCloseable {
       PlayerProfile original = originals.get(p.getUniqueId());
       if (original != null) {
         p.setPlayerProfile(original);
-        p.displayName(Component.text(original.getName()));
-        p.playerListName(Component.text(original.getName()));
+        p.displayName(
+            originalDisplay.getOrDefault(p.getUniqueId(), Component.text(original.getName())));
+        p.playerListName(
+            originalTab.getOrDefault(p.getUniqueId(), Component.text(original.getName())));
       }
     }
     originals.clear();
+    originalDisplay.clear();
+    originalTab.clear();
+    accounts.clear();
+    for (UUID id : directory.ids()) directory.leave(id);
+    data.set("active", null);
+    save();
   }
 }

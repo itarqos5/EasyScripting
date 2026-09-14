@@ -19,8 +19,8 @@ class ModerationConfigurationTest {
     current.set("broadcast", "My broadcast: <detail>");
     Settings.inheritMissing(current, defaults);
     assertEquals("My broadcast: <detail>", current.getString("broadcast"));
-    assertTrue(current.getString("chat-muted").contains("muted"));
-    assertTrue(current.getString("chat-unmuted").contains("unmuted"));
+    assertTrue(current.getString("chat-muted").contains("blocked"));
+    assertTrue(current.getString("chat-unmuted").contains("unblocked"));
     assertEquals("<gold><detail>", current.getString("broadcast-title"));
   }
 
@@ -38,5 +38,21 @@ class ModerationConfigurationTest {
     Settings.validateModeration(config);
     config.set("broadcast-title.enabled", "true");
     assertThrows(IllegalArgumentException.class, () -> Settings.validateModeration(config));
+  }
+
+  @Test
+  void vanillaDeathColorAndBlockWordingUpgradeOnlyShippedMessages() {
+    var defaults =
+        YamlConfiguration.loadConfiguration(
+            new InputStreamReader(
+                getClass().getResourceAsStream("/messages.yml"), StandardCharsets.UTF_8));
+    var old = new YamlConfiguration();
+    old.set("fake-death", "<gray><detail> died");
+    old.set("chat-muted", "<dark_gray>[<aqua>EasyScripting<dark_gray>] <red>Chat has been muted.");
+    old.set("chat-unmuted", "Our custom unblocked message");
+    Settings.migrateMessages(old, defaults);
+    assertEquals("<white><detail> died", old.getString("fake-death"));
+    assertTrue(old.getString("chat-muted").contains("blocked"));
+    assertEquals("Our custom unblocked message", old.getString("chat-unmuted"));
   }
 }

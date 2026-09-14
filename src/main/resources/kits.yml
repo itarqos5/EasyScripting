@@ -1,0 +1,9 @@
+schema: 1
+# Providers must be installed and enabled. Imports copy items, not claims or reward commands.
+providers:
+  PlayerKits2: true
+  PlayerKits: true
+  Essentials: true
+  CMI: true
+max-provider-kits: 1000
+# EasyScripting exports live in plugins/EasyScripting/kit-exports/.

@@ -65,7 +65,7 @@ bot.once('spawn', async () => {
     await click(7);
     check('combat section opens', bot.currentWindow.slots[20]?.name === 'target' && bot.currentWindow.slots[24]?.name === 'totem_of_undying');
     await click(20); await serverCheck('unhittable');
-    await click(20); await serverCheck('hittable'); await serverCheck('immortal');
+    await click(20); await serverCheck('hittable'); await click(24); await serverCheck('immortal');
     await click(24); await serverCheck('mortal');
     await click(31); await serverCheck('respawned'); await click(24);
     bot.closeWindow(bot.currentWindow);
@@ -94,9 +94,15 @@ bot.once('spawn', async () => {
       check('mode GUI shows ' + mode, JSON.stringify(bot.currentWindow.slots[15]).includes(mode));
       await click(15, false); await pause(duration * 2);
       const start = messages.length;
-      await command('/actor set acting_fixture name Tampered');
+      await command('/actor set acting_fixture name LivePerformer');
+      await command('/actor info acting_fixture');
+      check('identity changes during ' + mode, messages.slice(start).some(t => t.includes('name=LivePerformer')));
+      await open('acting'); await click(mode === 'repeat' ? 24 : 22);
+      check('mode remains selectable during playback', JSON.stringify(bot.currentWindow.slots[15]).includes(mode === 'repeat' ? 'reverse' : 'repeat'));
+      await command('/actor respawn acting_fixture');
       check(mode + ' remains active across recording boundaries', messages.slice(start).some(t => t.includes('busy with recording')));
       await command('/actor stop acting_fixture');
+      await command('/actor set acting_fixture name StagePerformer');
     }
     await open('acting'); await click(11, false); await pause(500);
     check('GUI act starts a new performance', messages.slice(-3).some(t => t.includes("Acting as 'acting_fixture'")));

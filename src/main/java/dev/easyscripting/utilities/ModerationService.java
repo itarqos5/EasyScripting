@@ -3,9 +3,8 @@ package dev.easyscripting.utilities;
 import dev.easyscripting.config.*;
 import dev.easyscripting.core.*;
 import dev.easyscripting.players.*;
-import io.papermc.paper.event.player.AsyncChatEvent;
+import io.papermc.paper.event.player.ChatEvent;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.*;
@@ -27,7 +26,6 @@ public final class ModerationService implements Listener, AutoCloseable {
   private volatile List<String> filters = List.of();
   private volatile boolean allowRecordingChat;
   private volatile Component blockedMessage = Component.empty();
-  private final Set<UUID> chatBypass = ConcurrentHashMap.newKeySet();
   private final Set<UUID> participants = new HashSet<>();
   private dev.easyscripting.integration.VoiceBridge voice =
       dev.easyscripting.integration.VoiceBridge.absent();
@@ -59,12 +57,6 @@ public final class ModerationService implements Listener, AutoCloseable {
             .toList();
     allowRecordingChat = settings.file("recording").getBoolean("allow-chat");
     blockedMessage = messages.text("chat-blocked", Map.of("detail", ""));
-    for (Player p : Bukkit.getOnlinePlayers()) updateBypass(p);
-  }
-
-  private void updateBypass(Player p) {
-    if (p.hasPermission("easyscripting.chat.bypass")) chatBypass.add(p.getUniqueId());
-    else chatBypass.remove(p.getUniqueId());
   }
 
   public boolean recording() {
@@ -85,10 +77,7 @@ public final class ModerationService implements Listener, AutoCloseable {
       captured.forEach(players::discard);
       throw ex;
     }
-    for (Player p : captured) {
-      participants.add(p.getUniqueId());
-      updateBypass(p);
-    }
+    for (Player p : captured) participants.add(p.getUniqueId());
     recordingName = name;
     recording = true;
     broadcast("recording-start", name);
@@ -200,12 +189,16 @@ public final class ModerationService implements Listener, AutoCloseable {
   }
 
   @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-  public void chat(AsyncChatEvent e) {
+  public void chat(ChatEvent e) {
     if (!settings.enabled("chat")) return;
     String text =
         PlainTextComponentSerializer.plainText().serialize(e.message()).toLowerCase(Locale.ROOT);
-    boolean bypass = chatBypass.contains(e.getPlayer().getUniqueId());
-    if ((!bypass && (chatMuted || (recording && !allowRecordingChat)))
+    if (ChatPolicy.blocked(
+            chatMuted,
+            e.getPlayer().isOp(),
+            recording,
+            allowRecordingChat,
+            e.getPlayer().hasPermission("easyscripting.chat.bypass"))
         || filters.stream().anyMatch(text::contains)) {
       e.setCancelled(true);
       e.getPlayer().sendMessage(blockedMessage);
@@ -291,13 +284,11 @@ public final class ModerationService implements Listener, AutoCloseable {
 
   @EventHandler
   public void join(PlayerJoinEvent e) {
-    updateBypass(e.getPlayer());
     if (!settings.file("moderation").getBoolean("join-messages", true)) e.joinMessage(null);
   }
 
   @EventHandler
   public void quit(PlayerQuitEvent e) {
-    chatBypass.remove(e.getPlayer().getUniqueId());
     participants.remove(e.getPlayer().getUniqueId());
     if (!settings.file("moderation").getBoolean("leave-messages", true)) e.quitMessage(null);
   }
@@ -305,6 +296,5 @@ public final class ModerationService implements Listener, AutoCloseable {
   @Override
   public void close() {
     if (recording) recordingStop(true);
-    chatBypass.clear();
   }
 }

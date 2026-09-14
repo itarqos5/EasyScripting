@@ -4,8 +4,11 @@ main: dev.easyscripting.EasyScriptingPlugin
 api-version: '1.21.8'
 description: Scripted SMP production tools, actors, timelines and repeatable takes.
 authors: [EasyScripting]
-softdepend: [Citizens, voicechat]
+softdepend: [Citizens, voicechat, PlayerKits2, PlayerKits, Essentials, CMI]
 commands:
+  nickname:
+    description: Give an online real player a temporary random nickname
+    usage: /nickname <player> [off] | off
   es:
     description: EasyScripting studio, tools and configuration
     aliases: [easyscripting, script]
@@ -39,7 +42,7 @@ permissions:
   easyscripting.death: {description: Set player death behavior, default: op}
   easyscripting.death.spectator: {description: Allow automatic spectator mode after death, default: op}
   easyscripting.chat: {description: Manage production chat, default: op}
-  easyscripting.chat.bypass: {description: Talk while production chat is muted, default: op}
+  easyscripting.chat.bypass: {description: Bypass recording-session chat suppression only; blocked public chat requires operator status, default: op}
   easyscripting.world: {description: Set environment and view limits, default: op}
   easyscripting.world.edit: {description: Capture and restore selected blocks, default: op}
   easyscripting.world.bypass: {description: Bypass dimension and build restrictions, default: op}

@@ -1,5 +1,25 @@
 # Testing and acceptance
 
+## 0.1.5 validation
+
+The build passes **88 unit tests**. New coverage includes repeated lethal damage remaining positive/nonlethal, one-time mortal-default migration, live playback cursor mode changes, operator-only chat policy, old message/GUI migrations, nickname collision/reset/reconnect/message/API parsing, preventing old takes from restoring expired aliases, and isolated PlayerKits2/CMI adapter contracts with item layout/overflow/clone checks. The item fixtures use a minimal ItemStack subclass; they do not claim to validate server item metadata serialization. The existing storage/scheduler/scene suites still pass.
+
+Production sources compile against the shared Paper 1.21.8 API and the affected-server Paper 1.21.11 API. The distributable is rebuilt against 1.21.8 with Java 21 bytecode. `compileSmokeJava`, client-script syntax, project validation and JAR contents are checked. There are no bundled server/provider/protocol-library classes. The synchronous chat event has a known deprecation warning; it provides a main-thread, current operator check. Existing login-event deprecations remain.
+
+No Minecraft server or client was launched. The previous integration results below apply only to their stated versions. Native hit/knockback rendering, Citizens refresh/tab-list behavior, graphical nickname rendering and imports against running PlayerKits 2/PlayerKits/EssentialsX/CMI installations remain runtime acceptance work. Adapter method names/signatures were checked against each provider's official source/API, and failures provide inventory-import fallback.
+
+Artifact: `build/libs/EasyScripting-0.1.5.jar`. Updated `scripts/acting-tests.cjs` and the smoke companion cover the new default, live identity/mode edits and positive immortal damage, but were only compiled/syntax-checked.
+
+Future acceptance checklist:
+
+* Create a fresh NPC: Immortal OFF; first ordinary hit works. Enable Immortal and hit repeatedly through lethal damage: native hurt/knockback remain, no death. Turn Hittable OFF: block only melee/sweeps, allow projectiles/falls/explosions. Check with a mob and compatible Citizens PLAYER.
+* Kill a mortal NPC during playback: one named leave announcement, no drops, permanent removal after restart. Finish/quit/die while acting and shut down with active actors: restore/cleanup without late task registration.
+* Record, finish with autoplay, change highlighted STOP/REPEAT/REVERSE while playing, rename/reskin/reroll and toggle tab listing. The recording continues; armor, position and health survive refresh. Stop during refresh: gravity restores and autoplay stays OFF across restart.
+* Nickname two real players, resolve/reset by account and alias, reject NPC targets, verify tab/nametag/chat/death/killer/quit display from both clients, then reconnect under account name. Reset-all during pending API work, disconnect mid-request, force API fallback, and join with an account matching somebody else's alias.
+* Block chat, de-op a sender while retaining chat.bypass, send again: blocked. Operators can speak. Unblock: normal chat. Verify fake death is white and only an announcement; broadcast displays both chat and title.
+* Create a blank kit, import inventory, edit/Save/Save & equip, close without saving, export/reimport with a new ID, test duplicate destination, custom footer collisions and permissions. Import named/enchant/PDC items, armor/offhand, explicit slots and oversized kits from each installed provider. Ensure imports never claim kits, charge money or execute commands.
+
+
 ## 0.1.4 validation
 
 The build passes 64 unit tests, including scheduler shutdown/rejected-registration regressions, melee versus environmental/projectile damage policy, old-message defaults, invalid broadcast timing and GUI help migration. Compilation against Paper 1.21.11 (the version in the reported shutdown trace) passed. The final JAR targets the shared 1.21.8 API with Java 21 bytecode; the smoke source set also compiles. No test server or Minecraft client was started.
@@ -99,7 +119,7 @@ Each row defines setup, equivalent action, pass condition and reset procedure. U
 | Actor creation | Loaded empty area; Citizens for PLAYER | Create mob/player, copy it, restart | Exactly one entity per visible actor; saved equipment/name/location retained; optional dependency absence has a clear error | Delete actors; verify chunk tickets released |
 | Actor direction | Guard and performer within 3 blocks | Move, look, sneak, sprint, jump, swing | One intended movement/animation; no ambient AI fighting scene directions | Stop/reset scene |
 | Actor damage | Give target 20 health, immortal on | Attack for 2, then lethal damage; set hittable off | Nonlethal hit once; lethal prevention distinct from complete hit cancellation | Restore health and flags |
-| Actor death | Scene with explicit death action and destructive grant | Play with auto-restore on | Actor dies, a replacement is restored to initial transform/equipment/health; scene completes once | Delete scene/actor |
+| Actor death | Mortal actor, scene death action and destructive grant | Play with auto-restore on | Actor dies, announces leaving and is permanently deleted; reset/restart cannot recreate it | Delete fixture scene |
 | Groups/patterns | Empty loaded area, cap sufficient | Create each shape with 12 actors; hide/show group | Deterministic count/layout; group operations affect only members | Delete group members |
 | Scene ordering | Two same-tick health actions, later swing | Play, pause, resume, stop | Stable order, no progress while paused, cancellation prevents later actions | Reset/delete fixture |
 | Scene conflict | Two scenes share actor or world | Play both | Second start rejected before mutations | Stop first |

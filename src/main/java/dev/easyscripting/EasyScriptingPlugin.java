@@ -37,12 +37,15 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       Messages messages = new Messages(settings);
       Access access = new Access(settings);
       TickEngine ticks = own(new TickEngine(this));
+      // Nicknames restore last, after scenes, acting and deferred player snapshots release.
+      IdentityService identities = own(new IdentityService(this, settings, store, messages));
+      identities.load();
       PlayerService players = own(new PlayerService(this, settings, store, ticks));
       players.load();
       ActorBackend playerBackend = null;
       if (settings.file("config").getBoolean("actors.citizens-enabled", true)
           && getServer().getPluginManager().isPluginEnabled("Citizens"))
-        playerBackend = new CitizensBackend();
+        playerBackend = new CitizensBackend(this);
       ActorService actors = own(new ActorService(this, settings, store, ticks, playerBackend));
       actors.load();
       KitService kits = new KitService(store);
@@ -53,8 +56,6 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       ItemService items = new ItemService(this, settings, ticks);
       items.playerFreeze(
           player -> players.flag(player, "freeze", !players.flag(player.getUniqueId(), "freeze")));
-      IdentityService identities = own(new IdentityService(this, settings, store, messages));
-      identities.load();
       identities.onBlacklist(actors::purgeIdentity);
       actors.identityFilter(identities::blocked);
       ActionRegistry actions = new ActionRegistry(settings);
@@ -67,6 +68,11 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       recordings.autoplayAll();
       ActingService acting =
           own(new ActingService(settings, messages, actors, players, recordings));
+      identities.guards(p -> players.available(p.getUniqueId()), p -> acting.actor(p).isPresent());
+      players.onRestore(identities::afterRestore);
+      players.onCapture(identities::captureIdentity);
+      NicknameService nicknames =
+          own(new NicknameService(settings, messages, identities, actors, ticks));
       CameraService cameras = own(new CameraService(ticks, players));
       ModerationService moderation =
           own(new ModerationService(this, settings, messages, players, ticks));
@@ -139,6 +145,67 @@ public final class EasyScriptingPlugin extends JavaPlugin {
               locks,
               menus)) getServer().getPluginManager().registerEvents(listener, this);
       CommandRouter router = new CommandRouter(this, access, messages);
+      KitImports imports = new KitImports(kits, settings);
+      menus.kitImports(imports);
+      router.add(
+          "kits",
+          "kit",
+          "[import <provider> <kit> [new-id] | imports | export <id>]",
+          (sender, args) -> {
+            settings.require("kits");
+            if (args.size() == 0) {
+              menus.open(Args.player(sender), "kits", 0);
+              return;
+            }
+            access.require(sender, "kit.edit");
+            switch (args.get(0)) {
+              case "imports" -> menus.kitImportMenu(Args.player(sender));
+              case "import" -> {
+                String destination = args.get(3, args.get(2).toLowerCase(Locale.ROOT));
+                imports.importKit(args.get(1), args.get(2), destination, Args.player(sender));
+                messages.ok(sender, "Imported kit '" + destination + "'. Only items are copied.");
+              }
+              case "export" -> {
+                kits.export(args.get(1));
+                messages.ok(
+                    sender,
+                    "Export queued: plugins/EasyScripting/kit-exports/" + args.get(1) + ".yml");
+              }
+              default ->
+                  throw new IllegalArgumentException(
+                      "Use /es kits, /es kits imports, import or export.");
+            }
+          },
+          (sender, args) -> {
+            if (args.size() == 1) return List.of("imports", "import", "export");
+            if (args.get(0).equals("export")) return kits.ids();
+            if (args.size() == 2 && args.get(0).equals("import")) return imports.sources();
+            if (args.size() == 3 && args.get(0).equals("import")) return imports.names(args.get(1));
+            return List.of();
+          });
+      router.add(
+          "nickname",
+          "identity",
+          "<online-player-or-nickname> [off] | off",
+          (sender, args) -> {
+            if (args.size() == 1 && args.get(0).equalsIgnoreCase("off")) {
+              access.require(sender, "player.others");
+              nicknames.resetAll(sender);
+              return;
+            }
+            if (args.size() > 2 || (args.size() == 2 && !args.get(1).equalsIgnoreCase("off")))
+              throw new IllegalArgumentException("Use /nickname <player> [off] or /nickname off.");
+            var target = nicknames.target(args.get(0));
+            if (!target.equals(sender)) access.require(sender, "player.others");
+            if (args.size() == 2) nicknames.reset(target, sender);
+            else nicknames.random(target, sender);
+          },
+          (sender, args) -> {
+            if (args.size() == 2) return List.of("off");
+            List<String> names = new ArrayList<>(nicknames.names());
+            names.add("off");
+            return names;
+          });
       router.add(
           "menu",
           "use",
@@ -262,7 +329,7 @@ public final class EasyScriptingPlugin extends JavaPlugin {
           teams,
           villagers,
           voice);
-      for (String name : List.of("es", "scene", "actor")) {
+      for (String name : List.of("es", "scene", "actor", "nickname")) {
         var command = Objects.requireNonNull(getCommand(name));
         command.setExecutor(router);
         command.setTabCompleter(router);

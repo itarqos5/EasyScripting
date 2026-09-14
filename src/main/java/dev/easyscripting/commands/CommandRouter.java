@@ -55,7 +55,7 @@ public final class CommandRouter implements CommandExecutor, TabCompleter {
   @Override
   public boolean onCommand(CommandSender sender, Command command, String label, String[] original) {
     String[] args = original;
-    if (command.getName().equals("scene") || command.getName().equals("actor")) {
+    if (List.of("scene", "actor", "nickname").contains(command.getName())) {
       args = new String[original.length + 1];
       args[0] = command.getName();
       System.arraycopy(original, 0, args, 1, original.length);
@@ -94,7 +94,7 @@ public final class CommandRouter implements CommandExecutor, TabCompleter {
       CommandSender sender, Command command, String label, String[] original) {
     if (!access.allowed(sender, "easyscripting.use")) return List.of();
     String[] args = original;
-    if (command.getName().equals("scene") || command.getName().equals("actor")) {
+    if (List.of("scene", "actor", "nickname").contains(command.getName())) {
       args = new String[original.length + 1];
       args[0] = command.getName();
       System.arraycopy(original, 0, args, 1, original.length);

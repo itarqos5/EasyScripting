@@ -21,12 +21,13 @@ public final class ActorDefinition {
   public boolean glowing, sneaking, sprinting;
   public Location location;
   public boolean hidden,
-      immortal = true,
+      immortal,
       hittable = true,
       collidable = true,
       lookNearby,
       wander,
-      nametag = true;
+      nametag = true,
+      tablist;
   public ItemStack[] equipment = new ItemStack[6];
 
   public ActorDefinition(String id, String type, Location at) {
@@ -62,6 +63,7 @@ public final class ActorDefinition {
     y.set("look-nearby", lookNearby);
     y.set("wander", wander);
     y.set("nametag", nametag);
+    y.set("tablist", tablist);
     y.set("equipment", Arrays.asList(equipment));
     return y;
   }
@@ -95,6 +97,7 @@ public final class ActorDefinition {
     d.lookNearby = y.getBoolean("look-nearby");
     d.wander = y.getBoolean("wander");
     d.nametag = y.getBoolean("nametag", true);
+    d.tablist = y.getBoolean("tablist", false);
     List<?> items = y.getList("equipment", List.of());
     for (int i = 0; i < Math.min(6, items.size()); i++)
       if (items.get(i) instanceof ItemStack item) d.equipment[i] = item.clone();

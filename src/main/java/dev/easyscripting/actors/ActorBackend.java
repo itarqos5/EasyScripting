@@ -15,6 +15,18 @@ public interface ActorBackend extends AutoCloseable {
 
     void skin(String name);
 
+    default void tablist(boolean listed) {}
+
+    default void appearance(boolean nametag, boolean collidable) {}
+
+    /** Citizens can replace its entity while refreshing a name or skin. */
+    default void onEntityChanged(java.util.function.Consumer<LivingEntity> listener) {}
+
+    /** A temporary backend identity respawn, distinct from removal/death. */
+    default boolean refreshing() {
+      return false;
+    }
+
     /** Copies a resolved skin to persistent actor data. Mob backends have no player skin. */
     default boolean captureSkin(ActorDefinition definition) {
       return false;
