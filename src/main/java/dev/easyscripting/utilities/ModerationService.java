@@ -120,7 +120,9 @@ public final class ModerationService implements Listener, AutoCloseable {
   }
 
   public void mute(boolean value) {
+    if (chatMuted == value) return;
     chatMuted = value;
+    broadcast(value ? "chat-muted" : "chat-unmuted", "");
   }
 
   public boolean muted() {
@@ -129,6 +131,23 @@ public final class ModerationService implements Listener, AutoCloseable {
 
   public void broadcast(String key, String detail) {
     Bukkit.broadcast(messages.text(key, Map.of("detail", detail)));
+  }
+
+  public void announce(String detail) {
+    broadcast("broadcast", detail);
+    var config = settings.file("moderation");
+    if (!config.getBoolean("broadcast-title.enabled", true)) return;
+    var title =
+        net.kyori.adventure.title.Title.title(
+            messages.text("broadcast-title", Map.of("detail", detail)),
+            messages.text("broadcast-subtitle", Map.of("detail", detail)),
+            net.kyori.adventure.title.Title.Times.times(
+                java.time.Duration.ofMillis(
+                    config.getInt("broadcast-title.fade-in-ticks", 10) * 50L),
+                java.time.Duration.ofMillis(config.getInt("broadcast-title.stay-ticks", 60) * 50L),
+                java.time.Duration.ofMillis(
+                    config.getInt("broadcast-title.fade-out-ticks", 10) * 50L)));
+    for (Player player : Bukkit.getOnlinePlayers()) player.showTitle(title);
   }
 
   public void fake(String kind, String name) {

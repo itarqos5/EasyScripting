@@ -26,7 +26,7 @@ public final class ActorService implements Listener, AutoCloseable {
   private Consumer<String> removed = id -> {};
   private Consumer<ManagedActor> spawned = actor -> {};
   private UUID behaviorJob;
-  private final Set<String> scriptedDeaths = new HashSet<>();
+  private boolean closing;
   private final Map<String, String> leases = new HashMap<>();
   private final Map<Chunk, Integer> chunkTickets = new HashMap<>();
   private java.util.function.Predicate<String> blockedIdentity = name -> false;
@@ -111,16 +111,16 @@ public final class ActorService implements Listener, AutoCloseable {
   }
 
   public List<String> ids() {
-    return List.copyOf(actors.keySet());
+    return actors.values().stream().filter(a -> !a.pendingDeletion).map(ManagedActor::id).toList();
   }
 
   public List<ManagedActor> list() {
-    return List.copyOf(actors.values());
+    return actors.values().stream().filter(a -> !a.pendingDeletion).toList();
   }
 
   public ManagedActor get(String id) {
     ManagedActor actor = actors.get(id);
-    if (actor == null)
+    if (actor == null || actor.pendingDeletion)
       throw new IllegalArgumentException(
           "Actor '" + id + "' does not exist. Create it with /actor create " + id + ".");
     return actor;
@@ -153,6 +153,8 @@ public final class ActorService implements Listener, AutoCloseable {
   }
 
   private void spawn(ManagedActor actor) {
+    if (actor.pendingDeletion)
+      throw new IllegalArgumentException("This NPC was deleted after death.");
     ActorDefinition d = actor.definition;
     ActorBackend backend = d.type.equals("PLAYER") ? players : mobs;
     if (backend == null)
@@ -204,6 +206,7 @@ public final class ActorService implements Listener, AutoCloseable {
   }
 
   public void save(ManagedActor actor) {
+    if (actor.pendingDeletion) return;
     if (actor.handle != null) actor.handle.captureSkin(actor.definition);
     actor
         .entity()
@@ -441,12 +444,7 @@ public final class ActorService implements Listener, AutoCloseable {
   }
 
   public void kill(String id) {
-    scriptedDeaths.add(id);
-    try {
-      get(id).requireEntity().setHealth(0);
-    } finally {
-      scriptedDeaths.remove(id);
-    }
+    get(id).requireEntity().setHealth(0);
   }
 
   public void pattern(
@@ -474,7 +472,7 @@ public final class ActorService implements Listener, AutoCloseable {
   }
 
   private void ensureBehaviors() {
-    if (behaviorJob != null || actors.isEmpty()) return;
+    if (closing || !ticks.acceptingWork() || behaviorJob != null || actors.isEmpty()) return;
     behaviorJob =
         ticks.add(
             new TickEngine.Job() {
@@ -536,7 +534,9 @@ public final class ActorService implements Listener, AutoCloseable {
   public void damage(EntityDamageEvent event) {
     ManagedActor a = entities.get(event.getEntity().getUniqueId());
     if (a == null) return;
-    if (!a.definition.hittable) {
+    boolean projectile =
+        event instanceof EntityDamageByEntityEvent hit && hit.getDamager() instanceof Projectile;
+    if (ActorDamagePolicy.blocksDamage(a.definition.hittable, event.getCause(), projectile)) {
       event.setCancelled(true);
       return;
     }
@@ -548,26 +548,44 @@ public final class ActorService implements Listener, AutoCloseable {
     }
   }
 
-  @EventHandler
+  @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+  public void deathDrops(EntityDeathEvent event) {
+    if (!entities.containsKey(event.getEntity().getUniqueId())) return;
+    event.getDrops().clear();
+    event.setDroppedExp(0);
+  }
+
+  @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
   public void death(EntityDeathEvent event) {
     ManagedActor actor = entities.remove(event.getEntity().getUniqueId());
     if (actor == null) return;
-    event.getDrops().clear();
-    event.setDroppedExp(0);
-    // Restoring inside EntityDeathEvent would race vanilla death finalization.
-    if (!scriptedDeaths.contains(actor.id()))
-      ticks.later(
-          1,
-          () -> {
-            if (actors.containsKey(actor.id()) && actor.entity().isEmpty())
-              removed.accept(actor.id());
-          });
+    // Tombstone immediately: restoration and shutdown saves must not resurrect this definition.
+    actor.pendingDeletion = true;
+    store.delete("actors", actor.id());
+    Runnable cleanup =
+        () -> {
+          try {
+            removed.accept(actor.id());
+          } finally {
+            despawn(actor);
+            actors.remove(actor.id(), actor);
+            leases.remove(actor.id());
+          }
+        };
+    // Defer backend destruction until the death event finishes, unless already shutting down.
+    if (ticks.acceptingWork()) ticks.later(1, cleanup);
+    else cleanup.run();
   }
 
   @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
   public void knockback(io.papermc.paper.event.entity.EntityKnockbackEvent event) {
     ManagedActor actor = entities.get(event.getEntity().getUniqueId());
-    if (actor != null && !actor.definition.hittable) event.setCancelled(true);
+    boolean projectile =
+        event instanceof io.papermc.paper.event.entity.EntityPushedByEntityAttackEvent hit
+            && hit.getPushedBy() instanceof Projectile;
+    if (actor != null
+        && ActorDamagePolicy.blocksKnockback(
+            actor.definition.hittable, event.getCause(), projectile)) event.setCancelled(true);
   }
 
   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -582,11 +600,17 @@ public final class ActorService implements Listener, AutoCloseable {
 
   @Override
   public void close() {
-    for (ManagedActor a : list()) {
-      save(a);
-      despawn(a);
-    }
+    closing = true;
     if (behaviorJob != null) ticks.cancel(behaviorJob);
+    for (ManagedActor a : List.copyOf(actors.values())) {
+      try {
+        save(a);
+      } finally {
+        despawn(a);
+      }
+    }
+    actors.clear();
+    leases.clear();
     mobs.close();
     if (players != null) players.close();
   }
@@ -595,6 +619,7 @@ public final class ActorService implements Listener, AutoCloseable {
     public final ActorDefinition definition;
     private ActorBackend.Handle handle;
     private Chunk chunk;
+    private boolean pendingDeletion;
 
     private ManagedActor(ActorDefinition definition) {
       this.definition = definition;
@@ -609,7 +634,7 @@ public final class ActorService implements Listener, AutoCloseable {
     }
 
     public Optional<LivingEntity> entity() {
-      return Optional.ofNullable(handle == null ? null : handle.entity());
+      return Optional.ofNullable(pendingDeletion || handle == null ? null : handle.entity());
     }
 
     public LivingEntity requireEntity() {

@@ -25,6 +25,38 @@ public final class GuiSchema {
     for (String key : defaults.getKeys(true))
       if (!defaults.isConfigurationSection(key) && !result.contains(key))
         result.set(key, defaults.get(key));
+    // Update shipped help text only; preserve custom wording and slot layouts.
+    Map<String, Object> oldHelp =
+        Map.of(
+            "menus.actor-combat.description",
+                List.of(
+                    "<gray>Hittable ON: receive damage and knockback.",
+                    "<gray>Immortal ON: prevent lethal damage.",
+                    "<gray>To allow death, turn Immortal OFF."),
+            "dynamic.controls.actor-health.lore",
+                List.of(
+                    "<gray>Status: {status}",
+                    "<gray>Recording performers are always protected.",
+                    "<gray>Playback uses the combat switches below."),
+            "dynamic.controls.actor-combat-respawn.lore",
+                List.of(
+                    "<gray>Bring this NPC back after death.",
+                    "<gray>Autoplay starts when enabled."),
+            "dynamic.controls.actor-act.lore",
+                List.of(
+                    "<gray>Take its position, identity and costume.",
+                    "<gray>Record movement, equipment and animations.",
+                    "<gray>Damage and knockback cannot interrupt you."),
+            "dynamic.controls.actor-hittable.lore",
+                List.of(
+                    "<gray>ON: incoming hits cause damage and knockback.",
+                    "<gray>Click to toggle."),
+            "dynamic.actor-respawn", "<green>Respawn NPC",
+            "dynamic.actor-combat-respawn", "<green>Respawn NPC");
+    oldHelp.forEach(
+        (key, old) -> {
+          if (Objects.equals(result.get(key), old)) result.set(key, defaults.get(key));
+        });
     return result;
   }
 

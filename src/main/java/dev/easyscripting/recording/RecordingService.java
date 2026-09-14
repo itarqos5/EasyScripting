@@ -108,7 +108,7 @@ public final class RecordingService implements Listener, AutoCloseable {
   }
 
   public void requestAutoplay(String id) {
-    if (closing || queuedAutoplay.containsKey(id)) return;
+    if (closing || !ticks.acceptingWork() || queuedAutoplay.containsKey(id)) return;
     UUID job =
         ticks.add(
             new TickEngine.Job() {
@@ -504,7 +504,7 @@ public final class RecordingService implements Listener, AutoCloseable {
         .ifPresent(
             actor -> {
               CombatPlayback state = combat.get(actor.id());
-              if (state != null && actor.definition.hittable) {
+              if (state != null) {
                 state.recovery.hit();
               }
             });

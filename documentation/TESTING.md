@@ -1,5 +1,13 @@
 # Testing and acceptance
 
+## 0.1.4 validation
+
+The build passes 64 unit tests, including scheduler shutdown/rejected-registration regressions, melee versus environmental/projectile damage policy, old-message defaults, invalid broadcast timing and GUI help migration. Compilation against Paper 1.21.11 (the version in the reported shutdown trace) passed. The final JAR targets the shared 1.21.8 API with Java 21 bytecode; the smoke source set also compiles. No test server or Minecraft client was started.
+
+Future runtime checks: graceful shutdown with idle actors and active recording/playback; melee versus fall/wither-skull/explosion damage on both NPCs and acting players; permanent NPC deletion during playback/scenes and across restart; cancelled death events leaving actors/performances active; reused actor IDs after death; titles and mute/unmute announcements with old and customized YAML. NPC death now means deletion, so historical respawn-after-death checks below describe old versions only.
+
+Artifact: `build/libs/EasyScripting-0.1.4.jar`.
+
 ## 0.1.3 validation
 
 The 0.1.3 Gradle build passes all **53 unit tests**. Nine new tests cover knockback pause/blend timing, repeated hits, immutable vectors, invalid recovery durations, complete legacy GUI migration, preserved schema-2 customization, conflicting NPC/tab slots, timeline overlap and protected kit footer navigation. Bundled GUI material names are also checked against the Paper enum. Compilation against the Paper 26.2 build-123 API passed; the distributable is rebuilt against the shared 1.21.8 API with Java 21 bytecode.

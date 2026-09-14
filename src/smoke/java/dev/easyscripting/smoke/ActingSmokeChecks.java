@@ -153,18 +153,21 @@ final class ActingSmokeChecks implements CommandExecutor {
                   .allMatch(f -> f.containsKey("armor") && f.containsKey("pose")),
               "armor and pose captured");
           check(
-              data.getMapList("frames").stream().noneMatch(f -> Boolean.TRUE.equals(f.get("hurt")))
+              data.getMapList("frames").stream().anyMatch(f -> Boolean.TRUE.equals(f.get("hurt")))
                   && data.getMapList("frames").stream()
                       .anyMatch(f -> f.get("fire") instanceof Number n && n.intValue() > 0),
-              "protected performer has no damage cues; visual fire captured");
+              "environmental hurt and visual fire cues captured");
         }
         case "cue" -> {
           double health = player.getHealth();
           player.setNoDamageTicks(0);
+          player.damage(1, player);
+          check(player.getHealth() == health, "acting performer blocks direct melee");
+          player.setNoDamageTicks(0);
           player.damage(1);
           check(
-              player.getHealth() == health && player.isInvulnerable(),
-              "acting performer is protected from damage");
+              player.getHealth() < health && !player.isInvulnerable(),
+              "acting performer permits non-melee damage");
           player.setFireTicks(80);
         }
         case "end" -> {
@@ -189,8 +192,12 @@ final class ActingSmokeChecks implements CommandExecutor {
           e.setInvulnerable(false);
           e.setHealth(20);
           e.setNoDamageTicks(0);
+          e.damage(2, player);
+          check(e.getHealth() == 20, "unhittable NPC blocks melee damage");
+          e.setNoDamageTicks(0);
           e.damage(2);
-          check(e.getHealth() == 20, "unhittable NPC blocks damage");
+          check(e.getHealth() < 20, "unhittable NPC allows non-melee damage");
+          e.setHealth(20);
         }
         case "hittable" -> {
           check(actor().definition.hittable, "GUI enables hittable");
@@ -212,15 +219,20 @@ final class ActingSmokeChecks implements CommandExecutor {
           check(
               !actor().definition.immortal && actor().definition.hittable,
               "GUI allows mortal damage");
-          var e = actor().requireEntity();
-          e.setNoDamageTicks(0);
-          e.damage(1000);
+          var doomed =
+              (ActorService.ManagedActor)
+                  api.createActor("acting_death_fixture", EntityType.ZOMBIE, player.getLocation());
+          doomed.definition.immortal = false;
+          doomed.requireEntity().damage(1000);
           Bukkit.getScheduler()
               .runTaskLater(
                   plugin,
                   () -> {
                     try {
-                      check(actor().entity().isEmpty(), "mortal NPC remains dead until respawn");
+                      check(
+                          !api.actorIds().contains("acting_death_fixture")
+                              && doomed.entity().isEmpty(),
+                          "dead NPC is permanently deleted");
                       pass(player, "mortal");
                     } catch (Throwable error) {
                       fail(player, error);
@@ -229,7 +241,7 @@ final class ActingSmokeChecks implements CommandExecutor {
                   30);
           return true;
         }
-        case "respawned" -> check(actor().entity().isPresent(), "GUI respawns dead NPC");
+        case "respawned" -> check(actor().entity().isPresent(), "GUI resets a living NPC spawn");
         case "cleanup" -> api.removeActor(ID);
         default -> throw new IllegalArgumentException("Unknown acting check");
       }

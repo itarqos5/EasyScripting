@@ -393,6 +393,8 @@ public final class EasyScriptingPlugin extends JavaPlugin {
   @Override
   public void onDisable() {
     closing = true;
+    for (AutoCloseable resource : resources)
+      if (resource instanceof TickEngine engine) engine.beginShutdown();
     getServer().getServicesManager().unregisterAll(this);
     for (int i = resources.size() - 1; i >= 0; i--)
       try {

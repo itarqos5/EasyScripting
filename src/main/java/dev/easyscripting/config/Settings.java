@@ -69,6 +69,17 @@ public final class Settings {
       Path path = plugin.getDataFolder().toPath().resolve(file + ".yml");
       if (!path.toFile().exists()) plugin.saveResource(file + ".yml", false);
       next.put(file, YamlStore.read(path));
+      if (file.equals("messages") || file.equals("moderation")) {
+        try (var input = plugin.getResource(file + ".yml")) {
+          inheritMissing(
+              next.get(file),
+              YamlConfiguration.loadConfiguration(
+                  new java.io.InputStreamReader(
+                      Objects.requireNonNull(input), java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.io.IOException ex) {
+          throw new IllegalStateException("Could not read bundled " + file + " defaults", ex);
+        }
+      }
       if (file.equals("guis")) {
         try (var input = plugin.getResource("guis.yml")) {
           upgradeGui = next.get(file).getInt("schema", 1) < 2;
@@ -86,6 +97,7 @@ public final class Settings {
       }
     }
     YamlConfiguration config = next.get("config");
+    validateModeration(next.get("moderation"));
     bounded(config, "schema", 1, 1);
     bounded(config, "limits.actors", 1, 1000);
     bounded(config, "limits.active-scenes", 1, 100);
@@ -148,6 +160,28 @@ public final class Settings {
 
   public YamlConfiguration file(String name) {
     return Objects.requireNonNull(files.get(name), name);
+  }
+
+  public static void inheritMissing(YamlConfiguration target, YamlConfiguration defaults) {
+    for (String key : defaults.getKeys(true))
+      if (!defaults.isConfigurationSection(key) && !target.contains(key))
+        target.set(key, defaults.get(key));
+  }
+
+  public static void validateModeration(YamlConfiguration yaml) {
+    String enabled = "broadcast-title.enabled";
+    if (yaml.contains(enabled) && !(yaml.get(enabled) instanceof Boolean))
+      throw new IllegalArgumentException("moderation.yml: " + enabled + " must be true or false.");
+    for (String timing : List.of("fade-in-ticks", "stay-ticks", "fade-out-ticks")) {
+      String key = "broadcast-title." + timing;
+      int minimum = timing.equals("stay-ticks") ? 1 : 0;
+      if (yaml.contains(key)
+          && (!(yaml.get(key) instanceof Integer)
+              || yaml.getInt(key) < minimum
+              || yaml.getInt(key) > 1200))
+        throw new IllegalArgumentException(
+            "moderation.yml: " + key + " must be an integer from " + minimum + " to 1200.");
+    }
   }
 
   /** Merge new actor-menu leaves in memory; preserve customized values and the original file. */

@@ -1,5 +1,6 @@
 package dev.easyscripting.recording;
 
+import dev.easyscripting.actors.ActorDamagePolicy;
 import dev.easyscripting.actors.ActorService;
 import dev.easyscripting.config.*;
 import dev.easyscripting.players.*;
@@ -96,7 +97,7 @@ public final class ActingService implements Listener, AutoCloseable {
       player.displayName(Component.text(actor.definition.name));
       player.playerListName(Component.text(actor.definition.name));
       player.setGameMode(GameMode.SURVIVAL);
-      player.setInvulnerable(true);
+      player.setInvulnerable(false);
       player.setFlying(false);
       player.getInventory().clear();
       player.getInventory().setHeldItemSlot(0);
@@ -199,12 +200,17 @@ public final class ActingService implements Listener, AutoCloseable {
     }
   }
 
-  @EventHandler(priority = EventPriority.LOWEST)
+  @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+  public void deathDrops(PlayerDeathEvent event) {
+    if (!sessions.containsKey(event.getEntity().getUniqueId())) return;
+    event.getDrops().clear();
+    event.setDroppedExp(0);
+  }
+
+  @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
   public void death(PlayerDeathEvent event) {
     Session session = sessions.get(event.getEntity().getUniqueId());
     if (session != null) {
-      event.getDrops().clear();
-      event.setDroppedExp(0);
       session.deferred = true;
       finish(session.player);
     }
@@ -214,12 +220,20 @@ public final class ActingService implements Listener, AutoCloseable {
   public void damage(EntityDamageEvent event) {
     Session session = sessions.get(event.getEntity().getUniqueId());
     if (session == null) return;
-    event.setCancelled(true);
+    boolean projectile =
+        event instanceof EntityDamageByEntityEvent hit && hit.getDamager() instanceof Projectile;
+    if (ActorDamagePolicy.blocksDamage(false, event.getCause(), projectile))
+      event.setCancelled(true);
   }
 
   @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
   public void knockback(io.papermc.paper.event.entity.EntityKnockbackEvent event) {
-    if (sessions.containsKey(event.getEntity().getUniqueId())) event.setCancelled(true);
+    boolean projectile =
+        event instanceof io.papermc.paper.event.entity.EntityPushedByEntityAttackEvent hit
+            && hit.getPushedBy() instanceof Projectile;
+    if (sessions.containsKey(event.getEntity().getUniqueId())
+        && ActorDamagePolicy.blocksKnockback(false, event.getCause(), projectile))
+      event.setCancelled(true);
   }
 
   @EventHandler(ignoreCancelled = true)

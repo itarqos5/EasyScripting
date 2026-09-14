@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4 — 2026-09-14
+
+* Fixed shutdown trying to register actor behavior/autoplay tasks after Paper disables the plugin. The scheduler stops accepting work before service cleanup and failed registration no longer retains a phantom job.
+* NPC deaths now permanently remove the actor from active storage, cancel its playback and release resources. Scene reset cannot resurrect it or overwrite a newly created actor that reuses its ID. Scripted NPC death also deletes it.
+* Hittable OFF blocks direct melee and sweeps only. Falls, projectiles (including wither skulls), explosions and other environmental damage remain eligible; NPC Immortal still prevents lethal damage.
+* Acting players now block melee only and otherwise take normal damage instead of being invulnerable. Prior invulnerability is restored after acting.
+* Chat broadcasts also display a configurable title. Chat mute/unmute transitions announce the change to everyone, with configurable messages. Existing configurations inherit missing defaults.
+* Updated GUI help, documentation and opt-in fixtures. Build/unit/API checks only; no server started.
+
 ## 0.1.3 — 2026-09-14
 
 * Rebuilt every studio menu with grouped tools, spaced controls, explanatory lore, empty states, consistent navigation and NPC section tabs. Added recording/NPC/costume pickers, selected-mode indicators and unavailable-action explanations. Chat input returns to its originating page; timeline deletion requires Shift-right click and confirmation.

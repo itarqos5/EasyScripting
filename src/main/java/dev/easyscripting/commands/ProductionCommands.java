@@ -130,7 +130,7 @@ public final class ProductionCommands {
             case "mute" -> moderation.mute(Checks.bool(a.get(1)));
             case "clear" ->
                 moderation.clear(a.get(1, "all").equals("self") ? Args.player(s) : null);
-            case "broadcast" -> moderation.broadcast("broadcast", a.rest(1));
+            case "broadcast" -> moderation.announce(a.rest(1));
             case "join", "leave", "death" -> moderation.fake(a.get(0), a.get(1));
             default -> throw new IllegalArgumentException("Unknown chat operation.");
           }

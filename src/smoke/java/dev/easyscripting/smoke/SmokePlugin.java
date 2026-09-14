@@ -151,11 +151,8 @@ public final class SmokePlugin extends JavaPlugin implements Listener {
       steps.add(
           () -> {
             check(
-                "scripted actor death completes and restores",
-                () ->
-                    api.actor("smoke_actor_5").entity().isPresent()
-                        && health(5) == 20
-                        && stops == 2);
+                "scripted actor death deletes the actor",
+                () -> !api.actorIds().contains("smoke_actor_5"));
             int before = completes;
             for (int i = 10; i < 18; i++) {
               String id = "smoke_parallel_" + i;

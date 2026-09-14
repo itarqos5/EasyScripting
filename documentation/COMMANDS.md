@@ -78,7 +78,7 @@ Every action has a target. `at` and `victim` also accept bindings. Positions nee
 | `/actor here <id>` | Teleport actor to director |
 | `/actor move <id> [speed]` | Navigate to director's current location |
 | `/actor copy <source> <new-id>` | Copy appearance/equipment here |
-| `/actor hide\|show\|respawn\|delete <id>` | Actor lifecycle |
+| `/actor hide\|show\|respawn\|delete <id>` | Actor lifecycle; respawn resets existing living/hidden NPCs, not deleted deaths |
 | `/actor attack <id> <online-player> [damage]` | Face, swing and damage once within 6 blocks |
 | `/actor kit <id> <kit>` | Equip saved loadout |
 | `/actor pattern <prefix> <line\|circle\|grid\|square> <count> [spacing=2] [type=PLAYER]` | Spawn 1..200 actors in a group, subject to server cap |
@@ -94,7 +94,7 @@ Every action has a target. `at` and `victim` also accept bindings. Positions nee
 
 Actor IDs remain unchanged when a name or skin is edited. `/actor set <id> name <name>` keeps the skin; `/actor set <id> skin <account>` keeps the name and supports hidden PLAYER actors. NPC skin values are Java account names, not PNG/NameMC URLs. Newly resolved signed textures are saved for reuse after restart; repeating the skin command deliberately refreshes them. Copying an actor keeps its appearance; pattern members receive new identities. See [USERGUIDE.md](USERGUIDE.md#2-create-an-npc-with-a-random-identity) for examples and pool customization.
 
-Autoplay defaults to ON, starts after a successful acting save and when an eligible NPC loads, is shown or respawns. Choose the end mode before recording. Stop playback before changing the mode or recording; Hittable, Immortal and Autoplay can be toggled during playback. Acting performers are damage/knockback immune; replaying NPCs follow their combat flags.
+Autoplay defaults to ON, starts after a successful acting save and when an eligible NPC loads, is shown or respawns. Choose the end mode before recording. Stop playback before changing the mode or recording; Hittable, Immortal and Autoplay can be toggled during playback. Acting performers block direct melee damage/knockback but allow falls, projectiles and explosions. Hittable OFF applies the same melee-only restriction to NPCs; Immortal still prevents lethal NPC damage. Actual NPC death deletes the actor permanently, including scripted death actions.
 
 ## Player, takes and inventory
 
@@ -155,3 +155,5 @@ For a valueless operation on someone else, use a placeholder value: `/es player 
 | `/es voice mute on\|off`, `broadcast on\|off` | Simple Voice Chat integration |
 
 Menus execute the same permission-checked commands. Left-click opens/uses an entry, shift-right requests deletion confirmation, and right-clicking a kit opens its editor. Type `cancel` to abandon chat input. Input expires after 60 seconds.
+
+Broadcast sends both chat and an on-screen title: `/es chat broadcast <text>`. `/es chat mute on|off` announces actual mute-state changes to everyone. Templates are in messages.yml; title timings are in moderation.yml.

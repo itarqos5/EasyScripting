@@ -30,6 +30,26 @@ class GuiConfigurationTest {
   }
 
   @Test
+  void outdatedCombatHelpIsUpdatedWithoutReplacingCustomText() {
+    var custom = defaults();
+    custom.set(
+        "dynamic.controls.actor-act.lore",
+        List.of(
+            "<gray>Take its position, identity and costume.",
+            "<gray>Record movement, equipment and animations.",
+            "<gray>Damage and knockback cannot interrupt you."));
+    custom.set("dynamic.controls.actor-hittable.lore", List.of("My custom combat instructions"));
+    var loaded = GuiSchema.prepare(custom, defaults());
+    assertTrue(
+        loaded.getStringList("dynamic.controls.actor-act.lore").stream()
+            .anyMatch(s -> s.contains("falls and projectiles")));
+    assertEquals(
+        List.of("My custom combat instructions"),
+        loaded.getStringList("dynamic.controls.actor-hittable.lore"));
+    validate(loaded);
+  }
+
+  @Test
   void duplicateContentAndNavigationAreRejected() {
     var yaml = defaults();
     yaml.set("layout.content-slots", List.of(10, 10, 49));

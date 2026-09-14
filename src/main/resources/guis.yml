@@ -543,7 +543,7 @@ menus:
     title: "<dark_gray>{name} · Combat"
     heading: "<white><bold>{name} · Combat"
     material: "IRON_SWORD"
-    description: ["<gray>Hittable ON: receive damage and knockback.","<gray>Immortal ON: prevent lethal damage.","<gray>To allow death, turn Immortal OFF."]
+    description: ["<gray>Hittable controls direct melee attacks.","<gray>Falls, projectiles and explosions still hurt.","<gray>Immortal prevents death; dead NPCs are deleted."]
 entries:
   actors:
     create: "<green>Create NPC"
@@ -662,15 +662,15 @@ dynamic:
     actor-health:
       slot: 13
       material: "APPLE"
-      lore: ["<gray>Status: {status}","<gray>Recording performers are always protected.","<gray>Playback uses the combat switches below."]
+      lore: ["<gray>Status: {status}","<gray>Acting performers block melee only.","<gray>Playback uses the combat switches below."]
     actor-combat-respawn:
       slot: 31
       material: "TOTEM_OF_UNDYING"
-      lore: ["<gray>Bring this NPC back after death.","<gray>Autoplay starts when enabled."]
+      lore: ["<gray>Recreate this living or hidden NPC.","<gray>Dead NPCs are deleted permanently."]
     actor-act:
       slot: 11
       material: "ARMOR_STAND"
-      lore: ["<gray>Take its position, identity and costume.","<gray>Record movement, equipment and animations.","<gray>Damage and knockback cannot interrupt you."]
+      lore: ["<gray>Take its position, identity and costume.","<gray>Record movement, equipment and animations.","<gray>Melee is blocked; falls and projectiles hurt."]
     actor-finish:
       slot: 13
       material: "EMERALD"
@@ -710,7 +710,7 @@ dynamic:
     actor-hittable:
       slot: 20
       material: "TARGET"
-      lore: ["<gray>ON: incoming hits cause damage and knockback.","<gray>Click to toggle."]
+      lore: ["<gray>ON: direct melee hits can hurt and push.","<gray>OFF: falls and projectiles still hurt.","<gray>Click to toggle."]
     actor-immortal:
       slot: 24
       material: "TOTEM_OF_UNDYING"
@@ -797,12 +797,12 @@ dynamic:
   actor-randomize: "<aqua>Randomize identity"
   actor-here: "<white>Teleport NPC to me"
   actor-walk: "<white>Walk NPC to me"
-  actor-respawn: "<green>Respawn NPC"
+  actor-respawn: "<aqua>Reset NPC spawn"
   actor-hide: "<white>Hide NPC"
   actor-show: "<white>Show NPC"
   actor-setting: "<gray>Advanced setting"
   actor-health: "<white>Health: {health}"
-  actor-combat-respawn: "<green>Respawn NPC"
+  actor-combat-respawn: "<aqua>Reset NPC spawn"
   actor-act: "<green>1 · Act as NPC"
   actor-finish: "<green>2 · Finish & save"
   actor-play: "<green>Play performance"

@@ -66,6 +66,22 @@ With `enabled: true`, new actors get a random displayed name; PLAYER actors also
 
 The chosen identity belongs to the actor definition; reloading settings or restarting does not reroll it. Existing actors and copies keep their appearance. New pattern members are randomized. Once Citizens resolves a skin, its signed texture is cached in the actor file. `/actor set <id> skin <account>` clears the previous cache and requests a refresh without changing the displayed name. See [the user guide](USERGUIDE.md#configure-the-random-name-and-skin-pools) for a complete example.
 
+## Broadcast titles and chat announcements
+
+`moderation.yml` supports the following settings (20 ticks = 1 second):
+
+```yaml
+broadcast-title:
+  enabled: true
+  fade-in-ticks: 10
+  stay-ticks: 60
+  fade-out-ticks: 10
+```
+
+Fade timings accept 0–1200; stay accepts 1–1200. All timings must be YAML integers. `messages.yml` supplies `broadcast-title`, `broadcast-subtitle`, `chat-muted` and `chat-unmuted`; `<detail>` is unparsed broadcast text. Missing keys inherit bundled defaults in memory without replacing customized messages or moderation settings.
+
+Hittable OFF now blocks melee/sweep only, for both idle and replaying NPCs. Falls, projectiles and explosions remain damage sources. Acting players always block melee only and otherwise take normal damage. Dead NPCs are permanently removed from active actor storage; their old YAML is retained only by the existing trash mechanism.
+
 ## GUI customization
 
 `guis.yml` uses `schema: 2`. Upgrading a schema-1 or unversioned layout validates the complete new defaults, saves the old file beside it as `guis-v1-backup-<unique-id>.yml`, then installs the redesigned layout. A backup failure aborts the upgrade. Existing schema-2 values survive reload; missing leaves inherit bundled defaults. Unknown future schemas are rejected.

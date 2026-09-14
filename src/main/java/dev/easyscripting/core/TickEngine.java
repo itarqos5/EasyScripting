@@ -1,7 +1,10 @@
 package dev.easyscripting.core;
 
 import java.util.*;
+import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -13,21 +16,40 @@ public final class TickEngine implements AutoCloseable {
     default void stopped() {}
   }
 
-  private final JavaPlugin plugin;
+  private final BooleanSupplier enabled;
+  private final Function<Runnable, BukkitTask> schedule;
+  private final Logger logger;
   private final Map<UUID, Job> jobs = new LinkedHashMap<>();
   private BukkitTask task;
   private boolean closed;
 
   public TickEngine(JavaPlugin plugin) {
-    this.plugin = plugin;
+    this(
+        plugin::isEnabled,
+        pulse -> plugin.getServer().getScheduler().runTaskTimer(plugin, pulse, 1, 1),
+        plugin.getLogger());
+  }
+
+  TickEngine(BooleanSupplier enabled, Function<Runnable, BukkitTask> schedule, Logger logger) {
+    this.enabled = enabled;
+    this.schedule = schedule;
+    this.logger = logger;
+  }
+
+  public boolean acceptingWork() {
+    return !closed && enabled.getAsBoolean();
+  }
+
+  /** Stop producers before cleanup; existing jobs remain available for cancellation. */
+  public void beginShutdown() {
+    closed = true;
   }
 
   public UUID add(Job job) {
-    if (closed) throw new IllegalStateException("EasyScripting is stopping.");
+    if (!acceptingWork()) throw new IllegalStateException("EasyScripting is stopping.");
     UUID id = UUID.randomUUID();
+    if (task == null) task = schedule.apply(this::pulse);
     jobs.put(id, job);
-    if (task == null)
-      task = plugin.getServer().getScheduler().runTaskTimer(plugin, this::pulse, 1, 1);
     return id;
   }
 
@@ -42,7 +64,7 @@ public final class TickEngine implements AutoCloseable {
       try {
         if (!entry.getValue().tick()) cancel(entry.getKey());
       } catch (RuntimeException ex) {
-        plugin.getLogger().log(Level.SEVERE, "Scheduled production job stopped safely", ex);
+        logger.log(Level.SEVERE, "Scheduled production job stopped safely", ex);
         cancel(entry.getKey());
       }
     }
@@ -71,7 +93,7 @@ public final class TickEngine implements AutoCloseable {
 
   @Override
   public void close() {
-    closed = true;
+    beginShutdown();
     for (UUID id : List.copyOf(jobs.keySet())) cancel(id);
     if (task != null) task.cancel();
     task = null;

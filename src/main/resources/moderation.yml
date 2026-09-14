@@ -1,4 +1,9 @@
 # No normal gameplay restrictions are enabled by default.
+broadcast-title:
+  enabled: true
+  fade-in-ticks: 10
+  stay-ticks: 60
+  fade-out-ticks: 10
 server-lock:
   enabled: false
   allowed: []

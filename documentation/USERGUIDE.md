@@ -1,11 +1,11 @@
 # EasyScripting user guide
 
-This guide covers EasyScripting 0.1.3: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
+This guide covers EasyScripting 0.1.4: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
 
 ## 1. Install and open the studio
 
 1. Stop your Paper/Purpur server. The primary tested target is Paper 26.2 on Java 25; see [TESTING.md](TESTING.md) for other versions.
-2. Put `build/libs/EasyScripting-0.1.3.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
+2. Put `build/libs/EasyScripting-0.1.4.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
 3. For human NPCs and skins, also install a Citizens build compatible with your exact Minecraft version. Mob actors work without Citizens.
 4. Start the server. EasyScripting creates its YAML files under `plugins/EasyScripting/`.
 5. Join with operator access or the appropriate [permissions](PERMISSIONS.md), then run `/es`. Use `/es help` for commands you can access, and `/es status` to check loaded actors, scenes and active jobs.
@@ -70,7 +70,7 @@ Run `/actor gui guard_1`, or open `/es` → Actors → your actor. Choose a sect
 * **Appearance:** name, skin, random identity, costume kit and identity details.
 * **Movement:** teleport, walk, hide, respawn and behavior settings.
 * **Acting & Playback:** act as the NPC, finish/cancel, browse saved recordings, select an end mode, toggle autoplay, play and stop.
-* **Combat:** Hittable and Immortal switches, plus Respawn NPC.
+* **Combat:** Hittable and Immortal switches, plus Reset NPC spawn for living/hidden NPCs.
 
 Tabs across the top switch sections. Back returns to the actor overview, then the cast list; Home returns to the studio and Close exits. The overview shows the NPC ID, status and assigned recording. Selected modes and active switches glow. Unavailable actions explain what to do first. Appearance → Choose costume and Acting → Choose saved recording open pickers instead of asking you to remember an ID. Open a section directly with `/actor gui guard_1 acting` or `appearance`, `movement`, `combat`.
 
@@ -108,7 +108,7 @@ Put the desired costume in your own inventory, armor and hands, then save a kit:
 /actor set guard_1 wander off
 ```
 
-`immortal` prevents lethal damage while `hittable off` cancels damage entirely. `look` and `wander` enable ambient behavior; turn them off for a stationary shot. Actor settings also include collision, nametag visibility, pose, glow, sneak, sprint and group.
+`immortal` prevents lethal damage while `hittable off` blocks direct melee attacks and sweeps only. Falls, projectiles (including wither skulls), explosions and other environmental damage remain enabled. `look` and `wander` enable ambient behavior; turn them off for a stationary shot. Actor settings also include collision, nametag visibility, pose, glow, sneak, sprint and group.
 
 To reposition the actor, stand at the destination and use `/actor here guard_1` for a teleport or `/actor move guard_1 1` for navigation. Hide it with `/actor hide guard_1` and return it with `/actor show guard_1`. Remove it with `/actor delete guard_1`.
 
@@ -132,7 +132,7 @@ Open **Acting & Playback**, choose an end mode, then click **1 · Act as NPC**. 
 /actor act guard_1 entrance_take
 ```
 
-You move to the NPC's position with its name, skin and costume. The NPC is temporarily removed so you can perform in its place. You use Survival mode while acting, with damage and knockback protection even if the NPC is mortal. Your original invulnerability state returns afterward. Walk, run, jump, turn, sneak, change your held items or armor, and swing your arms. Capture includes location/rotation, equipment, poses, main/off-hand swings, visual flames and supported boat movement. Saved hurt/flame cues are visual; real hits during playback are handled separately. It records **movements, equipment and animations**; block edits, damage to other entities, commands, chat and third-party abilities are not replayed.
+You move to the NPC's position with its name, skin and costume. The NPC is temporarily removed so you can perform in its place. You use Survival mode while acting. Direct melee damage and its knockback are blocked, but falls, projectiles (including wither skulls), explosions, fire and other environmental damage affect you normally. Your prior invulnerability state is restored afterward. Lethal non-melee damage can end your performance; your original player state is queued for restoration after respawn. The NPC Immortal switch does not grant your acting player invulnerability. Walk, run, jump, turn, sneak, change your held items or armor, and swing your arms. Capture includes location/rotation, equipment, poses, main/off-hand swings, visual flames and supported boat movement. Saved hurt/flame cues are visual; real hits during playback are handled separately. It records **movements, equipment and animations**; block edits, damage to other entities, commands, chat and third-party abilities are not replayed.
 
 For a PLAYER NPC, let its skin finish loading before starting. Names outside Java's 1–16 character username format remain display/list labels while your underlying profile name stays unchanged. When acting for a mob, your character remains a player model wearing the mob's equipment; this is not a mob disguise.
 
@@ -162,7 +162,7 @@ The older `/es record play <recording> <actor> [loop] [reverse]` command keeps i
 
 ### Allow hits and death
 
-Open **Combat**. Set **Hittable: ON** to accept damage and knockback. With **Immortal: ON**, lethal hits are prevented but nonlethal hits can still hurt. Set **Immortal: OFF** to let a hittable NPC die. **Hittable: OFF** cancels incoming damage and knockback regardless of immortality. Both switches can be changed during replay.
+Open **Combat**. **Hittable: ON** allows direct melee damage and knockback; **OFF** blocks melee and sweeps only. Both settings allow falls, projectiles, wither skulls, explosions and environmental damage under normal Minecraft rules. **Immortal: ON** still prevents lethal damage from any normal damage source; set it **OFF** to allow death. Both switches can be changed during replay.
 
 When a replaying NPC is knocked back, the recorded timeline pauses for 12 ticks so normal physics can move it, then blends back to the route over 10 ticks. Hits do not get erased by the next recorded teleport. Further hits restart this recovery interval. Armor, attack cooldowns and other plugins still affect actual damage and knockback. `recording.yml` exposes both timings as integers from 1 to 100. Death ends the replay; it does not resurrect the NPC or drop copied equipment.
 
@@ -171,7 +171,7 @@ When a replaying NPC is knocked back, the recorded timeline pauses for 12 ticks 
 /actor set guard_1 immortal off
 ```
 
-Use **Respawn NPC** after death, or `/actor respawn guard_1`. NPC deaths do not drop copied equipment or experience. Both switches are saved per actor.
+When an NPC dies, it is removed from the actor list and its saved definition is deleted from active storage. Playback stops; show, respawn, autoplay, scene reset and server restart cannot bring it back. This includes scripted NPC death actions. Its recording stays available for reuse. Deleted YAML uses the existing `trash/` retention mechanism, without automatic recovery. To use the same ID again, create a new actor with `/actor create guard_1`. **Reset NPC spawn** / `/actor respawn` only recreates an existing living or hidden NPC. Deaths drop no copied equipment or experience.
 
 ## 4. Build and play your first scene
 
@@ -296,9 +296,15 @@ dynamic:
       lore: ['<gray>Show the ID, name and skin account.']
 ```
 
-Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. The randomize control is on Appearance; the identity summary is on Overview. Version 0.1.3 replaces legacy GUI layouts after validation and saves the original as `guis-v1-backup-<unique-id>.yml` in the plugin folder. Reapply custom labels to the new layout; do not merge the old slot arrangement into it. Schema-2 customizations are preserved on reload.
+Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. The randomize control is on Appearance; the identity summary is on Overview. Version 0.1.4 replaces legacy GUI layouts after validation and saves the original as `guis-v1-backup-<unique-id>.yml` in the plugin folder. Reapply custom labels to the new layout; do not merge the old slot arrangement into it. Schema-2 customizations are preserved on reload.
 
 Custom buttons execute as the clicking player and obey the same permissions as commands. Opening a menu does not grant control over another player. See [PERMISSIONS.md](PERMISSIONS.md) before granting staff access and [CONFIGURATION.md](CONFIGURATION.md) for complete YAML rules.
+
+## Broadcasts and chat moderation
+
+`/es chat broadcast Filming starts now` sends the text to chat and displays it as a title to every online player. `/es chat mute on` and `/es chat mute off` announce the state change to everyone. Repeating the current mute state does not repeat the announcement. These commands work through the same `easyscripting.chat` permission and chat feature switch.
+
+Edit `broadcast`, `broadcast-title`, `broadcast-subtitle`, `chat-muted` and `chat-unmuted` in `messages.yml`. Broadcast text is inserted as plain text through `<detail>`. `moderation.yml` controls title enablement and timing; run `/es reload` to apply edits. Missing new keys inherit defaults on existing servers.
 
 ## Troubleshooting
 

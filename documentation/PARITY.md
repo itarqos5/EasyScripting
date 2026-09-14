@@ -25,16 +25,16 @@ Commands follow /es unless shown otherwise. Permission suffixes follow easyscrip
 | Varied generated endings | Expanded suffix pool; avoids the last eight endings when alternatives remain | /actor create/randomize | actor | Appearance | npc-identities.yml | VERIFIED | HIGH |
 | Acting as an NPC | Temporarily adopts actor position, player-model identity and costume; save/cancel restores performer; checkpoint for disconnect/respawn recovery | /actor act/finish/cancel | actor, record | Acting & Playback | recordings/, pending/ | VERIFIED | HIGH |
 | Actor playback modes | Saved recording selection; once and hold, repeat from start, continuous forward/backward reversal; legacy commands preserved | /actor recording/mode/play/stop | actor, record | Acting & Playback | actors/, recordings/ | VERIFIED | HIGH |
-| Actor combat controls | Direct Hittable and Immortal toggles; nonlethal damage, lethal prevention, natural death and explicit respawn | /actor set/respawn | actor | Combat | actors/, guis.yml | VERIFIED | HIGH |
+| Actor combat controls (0.1.4) | Hittable controls melee only; Immortal prevents lethal damage; actual death permanently deletes the NPC | /actor set/respawn | actor | Combat | actors/, guis.yml | IMPLEMENTED | HIGH |
 | Autoplay (0.1.3) | Per-NPC saved switch; start after acting save, show, respawn, enable or startup; busy/hidden/disabled guards | /actor autoplay | actor, record | Acting & Playback | actors/, config.yml | IMPLEMENTED | HIGH |
-| Protected acting (0.1.3) | Damage and knockback immunity while performing; prior state restored afterward | /actor act/finish/cancel | actor, record | Acting & Playback | pending/ | IMPLEMENTED | HIGH |
+| Melee-protected acting (0.1.4) | Direct melee blocked; falls/projectiles/explosions allowed; prior player state restored afterward | /actor act/finish/cancel | actor, record | Acting & Playback | pending/ | IMPLEMENTED | HIGH |
 | Replay combat (0.1.3) | Native knockback pause and route recovery; received damage survives reset; death ends playback | /actor play/stop | actor, record | Combat | recording.yml | IMPLEMENTED | HIGH |
 | Studio redesign (0.1.3) | Grouped tools, NPC tabs, pickers, readable states, safe deletion, consistent navigation and backed-up schema migration | /es | use plus action nodes | All | guis.yml | IMPLEMENTED | HIGH |
 | Actor appearance | Copy equipment/name, account-name skin, visibility, pose and glow | /actor copy/set/kit | actor, kit | Actor editor | actors/ | IMPLEMENTED | HIGH |
 | Actor movement | Navigate, face, rotate, sprint/sneak, jump, swing | /actor move; /scene add | actor, player, effects | Actor, timeline | actors/, scenes/ | IMPLEMENTED | HIGH |
 | Mass/groups | Line/circle/grid/square; group settings, hide/show/respawn/jump/kit; default cap 200 | /actor pattern/all/group | actor, kit | Actors, command | actors/, config.yml | IMPLEMENTED | HIGH |
 | Actor combat | Face/swing/damage once within 6 blocks; immortal and unhittable differ | /actor attack/set | actor, player.others | Actor editor | actors/ | IMPLEMENTED | HIGH |
-| Scripted actor death | Explicit permission; death completes and reset restores a replacement | /scene add … death | scene.edit, destructive | Timeline | scenes/ | VERIFIED | HIGH |
+| Scripted actor death (0.1.4) | Explicit permission; dead actor is permanently deleted and cannot be reset | /scene add … death | scene.edit, destructive | Timeline | scenes/ | IMPLEMENTED | HIGH |
 | Wander/look | Nearby wander with bounded safe destination candidates; look at closest player | /actor set | actor | Actor editor | actors/ | IMPLEMENTED | HIGH |
 | Advanced navigation | Explicit portal traversal, nearest-shore swimming and comprehensive hazard avoidance absent | — | — | — | — | NOT STARTED | HIGH |
 | Movement recording | Transforms, hands, sneak/sprint/swing, boat; replay, reverse, loop and reset | record | record | Recordings | recordings/ | IMPLEMENTED | HIGH |

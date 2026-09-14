@@ -300,6 +300,7 @@ public final class SceneService implements Listener, AutoCloseable {
     final Timeline timeline;
     final Map<UUID, EntitySnapshot> snapshots = new LinkedHashMap<>();
     final Map<UUID, String> references = new HashMap<>();
+    final Map<UUID, ActorService.ManagedActor> capturedActors = new HashMap<>();
     final Map<UUID, WorldState> worlds = new HashMap<>();
     UUID job;
 
@@ -312,7 +313,10 @@ public final class SceneService implements Listener, AutoCloseable {
     void capture(String target) {
       LivingEntity e = context.entity(target);
       snapshots.computeIfAbsent(e.getUniqueId(), k -> players.capture(e));
-      references.put(e.getUniqueId(), context.reference(target));
+      String reference = context.reference(target);
+      references.put(e.getUniqueId(), reference);
+      if (reference.startsWith("actor:"))
+        capturedActors.putIfAbsent(e.getUniqueId(), actors.get(reference.substring(6)));
     }
 
     Set<UUID> resources() {
@@ -347,7 +351,9 @@ public final class SceneService implements Listener, AutoCloseable {
               String ref = references.get(uuid);
               if (ref.startsWith("actor:")) {
                 String actorId = ref.substring(6);
+                if (!actors.ids().contains(actorId)) return;
                 ActorService.ManagedActor a = actors.get(actorId);
+                if (a != capturedActors.get(uuid)) return;
                 a.stop();
                 if (a.entity().isEmpty()) actors.respawn(actorId);
                 entity = a.requireEntity();
