@@ -35,6 +35,7 @@ public final class EntitySnapshot {
     y.set("velocity", e.getVelocity());
     y.set("effects", new ArrayList<>(e.getActivePotionEffects()));
     y.set("pose", e.getPose().name());
+    y.set("gliding", e.isGliding());
     if (e instanceof Mob mob) y.set("aware", mob.isAware());
     if (e.getEquipment() != null) {
       y.set("armor", copy(e.getEquipment().getArmorContents()));
@@ -158,6 +159,7 @@ public final class EntitySnapshot {
     e.setGravity(data.getBoolean("gravity", true));
     e.setInvisible(data.getBoolean("invisible"));
     e.setVelocity(data.getVector("velocity", new Vector()));
+    e.setGliding(data.getBoolean("gliding"));
     if (data.contains("pose")) e.setPose(Pose.valueOf(data.getString("pose", "STANDING")), false);
     if (e instanceof Mob mob && data.contains("aware")) mob.setAware(data.getBoolean("aware"));
   }

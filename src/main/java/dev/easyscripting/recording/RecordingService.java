@@ -23,7 +23,7 @@ public final class RecordingService implements Listener, AutoCloseable {
       ItemStack main,
       ItemStack off,
       ItemStack[] armor,
-      Pose pose,
+      ReplayPose animation,
       boolean hurt,
       boolean offSwing,
       int fire) {
@@ -36,7 +36,8 @@ public final class RecordingService implements Listener, AutoCloseable {
       map.put("main", main);
       map.put("off", off);
       if (armor != null) map.put("armor", Arrays.asList(armor));
-      map.put("pose", pose.name());
+      map.put("pose", animation.pose().name());
+      map.put("gliding", animation.gliding());
       map.put("hurt", hurt);
       map.put("off-swing", offSwing);
       map.put("fire", fire);
@@ -176,9 +177,7 @@ public final class RecordingService implements Listener, AutoCloseable {
                           f.getItemStack("main", new ItemStack(Material.AIR)),
                           f.getItemStack("off", new ItemStack(Material.AIR)),
                           f.contains("armor") ? EntitySnapshot.items(f.getList("armor"), 4) : null,
-                          Checks.choice(
-                              Pose.class,
-                              f.getString("pose", f.getBoolean("sneak") ? "SNEAKING" : "STANDING")),
+                          ReplayPose.read(f),
                           f.getBoolean("hurt"),
                           f.getBoolean("off-swing"),
                           f.getInt("fire")));
@@ -287,7 +286,7 @@ public final class RecordingService implements Listener, AutoCloseable {
         Arrays.stream(player.getInventory().getArmorContents())
             .map(i -> i == null ? null : i.clone())
             .toArray(ItemStack[]::new),
-        player.getPose(),
+        ReplayPose.capture(player),
         hurt.remove(player.getUniqueId()),
         offSwung.remove(player.getUniqueId()),
         player.getFireTicks());
@@ -303,7 +302,7 @@ public final class RecordingService implements Listener, AutoCloseable {
     try {
       if (save) {
         YamlConfiguration y = new YamlConfiguration();
-        y.set("schema", 2);
+        y.set("schema", 3);
         y.set("frames", capture.frames.stream().map(Frame::yaml).toList());
         store.save("recordings", capture.id, y);
         recordings.put(capture.id, List.copyOf(capture.frames));
@@ -364,6 +363,7 @@ public final class RecordingService implements Listener, AutoCloseable {
                 LivingEntity e = actor.requireEntity();
                 if (e.isDead()) return false;
                 if (combatState.recovery.yieldToPhysics()) {
+                  combatState.animation = null;
                   e.setGravity(true);
                   if (vehicle != null) {
                     vehicle.remove();
@@ -372,6 +372,7 @@ public final class RecordingService implements Listener, AutoCloseable {
                   return true;
                 }
                 Frame f = frames.get(cursor.index());
+                combatState.animation = f.animation;
                 if (!restoreOnComplete) cursor.mode(actor.definition.playbackMode);
                 if (Bukkit.getWorld(f.location.getWorld().getUID()) != f.location.getWorld())
                   return false;
@@ -407,7 +408,6 @@ public final class RecordingService implements Listener, AutoCloseable {
                 if (f.swing) e.swingMainHand();
                 if (f.offSwing) e.swingOffHand();
                 if (f.hurt) e.playHurtAnimation(0);
-                e.setPose(f.pose, true);
                 e.setVisualFire(net.kyori.adventure.util.TriState.byBoolean(f.fire > 0));
                 e.setFallDistance(0);
                 e.setVelocity(new org.bukkit.util.Vector());
@@ -424,6 +424,8 @@ public final class RecordingService implements Listener, AutoCloseable {
                                 .map(i -> i == null ? null : i.clone())
                                 .toArray(ItemStack[]::new));
                 }
+                // Equipment and teleport must be applied first: both can reset vanilla flight.
+                f.animation.apply(e);
                 boolean end = !cursor.advance();
                 // A hit near the final frame must finish its return to the route before STOP.
                 completed = end && correction.lengthSquared() < 1.0e-10;
@@ -456,6 +458,12 @@ public final class RecordingService implements Listener, AutoCloseable {
                                         .getValue()));
                         }
                       } else {
+                        e.setGliding(false);
+                        e.setPose(
+                            e.getPose() == Pose.FALL_FLYING || e.getPose() == Pose.SWIMMING
+                                ? Pose.STANDING
+                                : e.getPose(),
+                            false);
                         e.setVelocity(new org.bukkit.util.Vector());
                         actor.definition.wander = false;
                         actors.save(actor);
@@ -545,6 +553,20 @@ public final class RecordingService implements Listener, AutoCloseable {
     if (captures.containsKey(e.getPlayer().getUniqueId())) stop(e.getPlayer());
   }
 
+  @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+  public void glide(org.bukkit.event.entity.EntityToggleGlideEvent event) {
+    actors
+        .byEntity(event.getEntity().getUniqueId())
+        .ifPresent(
+            actor -> {
+              CombatPlayback state = combat.get(actor.id());
+              // Replay teleports can make vanilla think a flying NPC has landed between frames.
+              if (state != null
+                  && state.animation != null
+                  && state.animation.gliding() != event.isGliding()) event.setCancelled(true);
+            });
+  }
+
   @Override
   public void close() {
     closing = true;
@@ -555,6 +577,7 @@ public final class RecordingService implements Listener, AutoCloseable {
 
   private static final class CombatPlayback {
     final ReplayRecovery recovery;
+    ReplayPose animation;
     boolean damaged;
 
     CombatPlayback(ReplayRecovery recovery) {
