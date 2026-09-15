@@ -34,6 +34,17 @@ public final class Settings {
   private volatile Map<String, YamlConfiguration> files = Map.of();
   private volatile Map<String, Boolean> features = Map.of();
   private NpcIdentities npcIdentities;
+  private ActorAiSettings actorAi;
+  private ActorCombatSettings actorCombat;
+
+  public ActorCombatSettings actorCombat() {
+    return actorCombat;
+  }
+
+  public ActorAiSettings actorAi() {
+    return actorAi;
+  }
+
   private final List<Runnable> changeListeners = new ArrayList<>();
 
   public void onChange(Runnable listener) {
@@ -51,10 +62,13 @@ public final class Settings {
 
   public void load(Consumer<YamlConfiguration> validateMenus) {
     Map<String, YamlConfiguration> next = new HashMap<>();
+    Set<String> documented = new HashSet<>();
     boolean upgradeGui = false;
     for (String file :
         List.of(
             "config",
+            "actor-ai",
+            "command-help",
             "npc-identities",
             "nicknames",
             "kits",
@@ -85,7 +99,7 @@ public final class Settings {
       }
       if (file.equals("guis")) {
         try (var input = plugin.getResource("guis.yml")) {
-          upgradeGui = next.get(file).getInt("schema", 1) < 2;
+          upgradeGui = next.get(file).getInt("schema", 1) < 3;
           next.put(
               file,
               GuiSchema.prepare(
@@ -99,7 +113,20 @@ public final class Settings {
         }
       }
     }
+    for (var entry : next.entrySet()) {
+      try (var input = plugin.getResource(entry.getKey() + ".yml")) {
+        var defaults =
+            YamlConfiguration.loadConfiguration(
+                new java.io.InputStreamReader(
+                    Objects.requireNonNull(input), java.nio.charset.StandardCharsets.UTF_8));
+        if (inheritComments(entry.getValue(), defaults)) documented.add(entry.getKey());
+      } catch (java.io.IOException ex) {
+        throw new IllegalStateException("Could not read configuration comments", ex);
+      }
+    }
     YamlConfiguration config = next.get("config");
+    ActorAiSettings nextAi = ActorAiSettings.read(next.get("actor-ai"));
+    ActorCombatSettings nextCombat = ActorCombatSettings.read(next.get("actor-ai"));
     validateModeration(next.get("moderation"));
     validateNicknames(next.get("nicknames"));
     if (next.get("kits").getInt("schema") != 1
@@ -156,13 +183,13 @@ public final class Settings {
     }
     if (upgradeGui) {
       Path path = plugin.getDataFolder().toPath().resolve("guis.yml");
-      Path backup = path.resolveSibling("guis-v1-backup-" + UUID.randomUUID() + ".yml");
+      Path backup = path.resolveSibling("guis-before-v3-" + UUID.randomUUID() + ".yml");
       try {
         java.nio.file.Files.copy(path, backup);
         store.write(path, next.get("guis").saveToString()).join();
         plugin
             .getLogger()
-            .info("Installed GUI layout v2. Previous layout saved as " + backup.getFileName());
+            .info("Installed GUI layout v3. Previous layout saved as " + backup.getFileName());
       } catch (java.io.IOException | java.util.concurrent.CompletionException ex) {
         throw new IllegalStateException(
             "Could not upgrade guis.yml. Check the original file and backup path " + backup, ex);
@@ -171,6 +198,13 @@ public final class Settings {
     files = Map.copyOf(next);
     features = Map.copyOf(toggles);
     npcIdentities = nextIdentities;
+    actorAi = nextAi;
+    actorCombat = nextCombat;
+    for (String name : documented) {
+      if (name.equals("guis") && upgradeGui) continue;
+      store.write(
+          plugin.getDataFolder().toPath().resolve(name + ".yml"), next.get(name).saveToString());
+    }
     changeListeners.forEach(Runnable::run);
   }
 
@@ -193,6 +227,26 @@ public final class Settings {
     for (String key : defaults.getKeys(true))
       if (!defaults.isConfigurationSection(key) && !target.contains(key))
         target.set(key, defaults.get(key));
+  }
+
+  /**
+   * Add shipped explanations without changing configured values or an owner's existing comments.
+   */
+  public static boolean inheritComments(YamlConfiguration target, YamlConfiguration defaults) {
+    boolean changed = false;
+    if (target.options().getHeader().isEmpty() && !defaults.options().getHeader().isEmpty()) {
+      target.options().setHeader(defaults.options().getHeader());
+      changed = true;
+    }
+    for (String key : defaults.getKeys(true)) {
+      if (target.contains(key)
+          && target.getComments(key).isEmpty()
+          && !defaults.getComments(key).isEmpty()) {
+        target.setComments(key, defaults.getComments(key));
+        changed = true;
+      }
+    }
+    return changed;
   }
 
   public static void migrateMessages(YamlConfiguration target, YamlConfiguration defaults) {

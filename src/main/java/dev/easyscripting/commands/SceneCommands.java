@@ -193,7 +193,7 @@ public final class SceneCommands {
               settings.require("kits");
               actors.available(a.get(1));
               kits.apply(a.get(2), actors.get(a.get(1)).requireEntity());
-              actors.save(actors.get(a.get(1)));
+              actors.rememberKit(a.get(1), kits.contents(a.get(2)));
             }
             case "pattern" ->
                 actors.pattern(
@@ -237,6 +237,7 @@ public final class SceneCommands {
                           .setVelocity(actor.requireEntity().getVelocity().setY(.42));
                   case "kit" -> {
                     kits.apply(a.get(3), actor.requireEntity());
+                    actors.rememberKit(actor.id(), kits.contents(a.get(3)));
                     actors.save(actor);
                   }
                   default -> throw new IllegalStateException("Unvalidated group operation");
@@ -298,6 +299,7 @@ public final class SceneCommands {
                                             "tablist",
                                             "look",
                                             "wander",
+                                            "aggressive",
                                             "pose",
                                             "glow",
                                             "sneak",

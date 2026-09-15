@@ -1,3 +1,7 @@
+# presets.<id> is a named bundle used by /es player potion <preset>. Add or rename IDs freely.
+# Each child key is a lowercase Minecraft effect name, e.g. speed or water_breathing.
+# ticks sets its duration (20 = one second); amplifier is zero-based (0 = level I, 1 = level II).
+
 # Amplifier 0 is potion level I.
 presets:
   chase:

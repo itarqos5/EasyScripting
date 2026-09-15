@@ -1,11 +1,11 @@
 # EasyScripting user guide
 
-This guide covers EasyScripting 0.1.6: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
+This guide covers EasyScripting 0.1.7: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
 
 ## 1. Install and open the studio
 
 1. Stop your Paper/Purpur server. The primary tested target is Paper 26.2 on Java 25; see [TESTING.md](TESTING.md) for other versions.
-2. Put `build/libs/EasyScripting-0.1.6.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
+2. Put `build/libs/EasyScripting-0.1.7.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
 3. For human NPCs and skins, also install a Citizens build compatible with your exact Minecraft version. Mob actors work without Citizens.
 4. Start the server. EasyScripting creates its YAML files under `plugins/EasyScripting/`.
 5. Join with operator access or the appropriate [permissions](PERMISSIONS.md), then run `/es`. Use `/es help` for commands you can access, and `/es status` to check loaded actors, scenes and active jobs.
@@ -361,7 +361,7 @@ All editable files are under `plugins/EasyScripting/`:
 | `moderation.yml`, `death.yml` | Join/chat/world rules and death behavior |
 | `items.yml`, `potions.yml`, `effects.yml` | Item pools, potion presets and effect settings |
 
-After editing settings, run `/es reload`. Invalid settings produce an error and leave the previous active configuration in use. Missing top-level files are supplied automatically. The documented GUI and new-actor-default migrations create backups; individual actors and custom schema-2 GUI values are preserved. Actor and scene YAML definitions edited by hand load on a full restart, not `/es reload`.
+After editing settings, run `/es reload`. Invalid settings produce an error and leave the previous active configuration in use. Missing top-level files are supplied automatically. The documented GUI and new-actor-default migrations create backups; individual actors and custom schema-3 GUI values are preserved after the one-time layout upgrade. Actor and scene YAML definitions edited by hand load on a full restart, not `/es reload`.
 
 For example, change the randomize button by editing the existing keys under `dynamic` in `guis.yml`:
 
@@ -380,7 +380,7 @@ dynamic:
       lore: ['<gray>Show the ID, name and skin account.']
 ```
 
-Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. The randomize control is on Appearance; the identity summary is on Overview. Version 0.1.5 replaces legacy GUI layouts after validation and saves the original as `guis-v1-backup-<unique-id>.yml` in the plugin folder. Reapply custom labels to the new layout; do not merge the old slot arrangement into it. Schema-2 customizations are preserved on reload.
+Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. The randomize control is on Appearance; the identity summary is on Overview. Version 0.1.7 replaces schema-1/2 GUI layouts after validation and saves the original as `guis-before-v3-<UUID>.yml` in the plugin folder. Reapply custom labels to the new layout; do not merge the old slot arrangement into it. Schema-3 customizations are preserved on reload.
 
 Custom buttons execute as the clicking player and obey the same permissions as commands. Opening a menu does not grant control over another player. See [PERMISSIONS.md](PERMISSIONS.md) before granting staff access and [CONFIGURATION.md](CONFIGURATION.md) for complete YAML rules.
 
@@ -389,6 +389,16 @@ Custom buttons execute as the clicking player and obey the same permissions as c
 `/es chat broadcast Filming starts now` sends the text to chat and displays it as a title to every online player. `/es chat block on` and `/es chat block off` announce the state change to everyone. Repeating the current block state does not repeat the announcement. These commands work through the same `easyscripting.chat` permission and chat feature switch.
 
 Edit `broadcast`, `broadcast-title`, `broadcast-subtitle`, `chat-muted` and `chat-unmuted` in `messages.yml`. Broadcast text is inserted as plain text through `<detail>`. `moderation.yml` controls title enablement and timing; run `/es reload` to apply edits. Missing new keys inherit defaults on existing servers.
+
+## NPC groups, supplies and the new controls
+
+Open `/actors` for the NPC library and `/kits` for kits. An NPC overview has four cards: **Identity & clothing**, **Movement**, **Record & replay**, and **Combat & supplies**. Back returns to the overview. Studio home has **Record session**, with explicit ON/OFF buttons for the MOTD/join lock; saved NPC takes stay in Record & replay.
+
+For a faction, start with `/es group create red`, `/es group add red guard_1`, then `/es group leader red Alex`. Alex can order their group; operators manage membership and intelligence. Each NPC keeps individual equipment and health. See the [step-by-step NPC group and combat guide](NPC-GROUPS.md) for 100-member formations, targeting, real supplies and limits.
+
+NPCs automatically offhand carried totems and refill after a pop (default one tick, about 50 ms). Aggressive/intelligent NPCs can use carried beneficial splash potions, imperfect melee timing, jumps and delayed shields against overhead maces. These reactions yield during scenes and performances. Configure every timing/chance in the commented `actor-ai.yml`.
+
+Player `/es player halfheart` now lets a held totem pop normally and keeps protection afterward. Elytra recordings now retain the gliding flag; old frames explicitly marked FALL_FLYING are repaired on load. If an old take saved only swimming, record it again. `/actor finish` retains the same save/autoplay workflow.
 
 ## Troubleshooting
 

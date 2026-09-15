@@ -1,3 +1,9 @@
+# Plugin descriptor, packaged into the JAR; this is not a runtime server configuration.
+# name/version/main/api-version identify the plugin, Gradle version token, entrypoint and minimum API.
+# description/authors are metadata; softdepend controls optional plugin integration order.
+# commands entries define root names, description, usage and optional aliases.
+# permissions entries describe each node; default is true, false or op. Actual operator-only checks cannot be bypassed by nodes.
+
 name: EasyScripting
 version: '${version}'
 main: dev.easyscripting.EasyScriptingPlugin
@@ -6,6 +12,12 @@ description: Scripted SMP production tools, actors, timelines and repeatable tak
 authors: [EasyScripting]
 softdepend: [Citizens, voicechat, PlayerKits2, PlayerKits, Essentials, CMI]
 commands:
+  actors:
+    description: Open the NPC library
+    usage: /actors
+  kits:
+    description: Open kits or use any EasyScripting kit subcommand
+    usage: /kits [claim|create|edit|import|importall]
   nickname:
     description: Give an online real player a temporary random nickname
     usage: /nickname <player> [off] | off

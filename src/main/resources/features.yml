@@ -1,19 +1,37 @@
 # Runtime feature switches, also editable in /es features.
+# Enable actors tools and behavior; false disables this feature. Change live with /es features actors.
 actors: true
+# Enable scenes tools and behavior; false disables this feature. Change live with /es features scenes.
 scenes: true
+# Enable recording tools and behavior; false disables this feature. Change live with /es features recording.
 recording: true
+# Enable players tools and behavior; false disables this feature. Change live with /es features players.
 players: true
+# Enable identity tools and behavior; false disables this feature. Change live with /es features identity.
 identity: true
+# Enable kits tools and behavior; false disables this feature. Change live with /es features kits.
 kits: true
+# Enable warps tools and behavior; false disables this feature. Change live with /es features warps.
 warps: true
+# Enable items tools and behavior; false disables this feature. Change live with /es features items.
 items: true
+# Enable inventory tools and behavior; false disables this feature. Change live with /es features inventory.
 inventory: true
+# Enable locks tools and behavior; false disables this feature. Change live with /es features locks.
 locks: true
+# Enable death tools and behavior; false disables this feature. Change live with /es features death.
 death: true
+# Enable chat tools and behavior; false disables this feature. Change live with /es features chat.
 chat: true
+# Enable world tools and behavior; false disables this feature. Change live with /es features world.
 world: true
+# Enable regions tools and behavior; false disables this feature. Change live with /es features regions.
 regions: true
+# Enable teams tools and behavior; false disables this feature. Change live with /es features teams.
 teams: true
+# Enable villagers tools and behavior; false disables this feature. Change live with /es features villagers.
 villagers: true
+# Enable effects tools and behavior; false disables this feature. Change live with /es features effects.
 effects: true
+# Enable voice tools and behavior; false disables this feature. Change live with /es features voice.
 voice: true

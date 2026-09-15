@@ -14,11 +14,11 @@ public final class GuiSchema {
     if (current.contains("schema") && !(current.get("schema") instanceof Integer))
       throw new IllegalArgumentException("guis.yml: schema must be an integer.");
     int version = current.getInt("schema", 1);
-    if (version < 1 || version > 2)
+    if (version < 1 || version > 3)
       throw new IllegalArgumentException("guis.yml: unsupported schema " + version);
     YamlConfiguration result = new YamlConfiguration();
     try {
-      result.loadFromString((version < 2 ? defaults : current).saveToString());
+      result.loadFromString((version < 3 ? defaults : current).saveToString());
     } catch (org.bukkit.configuration.InvalidConfigurationException ex) {
       throw new IllegalArgumentException("guis.yml: cannot prepare layout", ex);
     }
@@ -198,13 +198,6 @@ public final class GuiSchema {
                   + (size - 1));
         validateMaterial.accept(controls.getString(key + ".material", "STONE"));
       }
-    List<String> tabs =
-        List.of(
-            "actor-tab-overview",
-            "actor-tab-appearance",
-            "actor-tab-movement",
-            "actor-tab-acting",
-            "actor-tab-combat");
     for (List<String> page :
         List.of(
             List.of(
@@ -213,6 +206,7 @@ public final class GuiSchema {
                 "actor-section-acting",
                 "actor-section-combat",
                 "actor-info",
+                "actor-group",
                 "actor-delete"),
             List.of(
                 "actor-name",
@@ -232,7 +226,14 @@ public final class GuiSchema {
                 "actor-wander",
                 "actor-collidable",
                 "actor-setting"),
-            List.of("actor-health", "actor-hittable", "actor-immortal", "actor-combat-respawn"),
+            List.of(
+                "actor-health",
+                "actor-hittable",
+                "actor-immortal",
+                "actor-combat-respawn",
+                "actor-aggressive",
+                "actor-combat-kit",
+                "actor-combat-group"),
             List.of(
                 "actor-act",
                 "actor-finish",
@@ -245,7 +246,6 @@ public final class GuiSchema {
                 "actor-recording",
                 "actor-autoplay"))) {
       Set<Integer> used = new HashSet<>(navigation);
-      for (String key : tabs) takeControl(y, key, used);
       for (String key : page) takeControl(y, key, used);
     }
     for (List<String> page :
@@ -261,6 +261,25 @@ public final class GuiSchema {
       for (String key : page) takeControl(y, key, used);
     }
     Set<Integer> kit = new HashSet<>(navigation);
+    Set<Integer> groupPage = new HashSet<>(navigation);
+    for (String key :
+        List.of(
+            "group-members",
+            "group-leader",
+            "group-add",
+            "group-remove",
+            "group-follow",
+            "group-hold",
+            "group-move",
+            "group-attack",
+            "group-fight",
+            "group-intelligence",
+            "group-info",
+            "group-clear-leader",
+            "group-delete")) takeControl(y, key, groupPage);
+    Set<Integer> groupLibrary = new HashSet<>(taken);
+    groupLibrary.remove(y.getInt("dynamic.create-slot"));
+    takeControl(y, "group-create", groupLibrary);
     kit.remove(y.getInt("dynamic.create-slot"));
     for (int i = 0; i < 45; i++) kit.add(i);
     takeControl(y, "kit-save", kit);

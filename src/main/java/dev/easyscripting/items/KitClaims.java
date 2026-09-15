@@ -63,6 +63,7 @@ public final class KitClaims {
       actors.available(actorId);
       var actor = actors.get(actorId);
       kits.apply(id, actor.requireEntity());
+      actors.rememberKit(actor.id(), kits.contents(id));
       actors.save(actor);
       return 1;
     }

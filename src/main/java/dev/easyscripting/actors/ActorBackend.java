@@ -11,6 +11,13 @@ public interface ActorBackend extends AutoCloseable {
 
     void stop();
 
+    boolean navigating();
+
+    default void look(Location target) {
+      LivingEntity entity = entity();
+      if (entity != null && target != null) dev.easyscripting.core.Positions.face(entity, target);
+    }
+
     void name(String name);
 
     void skin(String name);

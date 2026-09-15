@@ -68,6 +68,11 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       recordings.autoplayAll();
       ActingService acting =
           own(new ActingService(settings, messages, actors, players, recordings));
+      ActorGroupService groups =
+          own(new ActorGroupService(this, actors, settings, ticks, store, acting::actor));
+      groups.load();
+      ActorCombatService combat = own(new ActorCombatService(actors, groups, settings, ticks));
+      groups.combat(combat);
       identities.guards(p -> players.available(p.getUniqueId()), p -> acting.actor(p).isPresent());
       players.onRestore(identities::afterRestore);
       players.onCapture(identities::captureIdentity);
@@ -125,10 +130,14 @@ public final class EasyScriptingPlugin extends JavaPlugin {
                   acting,
                   teams,
                   villagers));
+      menus.groups(groups);
+      menus.recordingSession(moderation::recording);
       for (Listener listener :
           List.of(
               players,
               actors,
+              groups,
+              combat,
               items,
               identities,
               scenes,
@@ -144,7 +153,8 @@ public final class EasyScriptingPlugin extends JavaPlugin {
               deaths,
               locks,
               menus)) getServer().getPluginManager().registerEvents(listener, this);
-      CommandRouter router = new CommandRouter(this, access, messages);
+      CommandRouter router = new CommandRouter(this, access, messages, settings);
+      GroupCommands.register(router, groups, actors, messages, menus);
       KitImports imports = own(new KitImports(kits, settings, ticks, messages));
       menus.kitImports(imports);
       KitClaims claims = new KitClaims(kits, players, actors, nicknames, access);
@@ -176,14 +186,16 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       router.add(
           "menu",
           "use",
-          "[main|scenes|actors|players|kits|warps|recording|features|item|teams|production|world|effects|permissions|villagers]",
+          "[main|scenes|actors|groups|players|kits|warps|session|recording|features|item|teams|production|world|effects|permissions|villagers]",
           (s, a) -> menus.open(Args.player(s), a.get(0, "main"), 0),
           "main",
           "scenes",
           "actors",
+          "groups",
           "players",
           "kits",
           "warps",
+          "session",
           "recording",
           "features",
           "item",
@@ -296,7 +308,7 @@ public final class EasyScriptingPlugin extends JavaPlugin {
           teams,
           villagers,
           voice);
-      for (String name : List.of("es", "scene", "actor", "nickname")) {
+      for (String name : List.of("es", "scene", "actor", "actors", "kits", "nickname")) {
         var command = Objects.requireNonNull(getCommand(name));
         command.setExecutor(router);
         command.setTabCompleter(router);

@@ -1,10 +1,17 @@
+# Internal file-format version; keep the shipped value.
 schema: 1
 # Providers must be installed and enabled. Imports copy items, not claims or reward commands.
+# Enable each import adapter only when the corresponding external plugin is installed.
 providers:
+  # Permit item imports from PlayerKits 2.
   PlayerKits2: true
+  # Permit item imports from legacy PlayerKits.
   PlayerKits: true
+  # Permit item imports from EssentialsX kits.
   Essentials: true
+  # Permit item imports from CMI kits.
   CMI: true
+# Maximum kits considered from one provider (1..10000); bulk import processes one per tick.
 max-provider-kits: 1000
 # EasyScripting exports live in plugins/EasyScripting/kit-exports/.
 # Bulk imports run one kit per server tick, with one active batch at a time.

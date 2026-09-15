@@ -1,7 +1,11 @@
+# Internal file-format version; keep the shipped value.
 schema: 1
 # Random User generates readable usernames. No player name, UUID or address is sent.
+# Use the Random User username API for temporary real-player nicknames.
 api-enabled: true
+# Maximum wait for the username HTTP request, in milliseconds.
 api-timeout-millis: 4000
 # Use the varied name fragments from npc-identities.yml if the API is unavailable.
+# Use local varied name fragments when the API is disabled or unavailable.
 local-fallback: true
 # Names are temporary for the current connection. Skins are preserved.

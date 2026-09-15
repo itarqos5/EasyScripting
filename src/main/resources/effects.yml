@@ -1,10 +1,18 @@
 # Effect commands are bounded. Block destruction needs config.yml opt-in AND permission.
+# Maximum projectiles created by one effect command.
 projectile-limit: 40
+# Remove effect-owned projectiles after this many ticks.
 projectile-lifetime-ticks: 200
+# Blocks above the target at which the orbital effect begins.
 orbital-height: 30
+# Maximum ray distance in blocks for the railgun effect.
 railgun-range: 64
+# Railgun damage in health points; 2 points equal one heart.
 railgun-damage: 8
+# Maximum wolves spawned by a wolf effect.
 wolf-limit: 12
 bossbar:
+  # Adventure boss-bar color, such as BLUE, RED, GREEN or YELLOW.
   color: BLUE
+  # Boss-bar segmentation: PROGRESS or NOTCHED_6/10/12/20.
   overlay: PROGRESS

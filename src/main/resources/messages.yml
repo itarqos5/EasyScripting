@@ -1,3 +1,13 @@
+# Each key is the message for the named event/action. Text uses MiniMessage formatting.
+# success/error/info wrap command output; input explains chat-based GUI input.
+# chat-blocked is private rejection; chat-muted/chat-unmuted announce blocking/unblocking.
+# server-locked/recording-locked explain rejected joins; recording-start/stop announce sessions.
+# fake-join/leave/death are simulated announcements; actor-left is a real NPC deletion announcement.
+# broadcast, broadcast-title and broadcast-subtitle configure /es chat broadcast text layers.
+# nickname-* and nicknames-reset report nickname operations; sign-alert/kick/voice-muted serve those tools.
+# <detail>, <name> and <nickname> insert plain unparsed values where relevant.
+# feedback.enabled toggles feedback sounds; feedback.success/error are Minecraft sound keys.
+
 # MiniMessage templates. <detail> is inserted as plain text, never parsed markup.
 success: '<dark_gray>[<aqua>EasyScripting<dark_gray>] <gray><detail>'
 error: '<dark_gray>[<aqua>EasyScripting<dark_gray>] <red><detail>'

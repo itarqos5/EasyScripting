@@ -1,5 +1,22 @@
 # Testing and acceptance
 
+## 0.1.7 validation
+
+138 unit tests pass. Added regression checks for eye-origin facing, zero-distance orientation, balanced/stable assignments across 100 NPCs, unique formation positions, disconnected/unreachable targets, real group YAML persistence, leader authorization, AI/combat bounds, held-totem half-heart behavior, consumed-stack conservation, command shortcuts/contextual help, legacy flight-frame compatibility and actual glide-flag application. Tests also cover comment inheritance without changing user values and preservation of detached nested/inline comments through the asynchronous writer. GUI schema-3 slot checks and existing suites pass. The item and entity fixtures do not emulate a running server.
+
+Production and smoke compilation pass against Paper 1.21.8; production compilation also passes against Paper 1.21.11. The distributable is rebuilt against the baseline and emits Java 21 bytecode. Existing chat/login and newer-API passenger-retaining teleport deprecations remain. Shield activation uses Paper's experimental `LivingEntity.startUsingItem`, isolated in ActorCombatService; API compilation does not prove that a particular Citizens adapter renders/blocks correctly.
+
+Artifact: `build/libs/EasyScripting-0.1.7.jar`; source companion: `build/libs/EasyScripting-0.1.7-sources.jar`. The JAR contains `actor-ai.yml`, `command-help.yml` and GUI schema 3. No Minecraft server or client was started. Previous runtime results below apply only to their stated versions.
+
+Live acceptance still required:
+
+* On level terrain and around stairs/obstacles, use Wander and Walk to me; verify normal walking, eye-height tracking during movement, no roof/void destinations, and no drift away from home while alone. Ground sampling itself is not exercised against real blocks by the unit suite.
+* Assign a real leader to a faction, test leader/non-leader/op controls, follow/hold/move, and hit multiple enemies. Verify actual native melee, knockback, split targeting, friendly melee/projectile/potion protection, leader disconnect/death, group battles and permanent NPC deletion. Profile two 100-member groups before claiming production capacity.
+* Equip finite totems/potions/shields. Pop main/offhand totems and verify a one-tick refill without losing displaced items or creating new stacks. Verify three separate upward beneficial potion throws, real effects, misses/jumps and a delayed/non-guaranteed shield against a descending mace. Test both mob actors and matching Citizens PLAYER actors, external cancellations, reservations and shutdown.
+* Enable `/es player halfheart`, suffer lethal damage with main/offhand totems, verify actual vanilla consumption/animation/effects and continued protection after the final totem. Confirm cancelled PvP does not reduce health.
+* Record a complete elytra flight and landing, finish with autoplay, inspect from another client in STOP/REPEAT/REVERSE modes, change skin during flight, take knockback, and stop midair. Confirm flight renders as elytra, swimming stays swimming, and stopping/restoration clears replay flight state. Old FALL_FLYING frames are supported; an old ambiguous swimming-only take must be recorded again.
+* Browse `/actors`, `/kits`, NPC/group pages and Record session ON/OFF. Check selected highlights, de-op while a GUI is open, invalid syntax feedback, upgrade backups and preserved custom comments after reload/restart.
+
 ## 0.1.6 validation
 
 109 unit tests pass. Added regression coverage for kit policy defaults, UUID-specific access, live de-op enforcement despite permission grants, legacy apply/list authorization, real disk save/export/import/reload preservation, closed-writer rejection, both claim argument orders, wildcard/actor syntax and ambiguous recipients. Bulk tests cover one kit per step, retained partial progress, cancellation, bounded error details and unique valid IDs. Additional tests cover nested command feedback/exception cleanup, session login policy, shared take retention, and GUI overlap/migration validation.

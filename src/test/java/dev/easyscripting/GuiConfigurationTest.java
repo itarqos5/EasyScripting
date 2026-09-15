@@ -133,9 +133,7 @@ class GuiConfigurationTest {
         yaml.getInt("dynamic.controls.actor-recording.slot"));
     assertThrows(IllegalArgumentException.class, () -> validate(yaml));
     var invalid = defaults();
-    invalid.set(
-        "dynamic.controls.actor-name.slot",
-        invalid.getInt("dynamic.controls.actor-tab-acting.slot"));
+    invalid.set("dynamic.controls.actor-name.slot", invalid.getInt("layout.header-slot"));
     assertThrows(IllegalArgumentException.class, () -> validate(invalid));
   }
 
@@ -162,7 +160,7 @@ class GuiConfigurationTest {
     old.set("menus.main.title", "Old studio");
     var upgraded = GuiSchema.prepare(old, defaults());
     validate(upgraded);
-    assertEquals(2, upgraded.getInt("schema"));
+    assertEquals(3, upgraded.getInt("schema"));
     assertEquals(48, upgraded.getInt("layout.back-slot"));
     assertEquals("Old studio", old.getString("menus.main.title"));
     assertFalse(old.contains("schema"));
@@ -177,7 +175,7 @@ class GuiConfigurationTest {
     validate(loaded);
     assertEquals("My studio", loaded.getString("menus.main.title"));
     assertEquals("Automatic replay: {autoplay}", loaded.getString("dynamic.actor-autoplay"));
-    custom.set("schema", 3);
+    custom.set("schema", 4);
     assertThrows(IllegalArgumentException.class, () -> GuiSchema.prepare(custom, defaults()));
     custom.set("schema", "2");
     assertThrows(IllegalArgumentException.class, () -> GuiSchema.prepare(custom, defaults()));

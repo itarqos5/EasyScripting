@@ -43,6 +43,16 @@ public final class MenuService implements Listener, AutoCloseable {
   private final Map<UUID, Pending> inputs = new ConcurrentHashMap<>();
   private final Set<UUID> viewers = new HashSet<>();
   private dev.easyscripting.integration.KitImports kitImports;
+  private dev.easyscripting.actors.ActorGroupService groups;
+  private BooleanSupplier recordingSession = () -> false;
+
+  public void recordingSession(BooleanSupplier session) {
+    this.recordingSession = session;
+  }
+
+  public void groups(dev.easyscripting.actors.ActorGroupService groups) {
+    this.groups = groups;
+  }
 
   public void kitImports(dev.easyscripting.integration.KitImports imports) {
     this.kitImports = imports;
@@ -255,6 +265,30 @@ public final class MenuService implements Listener, AutoCloseable {
 
   public void open(Player p, String menu, int page) {
     switch (menu) {
+      case "groups" ->
+          picker(
+              p,
+              "groups",
+              "NPC groups",
+              groups.visible(p),
+              page,
+              Material.WHITE_BANNER,
+              id -> group(p, id),
+              () -> open(p, "main", 0),
+              h -> {
+                if (p.isOp())
+                  control(
+                      h,
+                      "group-create",
+                      47,
+                      Material.LIME_DYE,
+                      c ->
+                          prompt(
+                              p,
+                              "group create",
+                              "Enter a new group ID, such as red. Existing actors with that group"
+                                  + " tag are adopted."));
+              });
       case "scenes" -> {
         access.require(p, "scene.play");
         listing(
@@ -372,6 +406,7 @@ public final class MenuService implements Listener, AutoCloseable {
   private void configured(Player p, String menu) {
     if (!List.of(
             "main",
+            "session",
             "item",
             "production",
             "world",
@@ -392,9 +427,18 @@ public final class MenuService implements Listener, AutoCloseable {
         String permission = b.getString("permission", "use");
         boolean allowed = access.allowed(p, "easyscripting." + permission);
         List<String> lore = new ArrayList<>(b.getStringList("lore"));
+        lore.replaceAll(
+            line -> line.replace("{session}", recordingSession.getAsBoolean() ? "ON" : "OFF"));
         if (!allowed) lore.add(settings.file("guis").getString("layout.locked-name"));
         h.inventory.setItem(
-            slot, icon(material(b.getString("material", "STONE")), b.getString("name", id), lore));
+            slot,
+            icon(
+                material(b.getString("material", "STONE")),
+                b.getString("name", id)
+                    .replace("{session}", recordingSession.getAsBoolean() ? "ON" : "OFF"),
+                lore));
+        if (action.equals("command record on") || action.equals("command record off"))
+          selected(h, slot, recordingSession.getAsBoolean() == action.endsWith(" on"));
         h.actions.put(
             slot,
             click -> {
@@ -702,11 +746,6 @@ public final class MenuService implements Listener, AutoCloseable {
           "Actor section must be overview, appearance, movement, acting or combat.");
     MenuHolder h = base(p, section.equals("overview") ? "actor" : "actor-" + section, id, 0);
     h.refresh = () -> actor(p, id, section);
-    for (String tab : List.of("overview", "appearance", "movement", "acting", "combat")) {
-      String key = "actor-tab-" + tab;
-      control(h, key, 0, Material.PAPER, c -> actor(p, id, tab));
-      selected(h, controlSlot(key, 0), tab.equals(section));
-    }
     button(
         h,
         layout("back-slot"),
@@ -728,6 +767,26 @@ public final class MenuService implements Listener, AutoCloseable {
         control(h, "actor-section-acting", 14, Material.ARMOR_STAND, c -> actor(p, id, "acting"));
         control(h, "actor-section-combat", 16, Material.IRON_SWORD, c -> actor(p, id, "combat"));
         control(h, "actor-info", 21, Material.BOOK, c -> command(p, "actor info " + id));
+        control(
+            h,
+            "actor-group",
+            23,
+            Material.WHITE_BANNER,
+            c -> {
+              if (groups.ids().contains(definition.group)) group(p, definition.group);
+              else
+                picker(
+                    p,
+                    "Choose an NPC group",
+                    groups.ids(),
+                    0,
+                    Material.WHITE_BANNER,
+                    g -> {
+                      command(p, "group add " + g + " " + id);
+                      actor(p, id);
+                    },
+                    h.refresh);
+            });
         control(
             h,
             "actor-delete",
@@ -852,6 +911,36 @@ public final class MenuService implements Listener, AutoCloseable {
           disabled(h, "actor-skin", "Skins are available for player NPCs.");
       }
       case "combat" -> {
+        actorToggle(p, h, id, "aggressive", definition.aggressive, 31, section);
+        control(
+            h,
+            "actor-combat-kit",
+            29,
+            Material.CHEST,
+            c ->
+                picker(
+                    p,
+                    "Choose combat supplies",
+                    kits.ids(),
+                    0,
+                    Material.CHEST,
+                    kit -> {
+                      command(p, "actor kit " + id + " " + kit);
+                      h.refresh.run();
+                    },
+                    h.refresh));
+        control(
+            h,
+            "actor-combat-group",
+            33,
+            Material.WHITE_BANNER,
+            c -> {
+              if (groups.ids().contains(definition.group)) group(p, definition.group);
+              else open(p, "groups", 0);
+            });
+        if (groups.ids().contains(definition.group))
+          disabled(h, "actor-aggressive", "This group uses its Intelligence setting.");
+        if (!p.isOp()) disabled(h, "actor-combat-kit", "Only operators can assign kit supplies.");
         actorToggle(p, h, id, "hittable", definition.hittable, 20, section);
         actorToggle(p, h, id, "immortal", definition.immortal, 24, section);
         control(h, "actor-health", 13, Material.APPLE, c -> command(p, "actor info " + id));
@@ -981,6 +1070,7 @@ public final class MenuService implements Listener, AutoCloseable {
       Map<String, String> values =
           Map.ofEntries(
               Map.entry("{id}", id),
+              Map.entry("{group}", definition.group),
               Map.entry("{name}", definition.name),
               Map.entry("{skin}", definition.skin.isBlank() ? "Default" : definition.skin),
               Map.entry("{autoplay}", definition.autoplay ? "ON" : "OFF"),
@@ -1442,6 +1532,261 @@ public final class MenuService implements Listener, AutoCloseable {
         meta.lore(meta.lore().stream().map(line -> line.replaceText(replacement)).toList());
       item.setItemMeta(meta);
     }
+  }
+
+  public void group(Player p, String id) {
+    groups.requireOrder(p, id);
+    var group = groups.get(id);
+    MenuHolder h = base(p, "group-details", id, 0);
+    h.refresh = () -> group(p, id);
+    h.actions.put(layout("back-slot"), c -> open(p, "groups", 0));
+    control(
+        h,
+        "group-members",
+        10,
+        Material.PLAYER_HEAD,
+        c ->
+            picker(
+                p,
+                "Members of " + id,
+                groups.members(id).stream().map(ActorService.ManagedActor::id).toList(),
+                0,
+                Material.PLAYER_HEAD,
+                actor -> {
+                  if (p.isOp()) actor(p, actor);
+                  else messages.ok(p, "NPC " + actor + ": " + actors.get(actor).definition.name);
+                },
+                h.refresh));
+    control(
+        h,
+        "group-leader",
+        12,
+        Material.GOLDEN_HELMET,
+        c -> {
+          var names =
+              Bukkit.getOnlinePlayers().stream()
+                  .filter(
+                      player ->
+                          !player.hasMetadata("NPC")
+                              && actors.byEntity(player.getUniqueId()).isEmpty()
+                              && acting.actor(player).isEmpty())
+                  .map(Player::getName)
+                  .toList();
+          picker(
+              p,
+              "Choose the real player leader",
+              names,
+              0,
+              Material.PLAYER_HEAD,
+              name -> {
+                command(p, "group leader " + id + " " + name);
+                h.refresh.run();
+              },
+              h.refresh);
+        });
+    control(
+        h,
+        "group-add",
+        14,
+        Material.LIME_DYE,
+        c ->
+            picker(
+                p,
+                "Add an actor",
+                actors.ids().stream()
+                    .filter(actor -> !actors.get(actor).group().equals(id))
+                    .toList(),
+                0,
+                Material.PLAYER_HEAD,
+                actor -> {
+                  command(p, "group add " + id + " " + actor);
+                  h.refresh.run();
+                },
+                h.refresh));
+    control(
+        h,
+        "group-remove",
+        16,
+        Material.SHEARS,
+        c ->
+            picker(
+                p,
+                "Remove a member",
+                groups.members(id).stream().map(ActorService.ManagedActor::id).toList(),
+                0,
+                Material.PLAYER_HEAD,
+                actor -> {
+                  command(p, "group remove " + id + " " + actor);
+                  h.refresh.run();
+                },
+                h.refresh));
+    control(
+        h,
+        "group-follow",
+        20,
+        Material.LEATHER_BOOTS,
+        c -> {
+          command(p, "group follow " + id);
+          h.refresh.run();
+        });
+    control(
+        h,
+        "group-hold",
+        22,
+        Material.SHIELD,
+        c -> {
+          command(p, "group hold " + id);
+          h.refresh.run();
+        });
+    control(
+        h,
+        "group-move",
+        24,
+        Material.COMPASS,
+        c -> {
+          command(p, "group move " + id);
+          p.closeInventory();
+        });
+    control(
+        h,
+        "group-attack",
+        29,
+        Material.IRON_SWORD,
+        c -> {
+          List<String> targets =
+              new ArrayList<>(
+                  Bukkit.getOnlinePlayers().stream()
+                      .filter(
+                          player ->
+                              !player.hasMetadata("NPC")
+                                  && actors.byEntity(player.getUniqueId()).isEmpty()
+                                  && !groups.groupOf(player).filter(id::equals).isPresent())
+                      .map(Player::getName)
+                      .toList());
+          actors.list().stream()
+              .filter(actor -> !actor.group().equals(id))
+              .forEach(actor -> targets.add("actor:" + actor.id()));
+          picker(
+              p,
+              "Choose an enemy",
+              targets,
+              0,
+              Material.TARGET,
+              target -> {
+                command(p, "group attack " + id + " " + target);
+                h.refresh.run();
+              },
+              h.refresh);
+        });
+    control(
+        h,
+        "group-fight",
+        31,
+        Material.CROSSBOW,
+        c ->
+            picker(
+                p,
+                "Fight another group",
+                groups.ids().stream().filter(g -> !g.equals(id)).toList(),
+                0,
+                Material.RED_BANNER,
+                target -> {
+                  command(p, "group fight " + id + " " + target);
+                  h.refresh.run();
+                },
+                h.refresh));
+    control(
+        h,
+        "group-intelligence",
+        33,
+        Material.COMPARATOR,
+        c -> {
+          command(p, "group intelligence " + id + " " + !groups.get(id).intelligence);
+          h.refresh.run();
+        });
+    control(
+        h,
+        "group-info",
+        38,
+        Material.BOOK,
+        c -> {
+          command(p, "group info " + id);
+          h.refresh.run();
+        });
+    control(
+        h,
+        "group-clear-leader",
+        40,
+        Material.GRAY_DYE,
+        c -> {
+          command(p, "group leader " + id + " off");
+          h.refresh.run();
+        });
+    control(
+        h,
+        "group-delete",
+        43,
+        Material.BARRIER,
+        c ->
+            confirm(
+                p,
+                id,
+                () -> {
+                  command(p, "group delete " + id);
+                  open(p, "groups", 0);
+                },
+                h.refresh));
+    selected(
+        h,
+        controlSlot("group-follow", 20),
+        group.order == dev.easyscripting.actors.ActorGroup.Order.FOLLOW);
+    selected(
+        h,
+        controlSlot("group-hold", 22),
+        group.order == dev.easyscripting.actors.ActorGroup.Order.HOLD);
+    selected(
+        h,
+        controlSlot("group-move", 24),
+        group.order == dev.easyscripting.actors.ActorGroup.Order.MOVE);
+    selected(h, controlSlot("group-intelligence", 33), group.intelligence);
+    if (!p.isOp())
+      for (String key :
+          List.of(
+              "group-leader",
+              "group-add",
+              "group-remove",
+              "group-intelligence",
+              "group-clear-leader",
+              "group-delete")) disabled(h, key, "Only operators can manage groups.");
+    Player leader = group.leader == null ? null : Bukkit.getPlayer(group.leader);
+    Map<String, String> values =
+        Map.of(
+            "{group}",
+            id,
+            "{members}",
+            String.valueOf(groups.members(id).size()),
+            "{leader}",
+            group.leader == null ? "None" : leader == null ? "Offline" : leader.getName(),
+            "{order}",
+            group.order.name(),
+            "{intelligence}",
+            group.intelligence ? "ON" : "OFF");
+    for (ItemStack item : h.inventory.getContents()) {
+      if (item == null || !item.hasItemMeta()) continue;
+      var meta = item.getItemMeta();
+      for (var value : values.entrySet()) {
+        var replacement =
+            net.kyori.adventure.text.TextReplacementConfig.builder()
+                .matchLiteral(value.getKey())
+                .replacement(value.getValue())
+                .build();
+        if (meta.hasDisplayName()) meta.displayName(meta.displayName().replaceText(replacement));
+        if (meta.hasLore())
+          meta.lore(meta.lore().stream().map(line -> line.replaceText(replacement)).toList());
+      }
+      item.setItemMeta(meta);
+    }
+    show(p, h);
   }
 
   public void prompt(Player p, String prefix, String question) {

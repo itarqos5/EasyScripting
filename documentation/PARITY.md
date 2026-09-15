@@ -2,6 +2,10 @@
 
 Independent clean-room implementation based on public descriptions, both listing/gallery images and public updates. No original plugin binary, source, private assets, licensing or DRM was accessed. Branding, source and configuration are independent.
 
+## 0.1.7 additions
+
+Social navigation, leader-controlled combat groups and resource-based combat reactions are implemented as a prototype, with unit-tested facing, allocation, persistence, supplies and settings. The redesigned YAML menus and command catalogue pass structural checks. Half-heart/totem and elytra replay fixes have focused regression coverage. Visual navigation, Citizens combat/shield behavior and large-group performance still require a live server/client acceptance pass; no new reference-parity or runtime-verification claim is made. See NPC-GROUPS.md and TESTING.md.
+
 ## Evidence inspected 2026-09-13
 
 * [BuiltByBit listing](https://builtbybit.com/resources/scriptedessentials-full-release.75101/): feature overview and first gallery image.

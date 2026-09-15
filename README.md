@@ -16,7 +16,7 @@ Use JDK 25 and the included Gradle wrapper:
 
 On Windows, use `.\gradlew.bat build`.
 
-Copy `build/libs/EasyScripting-0.1.6.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
+Copy `build/libs/EasyScripting-0.1.7.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
 
 The primary target is Paper 26.2 with Java 25. The plugin produces Java 21 bytecode and uses the shared Paper API surface for 1.21.8, 1.21.11 and 26.1 compatibility. Test evidence and its limits are in [TESTING.md](documentation/TESTING.md). Purpur is a compatibility target; Folia and Spigot are not supported.
 
@@ -26,6 +26,12 @@ Optional integrations:
 * **Simple Voice Chat:** enables voice mute/broadcast. Participating clients need its voice mod. EasyScripting does not record microphone audio.
 
 Neither dependency is bundled. Without them the rest of the plugin loads and their commands explain what is missing.
+
+## NPC movement and combat groups
+
+Version 0.1.7 fixes looking/wandering and adds leader-controlled NPC factions, standalone aggression, carried totems/potions/shields and fallible combat reactions. Open `/actors`, equip an NPC with a kit, and use **Combat & supplies**. Start a group with `/es group create red`. See the [group and combat guide](documentation/NPC-GROUPS.md).
+
+`/kits` opens kits. Studio home now has **Record session** to turn joining restrictions/MOTD on or off. The new GUI separates identity, movement, replay and combat; old layouts are backed up before migration. Configuration files are commented, and command mistakes show syntax and examples. Elytra performances preserve the gliding animation; player half-heart protection allows held totems to pop and stays enabled afterward.
 
 ## Nicknames, chat and kits
 
@@ -41,9 +47,9 @@ See the [usage guide](documentation/USERGUIDE.md#7-nickname-real-players), [kit 
 
 With Citizens installed, `/actor create guard_1` automatically assigns a random displayed username and skin. Keep the result as-is, use `/actor set guard_1 name RiverScout` or `/actor set guard_1 skin Notch` to change one part, or `/actor randomize guard_1` to reroll both. `/actor info guard_1` shows the identity; the actor's ID remains `guard_1`. Names, skin owners and resolved skin textures persist across restarts. Pools and automatic assignment are configured in `npc-identities.yml`; existing actors are unchanged on upgrade.
 
-`/actor gui guard_1` opens a tabbed NPC panel with Appearance, Movement, Acting & Playback, and Combat sections. Choose or change the end mode (`stop`, `repeat` or `reverse`) before recording, afterward or during playback. Name, skin and random identity can also change during playback. Appearance includes a tab-list toggle for PLAYER NPCs. `/actor act guard_1 entrance` puts you in the NPC's place and costume; `/actor finish` restores you, saves the performance and starts it automatically. Autoplay is enabled by default; use `/actor autoplay guard_1 off` for manual playback. While acting, direct melee is blocked but falls, projectiles and explosions can hurt you. On NPCs, Hittable only controls melee; Immortal keeps hits and knockback but prevents death. New NPCs default to Immortal OFF. NPC deaths permanently remove the actor, announce its name leaving the game, and delete its take unless another NPC uses it. Shared takes remain until their final NPC is removed. `/actor stop guard_1` holds its current position and disables autoplay. See [the acting workflow](documentation/USERGUIDE.md#act-as-an-npc-and-save-its-performance).
+`/actor gui guard_1` opens an overview with Identity & clothing, Movement, Record & replay, and Combat & supplies cards. Choose or change the end mode (`stop`, `repeat` or `reverse`) before recording, afterward or during playback. Name, skin and random identity can also change during playback. Appearance includes a tab-list toggle for PLAYER NPCs. `/actor act guard_1 entrance` puts you in the NPC's place and costume; `/actor finish` restores you, saves the performance and starts it automatically. Autoplay is enabled by default; use `/actor autoplay guard_1 off` for manual playback. While acting, direct melee is blocked but falls, projectiles and explosions can hurt you. On NPCs, Hittable only controls melee; Immortal keeps hits and knockback but prevents death. New NPCs default to Immortal OFF. NPC deaths permanently remove the actor, announce its name leaving the game, and delete its take unless another NPC uses it. Shared takes remain until their final NPC is removed. `/actor stop guard_1` holds its current position and disables autoplay. See [the acting workflow](documentation/USERGUIDE.md#act-as-an-npc-and-save-its-performance).
 
-The redesigned studio groups tools into clear categories, provides saved-recording/costume pickers and uses consistent Back, Home and Close buttons. All menus are configured in `guis.yml`. Upgrading from the old layout saves a `guis-v1-backup-<unique-id>.yml` beside it before installing layout schema 2. Other project documentation is in [`documentation/`](documentation/USERGUIDE.md).
+The redesigned studio groups tools into clear categories, provides saved-recording/costume pickers and uses consistent Back, Home and Close buttons. All menus are configured in `guis.yml`. Upgrading from layout 1 or 2 saves `guis-before-v3-<UUID>.yml` beside it before installing layout schema 3. Other project documentation is in [`documentation/`](documentation/USERGUIDE.md).
 
 Run these in-game with the documented permissions. They create an actor, announce the shot, show a swing and damage animation, then restore the actor after three seconds:
 

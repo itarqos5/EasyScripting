@@ -47,7 +47,15 @@ public final class Checks {
     try {
       return Enum.valueOf(type, value.toUpperCase(Locale.ROOT));
     } catch (IllegalArgumentException ex) {
-      throw new IllegalArgumentException("Unknown " + type.getSimpleName() + " '" + value + "'.");
+      throw new IllegalArgumentException(
+          "Expected "
+              + type.getSimpleName()
+              + ": "
+              + java.util.Arrays.stream(type.getEnumConstants())
+                  .limit(32)
+                  .map(option -> option.name().toLowerCase(Locale.ROOT))
+                  .collect(java.util.stream.Collectors.joining(", "))
+              + (type.getEnumConstants().length > 32 ? " (more available with Tab)." : "."));
     }
   }
 }

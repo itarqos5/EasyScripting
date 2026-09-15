@@ -92,7 +92,25 @@ public final class YamlStore implements AutoCloseable {
     // Bukkit objects become plain values on the owning thread; YAML encoding and IO run on the
     // writer.
     Map<?, ?> values = (Map<?, ?>) detach(yaml);
-    return saveDetached(folder, id, values);
+    Map<String, List<String>> comments = new LinkedHashMap<>(), inline = new LinkedHashMap<>();
+    for (String key : yaml.getKeys(true)) {
+      if (!yaml.getComments(key).isEmpty())
+        comments.put(key, new ArrayList<>(yaml.getComments(key)));
+      if (!yaml.getInlineComments(key).isEmpty())
+        inline.put(key, new ArrayList<>(yaml.getInlineComments(key)));
+    }
+    List<String> header = new ArrayList<>(yaml.options().getHeader());
+    List<String> footer = new ArrayList<>(yaml.options().getFooter());
+    Path destination = path(folder, id);
+    return submit(
+        () -> {
+          YamlConfiguration document = new YamlConfiguration();
+          restoreSections(document, values);
+          comments.forEach(document::setComments);
+          inline.forEach(document::setInlineComments);
+          document.options().setHeader(header).setFooter(footer);
+          atomicWrite(destination, document.saveToString());
+        });
   }
 
   /** Accepts an already immutable tree of plain values, prepared incrementally by large jobs. */
@@ -103,6 +121,17 @@ public final class YamlStore implements AutoCloseable {
           YamlConfiguration document = new YamlConfiguration();
           values.forEach((key, value) -> document.set(String.valueOf(key), value));
           atomicWrite(destination, document.saveToString());
+        });
+  }
+
+  private static void restoreSections(ConfigurationSection section, Map<?, ?> values) {
+    values.forEach(
+        (key, value) -> {
+          String name = String.valueOf(key);
+          // Serialized Bukkit items/vectors keep their == discriminator and are encoded as maps.
+          if (value instanceof Map<?, ?> nested && !nested.containsKey("=="))
+            restoreSections(section.createSection(name), nested);
+          else section.set(name, value);
         });
   }
 

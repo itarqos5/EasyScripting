@@ -8,11 +8,20 @@ public final class Positions {
   private Positions() {}
 
   public static void face(org.bukkit.entity.Entity entity, Location target) {
-    Location direction =
-        entity
-            .getLocation()
-            .setDirection(target.toVector().subtract(entity.getLocation().toVector()));
+    Location origin =
+        entity instanceof org.bukkit.entity.LivingEntity living
+            ? living.getEyeLocation()
+            : entity.getLocation();
+    Location direction = facing(origin, target);
     entity.setRotation(direction.getYaw(), direction.getPitch());
+  }
+
+  public static Location facing(Location origin, Location target) {
+    Location direction = origin.clone();
+    if (!Objects.equals(origin.getWorld(), target.getWorld())) return direction;
+    var delta = target.toVector().subtract(origin.toVector());
+    if (delta.lengthSquared() > 0.000001) direction.setDirection(delta);
+    return direction;
   }
 
   public static Map<String, Object> encode(Location l) {

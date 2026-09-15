@@ -46,6 +46,12 @@ Every command requires `easyscripting.use`. Permission checks apply to GUI actio
 
 `op` means granted to server operators by default; `false` needs an explicit grant even for operators; `true` is available to everyone unless denied. The console is trusted by Bukkit. No wildcard parent grants are installed by EasyScripting.
 
+## NPC group access
+
+`/es group` requires `easyscripting.use`. Operators create/delete groups, manage membership, assign leaders and change intelligence. A group's assigned real-player leader may view its GUI and issue follow/hold/stop/move/attack/fight orders. Other players cannot order it. One real player leads at most one group. `/actors` opens the actor library and `/kits` the kit library; their controls retain their existing checks.
+
+Legacy actor editing/bulk commands remain staff tools under `easyscripting.actor`, including actor group tags. Do not grant actor administration to ordinary group leaders. No new group wildcard or privilege bypass is installed.
+
 ## Additional checks
 
 Scene execution requires the permission for **every action**, and another real player requires `easyscripting.player.others`. Command actions additionally need `security.allow-command-actions: true`. Destructive explosions additionally need `security.destructive-effects: true`. The scene editor can store an action it cannot execute; this does not bypass execution permissions.

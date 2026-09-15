@@ -31,6 +31,15 @@ public final class ActorService implements Listener, AutoCloseable {
   private final Map<String, String> leases = new HashMap<>();
   private final Map<Chunk, Integer> chunkTickets = new HashMap<>();
   private java.util.function.Predicate<String> blockedIdentity = name -> false;
+  private java.util.function.Predicate<ManagedActor> directed = actor -> false;
+
+  public void autonomousDirector(java.util.function.Predicate<ManagedActor> director) {
+    directed = director;
+  }
+
+  public boolean busy(String id) {
+    return leases.containsKey(id);
+  }
 
   public void identityFilter(java.util.function.Predicate<String> filter) {
     blockedIdentity = filter;
@@ -59,6 +68,7 @@ public final class ActorService implements Listener, AutoCloseable {
 
   public void reserve(String id, String owner) {
     available(id);
+    get(id).stop();
     leases.put(id, owner);
   }
 
@@ -191,6 +201,7 @@ public final class ActorService implements Listener, AutoCloseable {
               + " protection.");
     }
     entities.put(e.getUniqueId(), actor);
+    actor.nextWander = 0;
     actor.handle.onEntityChanged(
         replacement -> {
           if (actor.pendingDeletion || closing) return;
@@ -205,6 +216,8 @@ public final class ActorService implements Listener, AutoCloseable {
     e.setCustomNameVisible(d.nametag);
     e.setGlowing(d.glowing);
     if (e instanceof Player player) {
+      player.getInventory().setStorageContents(d.inventory);
+      player.getInventory().setHeldItemSlot(d.heldSlot);
       player.setSneaking(d.sneaking);
       player.setSprinting(d.sprinting);
     }
@@ -261,6 +274,8 @@ public final class ActorService implements Listener, AutoCloseable {
               actor.definition.pose = e.getPose();
               actor.definition.glowing = e.isGlowing();
               if (e instanceof Player player) {
+                actor.definition.inventory = player.getInventory().getStorageContents();
+                actor.definition.heldSlot = player.getInventory().getHeldItemSlot();
                 actor.definition.sneaking = player.isSneaking();
                 actor.definition.sprinting = player.isSprinting();
               }
@@ -397,8 +412,10 @@ public final class ActorService implements Listener, AutoCloseable {
         d.tablist = Checks.bool(value);
       }
       case "look" -> d.lookNearby = Checks.bool(value);
+      case "aggressive" -> d.aggressive = Checks.bool(value);
       case "wander" -> {
         d.wander = Checks.bool(value);
+        if (d.wander) a.wanderHome = a.entity().map(Entity::getLocation).orElse(d.location).clone();
         if (!d.wander && a.handle != null) a.handle.stop();
       }
       case "pose" -> a.requireEntity().setPose(Checks.choice(Pose.class, value), true);
@@ -442,6 +459,16 @@ public final class ActorService implements Listener, AutoCloseable {
     while (recentNames.size() > 8) recentNames.removeFirst();
   }
 
+  /** Keep mob reserve items too: their equipment API alone exposes no backpack. */
+  public void rememberKit(String id, ItemStack[] contents) {
+    ManagedActor actor = get(id);
+    if (!(actor.requireEntity() instanceof Player)) {
+      actor.definition.inventory = Arrays.copyOf(contents, 36);
+      actor.definition.inventory[0] = null; // Already equipped in the mob's main hand.
+    }
+    save(actor);
+  }
+
   /** Temporary possession removes the entity without changing its saved visibility or position. */
   public void suspend(String id) {
     ManagedActor actor = get(id);
@@ -482,6 +509,7 @@ public final class ActorService implements Listener, AutoCloseable {
     a.stop();
     if (!a.requireEntity().teleport(to))
       throw new IllegalArgumentException("Actor teleport was cancelled.");
+    a.wanderHome = to.clone();
     save(a);
   }
 
@@ -492,7 +520,7 @@ public final class ActorService implements Listener, AutoCloseable {
         || e.getLocation().distanceSquared(target.getLocation()) > 36)
       throw new IllegalArgumentException(
           "Attack target must be within 6 blocks in the same world.");
-    Positions.face(e, target.getEyeLocation());
+    a.look(target.getEyeLocation());
     e.swingMainHand();
     target.damage(damage, e);
   }
@@ -550,29 +578,23 @@ public final class ActorService implements Listener, AutoCloseable {
                       store.save("actors", a.id(), a.definition.yaml());
                   }
                   if (leases.containsKey(a.id())) continue;
+                  if (directed.test(a)) continue;
                   ActorDefinition d = a.definition;
-                  if (!d.lookNearby && !d.wander) continue;
-                  if (d.lookNearby && tick % 5 == 0)
-                    e.getWorld().getNearbyPlayers(e.getLocation(), 8).stream()
-                        .filter(p -> !entities.containsKey(p.getUniqueId()))
-                        .min(
-                            Comparator.comparingDouble(
-                                p -> p.getLocation().distanceSquared(e.getLocation())))
-                        .ifPresent(p -> Positions.face(e, p.getEyeLocation()));
-                  if (d.wander && tick % 80 == 0) {
+                  if (Math.floorMod(tick + a.id().hashCode(), 5) == 0)
+                    a.lookNearby(d.lookNearby || d.wander || a.navigating());
+                  if (d.wander && tick >= a.nextWander && !a.navigating()) {
+                    a.nextWander =
+                        tick
+                            + settings.actorAi().wanderInterval()
+                            + Math.floorMod(a.id().hashCode(), 20);
                     Location goal =
-                        e.getLocation()
-                            .add(
-                                java.util.concurrent.ThreadLocalRandom.current().nextDouble(-5, 5),
-                                0,
-                                java.util.concurrent.ThreadLocalRandom.current().nextDouble(-5, 5));
-                    if (goal.clone().subtract(0, 1, 0).getBlock().getType().isSolid()
-                        && goal.getBlock().isPassable()
-                        && !goal.getBlock().isLiquid()) {
+                        ActorWandering.destination(
+                            a, ActorService.this, settings.actorAi(), a.wanderHome);
+                    if (goal != null) {
                       try {
-                        a.handle.move(goal, 1);
+                        a.move(goal, settings.actorAi().walkSpeed());
                       } catch (IllegalArgumentException ex) {
-                        /* No safe path this cycle; try another bounded destination later. */
+                        /* Retry a different safe point later. */
                       }
                     }
                   }
@@ -716,9 +738,12 @@ public final class ActorService implements Listener, AutoCloseable {
     private Chunk chunk;
     private boolean pendingDeletion;
     private java.util.function.Consumer<LivingEntity> afterRefresh;
+    private Location wanderHome;
+    private int nextWander;
 
     private ManagedActor(ActorDefinition definition) {
       this.definition = definition;
+      this.wanderHome = definition.location.clone();
     }
 
     public String id() {
@@ -761,7 +786,40 @@ public final class ActorService implements Listener, AutoCloseable {
     }
 
     public void stop() {
-      if (handle != null) handle.stop();
+      if (handle != null) {
+        handle.stop();
+        handle.look(null);
+      }
+    }
+
+    public boolean navigating() {
+      return handle != null && handle.navigating();
+    }
+
+    public void look(Location at) {
+      if (handle != null) handle.look(at);
+    }
+
+    public void lookNearby(boolean enabled) {
+      LivingEntity e = entity().orElse(null);
+      if (e == null) return;
+      Location target =
+          enabled
+              ? e
+                  .getWorld()
+                  .getNearbyPlayers(e.getLocation(), settings.actorAi().lookRadius())
+                  .stream()
+                  .filter(
+                      p ->
+                          ActorWandering.realVisiblePlayer(p, ActorService.this)
+                              && e.hasLineOfSight(p))
+                  .min(
+                      Comparator.comparingDouble(
+                          p -> p.getLocation().distanceSquared(e.getLocation())))
+                  .map(Player::getEyeLocation)
+                  .orElse(null)
+              : null;
+      look(target);
     }
   }
 }

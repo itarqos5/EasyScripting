@@ -87,6 +87,15 @@ public final class CitizensBackend implements ActorBackend, Listener {
     npc.data().setPersistent(NPC.Metadata.REMOVE_FROM_TABLIST, !d.tablist);
     npc.data().setPersistent(NPC.Metadata.COLLIDABLE, d.collidable);
     npc.data().setPersistent(NPC.Metadata.NAMEPLATE_VISIBLE, d.nametag);
+    // Keep destinations precise and fail a stuck path instead of teleporting through terrain.
+    npc.getNavigator()
+        .getDefaultParameters()
+        .distanceMargin(0.6)
+        .pathDistanceMargin(0.5)
+        .range(96)
+        .stationaryTicks(40)
+        .stuckAction(null)
+        .destinationTeleportMargin(-1);
     SkinTrait skin = npc.getOrAddTrait(SkinTrait.class);
     skin.setShouldUpdateSkins(false);
     if (!d.skin.isBlank()) {
@@ -103,13 +112,50 @@ public final class CitizensBackend implements ActorBackend, Listener {
               + "'. Check its version and the destination chunk.");
     }
     return new Handle() {
+      private Location looking;
+
       public LivingEntity entity() {
         return npc.isSpawned() && npc.getEntity() instanceof LivingEntity e ? e : null;
       }
 
       public void move(Location target, double speed) {
-        npc.getNavigator().getLocalParameters().speedModifier((float) speed);
+        // setTarget clones defaults, so changing local parameters beforehand loses the speed.
+        npc.getNavigator().getDefaultParameters().speedModifier((float) speed);
         npc.getNavigator().setTarget(target);
+        updateLook();
+      }
+
+      public boolean navigating() {
+        return npc.getNavigator().isNavigating();
+      }
+
+      public void look(Location target) {
+        if (target == null && looking != null && npc.isSpawned())
+          npc.getOrAddTrait(net.citizensnpcs.trait.RotationTrait.class)
+              .getPhysicalSession()
+              .rotateToHave(
+                  npc.getEntity().getLocation().getYaw(), npc.getEntity().getLocation().getPitch());
+        looking = target == null ? null : target.clone();
+        updateLook();
+        if (!navigating() && looking != null && npc.isSpawned())
+          npc.getOrAddTrait(net.citizensnpcs.trait.RotationTrait.class)
+              .getPhysicalSession()
+              .rotateToFace(looking);
+      }
+
+      private void updateLook() {
+        if (!navigating()) return;
+        // Use Citizens' look override while walking; rotating its movement body fights the path.
+        npc.getNavigator()
+            .getLocalParameters()
+            .lookAtFunction(
+                navigator -> {
+                  LivingEntity entity = entity();
+                  if (looking != null && entity != null && looking.getWorld() == entity.getWorld())
+                    return looking;
+                  Location ahead = navigator.getTargetAsLocation();
+                  return ahead.clone().add(0, entity == null ? 1.62 : entity.getEyeHeight(), 0);
+                });
       }
 
       public void stop() {

@@ -1,4 +1,6 @@
+# MiniMessage name for generated player heads; {name} is the requested account name.
 head-name: '<white>{name}'
+# Bukkit material names sampled by the inventory random-fill tool; each list entry is eligible.
 random-fill-materials:
   - COBBLESTONE
   - OAK_LOG

@@ -1,4 +1,5 @@
 # Optional overrides for non-sensitive features. Use 'everyone' or a custom permission node.
 # Omitted nodes use the plugin.yml permission default. Administrative and command-execution
 # permissions cannot be made public through this file.
+# Map an editable feature suffix to everyone or a permission node, e.g. actor: myserver.director. Kit/group management still requires an operator.
 overrides: {}

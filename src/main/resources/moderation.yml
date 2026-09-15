@@ -1,19 +1,32 @@
 # No normal gameplay restrictions are enabled by default.
 broadcast-title:
+  # Also show a title for /es chat broadcast.
   enabled: true
+  # Time the broadcast title takes to fade in (20 ticks = one second).
   fade-in-ticks: 10
+  # Time the broadcast title remains fully visible.
   stay-ticks: 60
+  # Time the broadcast title takes to fade out.
   fade-out-ticks: 10
 server-lock:
+  # Enable the ordinary server login lock; recording-session mode separately permits operators only.
   enabled: false
+  # Real account names allowed by the ordinary login lock; recording-session mode ignores this list.
   allowed: []
+# World names blocked by world-access controls.
 locked-worlds: []
+# Per-world allowed account names; manage with /es dimension commands.
 dimension-whitelist: {}
+# Command names blocked by moderation; command bypass permission still applies.
 blocked-commands: []
 # Literal case-insensitive phrases; never interpreted as regular expressions.
+# Literal case-insensitive chat phrases to reject; not regular expressions.
 blocked-phrases: []
+# Notify moderators when a player edits a sign.
 sign-alerts: false
+# Allow normal player join messages.
 join-messages: true
+# Allow normal player leave messages.
 leave-messages: true
 build: true
 break: true

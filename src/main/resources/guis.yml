@@ -1,8 +1,24 @@
-# EasyScripting studio menus · schema 2
+# All titles, names, lore and labels use MiniMessage colors; quoted empty strings hide text.
+# layout: rows must be 6; *-slot values are zero-based inventory indices (0..53).
+# content-slots are paged entry positions; empty-slot is where an empty-library message appears.
+# filler and *.material are Bukkit item material names; filler-name is the border item label.
+# *-name and dynamic labels are visible button text. *-lore, lore and description are hover-text lines.
+# menus.<id>: title is the window title; heading/material/description define the top information card; parent is the Back destination.
+# menus.<id>.buttons.<id>: slot/material/name/lore define the control; permission is an easyscripting.* suffix.
+# action starts with menu (open page), command (execute /es suffix), or input (ask for text); prompt explains expected input.
+# dynamic.controls.<id>: slot/material/lore customize a code-backed control; its label is dynamic.<id>.
+# entries.<library>: create/empty/name/lore configure library states and entries. player-flags configure each player toggle.
+# features and actor flag sections label their corresponding switches; true/false state labels come from layout.enabled/disabled.
+# Tokens such as {name}, {id}, {state}, {group}, {leader}, {members}, {order}, {intelligence}, {session}, {health}, {status}, {recording}, {mode}, {autoplay}, {access}, {page}, {detail} are filled by the relevant page.
+# Current selections glow. Changing a slot must not overlap another control or the navigation/footer.
+# Schema 3 installs the simplified menu layout once and backs up older guis.yml files before replacement.
+
+# EasyScripting studio menus · schema 3
 # Slots are zero-based. The 21 content slots sit above workflow controls.
 # Footer: previous 45, create/save 47, back 48, home 49, close 50, help 51, next 53.
 # Older layouts are backed up automatically before this design is installed.
-schema: 2
+# Internal file-format version; keep the shipped value.
+schema: 3
 layout:
   rows: 6
   content-slots: [10,11,12,13,14,15,16,19,20,21,22,23,24,25,28,29,30,31,32,33,34]
@@ -32,12 +48,50 @@ layout:
   enabled: "<green>ON"
   disabled: "<gray>OFF"
 menus:
+  session:
+    title: "<dark_gray>Record session"
+    heading: "<white><bold>Record session"
+    material: "REDSTONE_TORCH"
+    description: ["<gray>Choose ON or OFF below.", "<gray>ON changes the MOTD and blocks non-operator joins.", "<gray>NPC performance recording is inside each actor's menu."]
+    buttons:
+      start:
+        slot: 20
+        material: "LIME_CONCRETE"
+        name: "<green>Start recording session"
+        lore: ["<gray>Current session: {session}", "<gray>Players already online stay connected.", "<gray>Only operators can join or reconnect."]
+        action: "command record on"
+        permission: "record"
+      stop:
+        slot: 24
+        material: "RED_CONCRETE"
+        name: "<red>End recording session"
+        lore: ["<gray>Current session: {session}", "<gray>Restore the normal MOTD and joining rules."]
+        action: "command record off"
+        permission: "record"
+  groups:
+    title: "<dark_gray>NPC groups · {page}"
+    heading: "<white><bold>NPC groups"
+    material: "WHITE_BANNER"
+    description: ["<gray>Choose a group to direct its members.", "<gray>Operators create groups; leaders issue orders.", "<gray>Every NPC keeps its own equipment and health."]
+  group-details:
+    title: "<dark_gray>Group · {name}"
+    heading: "<white><bold>Group {name}"
+    material: "WHITE_BANNER"
+    parent: "groups"
+    description: ["<gray>Leader: {leader} · Members: {members}", "<gray>Order: {order} · Intelligence: {intelligence}", "<gray>Glowing buttons show the current choices."]
   main:
     title: "<dark_gray>EasyScripting · Studio"
     heading: "<white><bold>EasyScripting · Studio"
     material: "NETHER_STAR"
     description: ["<gray>Start with Actors to create your cast.","<gray>Record a performance, then build a scene.","<gray>Hover over any control for instructions."]
     buttons:
+      npc-groups:
+        slot: 43
+        material: "RED_BANNER"
+        name: "<white>NPC groups"
+        lore: ["<gray>Leaders, formations and group battles.", "<gray>Every NPC fights with its own equipment.", "", "<yellow>Click to select"]
+        action: "menu groups"
+        permission: "use"
       actors:
         slot: 11
         material: "PLAYER_HEAD"
@@ -47,10 +101,10 @@ menus:
         permission: "actor"
       recording:
         slot: 13
-        material: "CLOCK"
-        name: "<white>Recordings"
-        lore: ["<gray>Saved performances and movement takes.","","<yellow>Click to select"]
-        action: "menu recording"
+        material: "REDSTONE_TORCH"
+        name: "<white>Record session: {session}"
+        lore: ["<gray>Start or end a server recording session.","<gray>Change the MOTD and control incoming joins.","","<yellow>Click to open"]
+        action: "menu session"
         permission: "record"
       scenes:
         slot: 15
@@ -603,7 +657,97 @@ entries:
     empty: "<white>No villager templates saved"
     lore: ["<gray>ID: <white>{id}","<gray>{detail}","","<yellow>Click to spawn this template","<red>Shift-right click to delete"]
 dynamic:
+  actor-aggressive: "<white>Retaliate when hit: {state}"
+  actor-combat-kit: "<aqua>Equip combat supplies"
+  actor-combat-group: "<white>Group combat orders"
+  actor-group: "<white>NPC group: {group}"
+  group-create: "<green>Create an NPC group"
+  group-members: "<white>Members: {members}"
+  group-leader: "<white>Choose leader: {leader}"
+  group-add: "<green>Add an actor"
+  group-remove: "<yellow>Remove a member"
+  group-follow: "<green>Follow the leader"
+  group-hold: "<yellow>Hold / stop orders"
+  group-move: "<aqua>Move here"
+  group-attack: "<red>Attack a target"
+  group-fight: "<red>Fight another group"
+  group-intelligence: "<white>Intelligence: {intelligence}"
+  group-info: "<aqua>Refresh / show status"
+  group-clear-leader: "<yellow>Unassign leader"
+  group-delete: "<red>Delete group"
   controls:
+    actor-aggressive:
+      slot: 31
+      material: "IRON_SWORD"
+      lore: ["<gray>Ungrouped NPCs use supplies and fight back.", "<gray>Attacks have delays, misses and jump reactions.", "<gray>Grouped NPCs follow their group's Intelligence."]
+    actor-combat-kit:
+      slot: 29
+      material: "CHEST"
+      lore: ["<gray>Choose a kit with a weapon, armor and reserves.", "<gray>Totems refill automatically from the backpack.", "<gray>Beneficial splash potions and shields are consumed/used."]
+    actor-combat-group:
+      slot: 33
+      material: "WHITE_BANNER"
+      lore: ["<gray>Group: {group}", "<gray>Open leader, formation and attack orders."]
+    actor-group:
+      slot: 31
+      material: "WHITE_BANNER"
+      lore: ["<gray>Current group: {group}", "<gray>Open its orders or assign this NPC to a group."]
+    group-create:
+      slot: 47
+      material: "LIME_DYE"
+      lore: ["<gray>Enter a group ID in chat.", "<gray>Existing actors with that tag are adopted."]
+    group-members:
+      slot: 10
+      material: "PLAYER_HEAD"
+      lore: ["<gray>Browse this group's actors.", "<gray>Each keeps its own health and equipment."]
+    group-leader:
+      slot: 12
+      material: "GOLDEN_HELMET"
+      lore: ["<gray>Choose a real online player.", "<gray>The group starts following its leader."]
+    group-add:
+      slot: 14
+      material: "LIME_DYE"
+      lore: ["<gray>Choose an existing actor to add.", "<gray>For a whole tag: /es group add {group} tag:name"]
+    group-remove:
+      slot: 16
+      material: "SHEARS"
+      lore: ["<gray>Remove membership; keep the NPC alive."]
+    group-follow:
+      slot: 20
+      material: "LEATHER_BOOTS"
+      lore: ["<gray>Follow in spaced formation.", "<gray>With intelligence ON, attack the leader's targets."]
+    group-hold:
+      slot: 22
+      material: "SHIELD"
+      lore: ["<gray>Stop movement and clear current attack orders.", "<gray>Intelligence ON still allows self-defense."]
+    group-move:
+      slot: 24
+      material: "COMPASS"
+      lore: ["<gray>Walk to a formation around where you stand.", "<gray>Uses paths; never teleports through obstacles."]
+    group-attack:
+      slot: 29
+      material: "IRON_SWORD"
+      lore: ["<gray>Add a nearby player or NPC as an enemy.", "<gray>Several targets split the group into squads.", "<gray>Requires intelligence ON."]
+    group-fight:
+      slot: 31
+      material: "CROSSBOW"
+      lore: ["<gray>Engage another group and its leader.", "<gray>The other group responds if intelligent.", "<gray>Real damage and deaths decide the outcome."]
+    group-intelligence:
+      slot: 33
+      material: "COMPARATOR"
+      lore: ["<gray>ON: obey attacks, divide targets and defend allies.", "<gray>OFF: follow/move orders only.", "<gray>Friendly fire is always blocked within a group."]
+    group-info:
+      slot: 38
+      material: "BOOK"
+      lore: ["<gray>Order: {order}", "<gray>Leader: {leader}", "<gray>Click to refresh and print status in chat."]
+    group-clear-leader:
+      slot: 40
+      material: "GRAY_DYE"
+      lore: ["<gray>Clear the leader and hold position."]
+    group-delete:
+      slot: 43
+      material: "BARRIER"
+      lore: ["<gray>Delete the group after confirmation.", "<gray>Its actors remain alive and become unassigned."]
     kits-import-all:
       slot: 40
       material: "CHEST_MINECART"
@@ -672,40 +816,20 @@ dynamic:
       slot: 33
       material: "BARRIER"
       lore: ["<gray>Delete this saved kit after confirmation."]
-    actor-tab-overview:
-      slot: 0
-      material: "BOOK"
-      lore: ["<gray>Open overview controls."]
-    actor-tab-appearance:
-      slot: 1
-      material: "NAME_TAG"
-      lore: ["<gray>Open appearance controls."]
-    actor-tab-movement:
-      slot: 2
-      material: "COMPASS"
-      lore: ["<gray>Open movement controls."]
-    actor-tab-acting:
-      slot: 6
-      material: "ARMOR_STAND"
-      lore: ["<gray>Open acting controls."]
-    actor-tab-combat:
-      slot: 7
-      material: "IRON_SWORD"
-      lore: ["<gray>Open combat controls."]
     actor-section-appearance:
-      slot: 11
+      slot: 10
       material: "PLAYER_HEAD"
       lore: ["<gray>Name, skin, costume and visual details.","<gray>Click to open this section."]
     actor-section-acting:
-      slot: 13
+      slot: 14
       material: "ARMOR_STAND"
       lore: ["<gray>Perform as this NPC and replay the take.","<gray>Click to open this section."]
     actor-section-combat:
-      slot: 15
+      slot: 16
       material: "IRON_SWORD"
       lore: ["<gray>Damage, knockback, immortality and death.","<gray>Click to open this section."]
     actor-section-movement:
-      slot: 31
+      slot: 12
       material: "COMPASS"
       lore: ["<gray>Position, visibility and idle behavior.","<gray>Click to open this section."]
     actor-info:
@@ -761,7 +885,7 @@ dynamic:
       material: "APPLE"
       lore: ["<gray>Status: {status}","<gray>Acting performers block melee only.","<gray>Playback uses the combat switches below."]
     actor-combat-respawn:
-      slot: 31
+      slot: 16
       material: "TOTEM_OF_UNDYING"
       lore: ["<gray>Recreate this living or hidden NPC.","<gray>Dead NPCs are deleted permanently."]
     actor-act:
@@ -883,14 +1007,9 @@ dynamic:
   cancel-import-name: "<white>Keep current items"
   actor-back: "<white>← Back"
   kit-help: "<gray>Copy an item from your inventory, then click a kit slot. Right click clears. Save below."
-  actor-tab-overview: "<aqua>Overview"
-  actor-tab-appearance: "<aqua>Appearance"
-  actor-tab-movement: "<aqua>Movement"
-  actor-tab-acting: "<aqua>Acting"
-  actor-tab-combat: "<aqua>Combat"
-  actor-section-appearance: "<aqua>Appearance"
-  actor-section-acting: "<aqua>Acting & Playback"
-  actor-section-combat: "<aqua>Combat"
+  actor-section-appearance: "<aqua>Identity & clothing"
+  actor-section-acting: "<aqua>Record & replay"
+  actor-section-combat: "<aqua>Combat & supplies"
   actor-section-movement: "<aqua>Movement"
   actor-info: "<white>{name}"
   actor-delete: "<red>Delete NPC"
@@ -956,7 +1075,7 @@ player-flags:
     lore: ["<gray>Hold your player in place.","","<yellow>Click to toggle"]
   halfheart:
     name: "<white>Half a heart"
-    lore: ["<gray>Set your health to half a heart.","","<yellow>Click to toggle"]
+    lore: ["<gray>Survive lethal damage on half a heart.","<gray>Held totems pop normally; protection stays ON.","","<yellow>Click to toggle"]
   keepinv:
     name: "<white>Keep inventory"
     lore: ["<gray>Keep your items when you die.","","<yellow>Click to toggle"]

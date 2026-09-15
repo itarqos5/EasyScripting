@@ -60,6 +60,10 @@ public final class MobBackend implements ActorBackend {
         }
       }
 
+      public boolean navigating() {
+        return entity instanceof Mob mob && mob.getPathfinder().hasPath();
+      }
+
       public void name(String name) {
         entity.customName(Messages.rich(name));
       }

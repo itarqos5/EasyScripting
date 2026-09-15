@@ -1,6 +1,6 @@
 # Every EasyScripting command, explained simply
 
-This is the command guide for **EasyScripting 0.1.6**. The kit claiming, access and bulk-import commands require 0.1.6; they are not in 0.1.5. Use `/es status` to see your installed version.
+This is the command guide for **EasyScripting 0.1.7**. Use `/es status` to see your installed version. Incomplete or invalid commands now show their expected syntax, explanation and an example in chat.
 
 Every successful command sends feedback, including commands that previously finished silently.
 
@@ -13,7 +13,7 @@ Each section lists the exact syntax, what it does and an example. Replace exampl
 - `on|off` means choose **one**: `on` or `off`.
 - `/es`, `/easyscripting` and `/script` are the same command.
 - `/actor ...` is short for `/es actor ...`; `/scene ...` is short for `/es scene ...`; `/nickname ...` is short for `/es nickname ...`.
-- There is no EasyScripting `/kit`, `/kits`, `/act` or `/finish` root command. Use `/es kits`, `/actor act` and `/actor finish`.
+- `/actors` opens the NPC library. `/kits ...` is short for `/es kits ...`. There is no EasyScripting `/kit`, `/act` or `/finish` root command.
 - Use lowercase command words. IDs such as `guard_1` use lowercase letters, numbers, underscores or hyphens, start with a letter/number, and contain at most 48 characters. Team IDs contain at most 12.
 - A **player name** identifies a real player; an **actor ID** identifies your saved NPC. Renaming an NPC does not change its ID.
 - Most time values use **ticks**: 20 ticks = about 1 second at normal server speed. 100 ticks = about 5 seconds.
@@ -26,7 +26,7 @@ Each section lists the exact syntax, what it does and an example. Replace exampl
 
 ## Find a command
 
-[Studio and settings](#studio-and-settings) · [NPCs](#actors-and-npcs) · [Acting and playback](#acting-and-playback) · [Scenes](#scenes) · [Scene actions](#action-types) · [Recording sessions](#recording-sessions) · [Camera](#camera) · [Player controls](#player-controls) · [Takes](#takes-and-snapshots) · [Kits](#kits) · [Nicknames and skins](#nicknames-and-skins) · [Inventory](#inventory) · [Items and tools](#items-and-tools) · [Warps and spawn](#warps-and-spawn) · [World](#world-controls) · [Regions](#regions) · [Locks](#container-and-item-frame-locks) · [Effects](#effects) · [Chat](#chat) · [Server rules](#server-rules) · [Death behavior](#death-behavior) · [Teams](#teams) · [Villagers](#villagers) · [Voice](#voice-chat)
+[Studio and settings](#studio-and-settings) · [NPCs](#actors-and-npcs) · [Acting and playback](#acting-and-playback) · [NPC groups](#npc-groups-and-combat) · [Scenes](#scenes) · [Scene actions](#action-types) · [Recording sessions](#recording-sessions) · [Camera](#camera) · [Player controls](#player-controls) · [Takes](#takes-and-snapshots) · [Kits](#kits) · [Nicknames and skins](#nicknames-and-skins) · [Inventory](#inventory) · [Items and tools](#items-and-tools) · [Warps and spawn](#warps-and-spawn) · [World](#world-controls) · [Regions](#regions) · [Locks](#container-and-item-frame-locks) · [Effects](#effects) · [Chat](#chat) · [Server rules](#server-rules) · [Death behavior](#death-behavior) · [Teams](#teams) · [Villagers](#villagers) · [Voice](#voice-chat)
 
 ## Studio and settings
 
@@ -35,6 +35,8 @@ Access: `use` for opening the studio, help and status; `admin` for features, per
 | Command | What it does | Example |
 | --- | --- | --- |
 | `/es` | Open the main studio GUI. | `/es` |
+| `/actors` | Open the NPC library directly. | `/actors` |
+| `/kits` | Open the kit library directly. All `/es kits` subcommands also work after `/kits`. | `/kits` |
 | `/es help` | Show command groups you have permission to use. Use this guide for their individual options. | `/es help` |
 | `/es menu [name]` | Open the main menu or a named page. | `/es menu actors` |
 | `/es status` | Show plugin version, loaded scene/NPC counts, active jobs and voice availability. | `/es status` |
@@ -43,13 +45,15 @@ Access: `use` for opening the studio, help and status; `admin` for features, per
 | `/es permissions <feature> <everyone\|permission.node>` | Change which permission is needed for an editable feature. | `/es permissions warp everyone` |
 | `/es reload` | Validate and reload configuration/GUI YAML; close open studio menus. Invalid configuration keeps the previous settings. | `/es reload` |
 
-Menu names: `main`, `scenes`, `actors`, `players`, `kits`, `warps`, `recording`, `features`, `item`, `teams`, `production`, `world`, `effects`, `permissions`, `villagers`. Category pages also include `wardrobe`, `stage`, `organization` and `settings`.
+Menu names: `main`, `scenes`, `actors`, `groups`, `players`, `kits`, `warps`, `session`, `recording`, `features`, `item`, `teams`, `production`, `world`, `effects`, `permissions`, `villagers`. Category pages also include `wardrobe`, `stage`, `organization` and `settings`.
 
 Feature switches: `actors`, `scenes`, `recording`, `players`, `identity`, `kits`, `warps`, `items`, `inventory`, `locks`, `death`, `chat`, `world`, `regions`, `teams`, `villagers`, `effects`, `voice`.
 
 Editable permission features: `actor`, `scene.play`, `scene.edit`, `record`, `player`, `identity`, `warp`, `warp.edit`, `items`, `inventory`, `locks`, `death`, `chat`, `world`, `world.edit`, `team`, `villager`, `effects`, `voice`. For example, `/es permissions warp easyscripting.warp` restores the ordinary warp permission rule. Kits use their own access settings. Admin, destructive and command-execution permissions are not editable through this command.
 
-Reload applies settings, not hand-edited actor/scene/kit/recording definitions. Restart the server to reload those definitions from disk.
+Studio home **Record session** opens the ON/OFF page (`/es menu session`). The saved NPC take picker remains available through Record & replay or `/es menu recording`.
+
+Reload applies settings, not hand-edited actor/scene/kit/recording/group definitions. Restart the server to reload those definitions from disk.
 
 ## Actors and NPCs
 
@@ -94,7 +98,8 @@ Use `/actor set <id> <setting> <value>`.
 | `nametag on\|off` | Show/hide overhead name. | `/actor set guard nametag on` |
 | `tablist on\|off` | Show/hide a PLAYER NPC in the Tab player list. | `/actor set guard tablist on` |
 | `look on\|off` | Toggle looking at nearby players. | `/actor set guard look on` |
-| `wander on\|off` | Toggle idle wandering. | `/actor set guard wander off` |
+| `wander on\|off` | Wander near visible players/NPCs, falling back to a bounded area around home. | `/actor set guard wander on` |
+| `aggressive on\|off` | An ungrouped NPC retaliates when hit, using its own supplies and fallible combat reactions. Grouped NPCs use group Intelligence instead. | `/actor set guard aggressive on` |
 | `pose <pose>` | Set an entity pose, such as STANDING, SNEAKING, SWIMMING or SLEEPING. Rendering depends on the entity. | `/actor set guard pose SNEAKING` |
 | `glow on\|off` | Toggle glowing outline. | `/actor set guard glow on` |
 | `sneak on\|off` | Toggle sneaking. | `/actor set guard sneak on` |
@@ -129,6 +134,39 @@ Select the mode before or after recording, or while the NPC is playing. The sele
 Example: `/actor create guard` → `/actor mode guard repeat` → `/actor act guard entrance` → move/jump/swing/change equipment → `/actor finish`. With default autoplay ON, the NPC starts replaying automatically.
 
 While you act, direct melee damage/knockback is blocked. Falls, projectiles and explosions can still hurt you. NPC playback follows its Hittable and Immortal settings and allows native knockback before returning to the recorded route. NPC performances capture movement/equipment/animations; they do not re-execute block breaking, block placement or attacks as recorded world actions.
+
+Elytra takes save the actual gliding state as well as pose/equipment. Old `FALL_FLYING` frames gain the flag on load; re-record an old take if it saved only a swimming pose. Stop clears the flight state.
+
+## NPC groups and combat
+
+Groups are factions of independent actors. Each NPC keeps its own equipment, backpack, health and other entity state. Nothing is pooled. Operators manage groups; the assigned real player leader and operators can issue orders. One real player may lead one group. `default` means unassigned and cannot be a managed faction ID.
+
+| Command | What it does | Example |
+| --- | --- | --- |
+| `/es group` | Open your NPC groups. | `/es group` |
+| `/es group gui [group]` | Open the group library or one group's controls. | `/es group gui red` |
+| `/es group list` | List groups you can direct. | `/es group list` |
+| `/es group create <group>` | Create a faction; adopt existing actors with the same group tag. Operators only. | `/es group create red` |
+| `/es group delete <group>` | Delete the faction and unassign its actors, keeping them alive. Operators only. | `/es group delete red` |
+| `/es group info <group>` | Print leader, member count, order, Intelligence and active enemies. | `/es group info red` |
+| `/es group add <group> <actor>` | Add or transfer one existing actor, retaining its equipment and health. Operators only. | `/es group add red guard` |
+| `/es group add <group> tag:<old-group>` | Transfer all actors with an existing tag. Operators only. | `/es group add red tag:guards` |
+| `/es group remove <group> <actor>` | Remove an NPC from the faction without deleting it. Operators only. | `/es group remove red guard` |
+| `/es group leader <group> <online-player>` | Assign a real account name as leader and begin following. Operators only. | `/es group leader red Alex` |
+| `/es group leader <group> off` | Clear its leader and hold position. Operators only. | `/es group leader red off` |
+| `/es group intelligence <group> on\|off` | ON enables coordinated attacks, defensive reactions and supplies. OFF follows movement orders only. Operators only. | `/es group intelligence red on` |
+| `/es group follow <group>` | Clear current attacks and follow the leader in formation; the leader's later hits add enemies. | `/es group follow red` |
+| `/es group hold <group>` | Clear orders and stop at current positions. Intelligent groups can still defend themselves if attacked. | `/es group hold red` |
+| `/es group stop <group>` | Same as hold. Use Intelligence OFF as well to stop retaliation. | `/es group stop red` |
+| `/es group move <group>` | Walk into a formation around your current position. Requires an in-game director. | `/es group move red` |
+| `/es group attack <group> <online-player>` | Add a nearby enemy player. Multiple targets divide the members into squads. | `/es group attack red Alex` |
+| `/es group attack <group> actor:<id>` | Add an enemy NPC. Its managed group becomes an enemy too. | `/es group attack red actor:blue_1` |
+| `/es group fight <group> <enemy-group>` | Engage another faction and its leader. An intelligent opposing group responds. | `/es group fight red blue` |
+| `/es actor set <id> aggressive on\|off` | Toggle standalone retaliation. Uses real melee damage, misses, reaction delays, potions and shields. | `/actor set guard aggressive on` |
+
+Start with `/actor pattern red grid 100 2 PLAYER`, then `/es group create red` and `/es group leader red Alex`. A pattern gives each NPC the `red` tag automatically. Use `/actor kit red_1 fighter` or `/es kits claim fighter actor:red_1` to give one NPC its own supplies. Read [NPC-GROUPS.md](NPC-GROUPS.md) for a complete setup and prototype limits.
+
+NPCs offhand spare totems and refill after a pop, with a default one-tick delay (about 50 ms at 20 TPS). Intelligent NPCs can throw up to three carried beneficial splash potions upward, one at a time, before fighting. They sometimes miss or jump after being hit. A carried shield may be raised after a random delay if an enemy above them holds a mace; this reaction is deliberately not guaranteed. They never get free replacement supplies. AI yields while an NPC is acting, replaying, or owned by a scene.
 
 ## Scenes
 
@@ -270,7 +308,7 @@ Each supports `on|off` and optional `[player]`. Example: `/es player freeze on A
 | Command | When ON |
 | --- | --- |
 | `/es player freeze on\|off [player]` | Hold the player's position for the shot. |
-| `/es player halfheart on\|off [player]` | Prevent a lethal hit and leave half a heart; this is separate from NPC Immortal. |
+| `/es player halfheart on\|off [player]` | Prevent lethal damage without a held totem. Held totems pop normally, and half-heart protection stays enabled afterward. This is separate from NPC Immortal. |
 | `/es player keepinv on\|off [player]` | Keep inventory/experience through death. |
 | `/es player no-hunger on\|off [player]` | Stop hunger changes. |
 | `/es player no-durability on\|off [player]` | Stop item durability loss. |

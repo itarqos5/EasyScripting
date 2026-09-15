@@ -1,11 +1,16 @@
+# Allow ordinary chat during a session; /es chat block has its own operator-only rule.
 allow-chat: false
 playback:
   # Let real hits move the NPC, then blend it back onto its recorded path.
+  # Ticks a replay yields to real knockback before returning to its route (1..100).
   knockback-pause-ticks: 12
+  # Ticks over which a knocked-back NPC returns to its recorded position (1..100).
   return-to-route-ticks: 10
 # /es record on always displays this MOTD and blocks non-operator logins, including reconnects.
 # /es record off returns to the normal MOTD and ordinary server login rules.
+# MiniMessage server-list MOTD while /es record on is active.
 motd: '<red>● This server is in a recording session <gray>— EasyScripting'
 voice:
   # Microphone data is not recorded or stored.
+  # Mute supported Simple Voice Chat audio while a recording session is active; no audio is recorded.
   mute-on-session: false

@@ -1,0 +1,75 @@
+# Movement and group-combat prototype. Distances are blocks; times are server ticks.
+# Internal file-format version; keep the shipped value.
+schema: 1
+# Ambient walking and social wandering for NPCs outside a scene or replay.
+movement:
+  # Maximum distance in blocks for looking at a visible real player (1..32).
+  look-radius: 12
+  # Native navigation speed multiplier for wandering; 1.0 is normal walking (0.1..3).
+  walk-speed: 1.0
+  # Search this many blocks for nearby players/NPCs to stay near (4..64).
+  social-radius: 24
+  # Choose short wander destinations this many blocks around the social anchor (1..8).
+  wander-radius: 4
+  # With no nearby player, keep destinations within this distance of the wander starting point (2..32).
+  home-radius: 12
+  # Minimum delay between completed wander paths; 50 ticks is 2.5 seconds (10..400).
+  wander-interval-ticks: 50
+# Faction movement/combat limits. Actors keep independent health, equipment and supplies.
+groups:
+  # Enable group autonomous movement and target allocation; standalone aggression is independent.
+  enabled: true
+  # Maximum saved faction definitions (1..1000); actor count still uses config.yml limits.actors.
+  max-groups: 100
+  # Maximum remembered individual enemies per faction (1..256).
+  max-targets: 128
+  # Shared budget across all groups; requests are spread across server ticks.
+  # Maximum new path requests shared by the NPC director each tick (1..32). Lower reduces bursts.
+  paths-per-tick: 8
+  # Minimum time before replacing an NPC path; moving targets must also have changed position (10..100).
+  repath-ticks: 20
+  # Distance in blocks between formation rings (1.5..5); larger groups use more rings.
+  follow-spacing: 2.5
+  # Native walking speed multiplier while following or moving to a formation (0.1..3).
+  follow-speed: 1.2
+  # Native speed multiplier while pursuing an enemy (0.1..3).
+  chase-speed: 1.35
+  # Maximum distance in blocks between an NPC and an eligible enemy; targets outside it are dropped (8..96).
+  engagement-radius: 48
+  # Maximum melee distance in blocks (1..3). Attacks also require line of sight.
+  melee-reach: 3.0
+  # Minimum interval between melee attempts (10..100), plus the random combat jitter below.
+  attack-cooldown-ticks: 20
+  # Wait this long after taking damage before resuming navigation (1..60), allowing real knockback.
+  knockback-pause-ticks: 12
+# Carried-item reactions. Totem refill works on idle NPCs; combat reactions require Intelligence/aggression.
+combat:
+  # Automatically move a carried totem into the offhand, preserving the displaced item.
+  auto-totem: true
+  # 1 tick = about 50 ms at 20 TPS; Minecraft cannot safely switch inventory in 20 ms.
+  # Delay after a totem pop before offhand refill (1..20); 1 is about 50 ms at 20 TPS.
+  totem-refill-ticks: 1
+  # Chance a melee attempt connects (0..1); 0.82 means an 82% attempt success rate before vanilla checks.
+  accuracy: 0.82
+  # Shortest random potion/jump/shield reaction delay (1..40); never instant.
+  reaction-min-ticks: 3
+  # Longest random reaction delay, at least reaction-min-ticks and at most 60.
+  reaction-max-ticks: 9
+  # Add a random 0..this many ticks to each melee cooldown (0..20).
+  attack-jitter-ticks: 4
+  # Chance to schedule a jump after an incoming hit (0..1); requires the NPC to be on the ground.
+  jump-reset-chance: 0.18
+  # Allow intelligent NPCs to consume and throw beneficial splash potions from their own backpack.
+  potions: true
+  # Maximum number of potions thrown per defensive burst (1..3), limited by actual inventory.
+  potion-count: 3
+  # Delay between the individual upward throws (2..40). Each throw consumes one potion.
+  potion-interval-ticks: 8
+  # Minimum time between starting defensive potion bursts (20..2400).
+  potion-cooldown-ticks: 200
+  # Chance to react to an enemy overhead holding a mace (0..1); requires a carried shield.
+  shield-chance: 0.55
+  # Minimum interval between shield reaction rolls (10..100), so repeated checks are not instant guarantees.
+  shield-check-ticks: 30
+  # Duration of a successful shield hold (5..60); afterward automatic totem handling resumes.
+  shield-hold-ticks: 16

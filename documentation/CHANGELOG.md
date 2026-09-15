@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.7 — 2026-09-15
+
+* Repaired eye-origin facing and Citizens navigation setup. Social wandering uses short grounded paths around nearby players/NPCs and a fixed home fallback; looking continues while walking.
+* Added persistent NPC groups with real player leaders, individual supplies/health, friendly-fire protection, follow/hold/move orders, split target allocation and group battles using native melee. New paths have a shared budget; active wars are temporary and AI yields to recordings/scenes.
+* Added standalone aggression, conserved backpack/offhand item exchanges, delayed totem refill, up to three carried beneficial splash potions, imperfect melee timing/accuracy, jump reactions and probabilistic delayed shields against overhead maces.
+* Fixed half-heart protection suppressing vanilla held-totem pops. Totems now resurrect normally and the protection remains enabled afterward; cancelled PvP does not lower protected health.
+* Fixed elytra replay rendering with a swimming animation by saving/applying actual gliding state, retaining it between replay frames and clearing it on stop. Legacy flight-pose frames remain readable.
+* Rebuilt actor navigation around four overview cards, added group/combat controls, `/actors` and `/kits`, and a home recording-session ON/OFF page. Old GUI layouts are backed up before schema-3 migration.
+* Added contextual syntax, expected values and examples for command errors. Documented new commands and every AI setting; added comments to existing configuration without replacing owner values/comments. Storage now retains nested comments during asynchronous saves.
+* Build-only validation and remaining live acceptance cases are recorded in TESTING.md. No Minecraft server was started for this release.
+
 ## 0.1.6 — 2026-09-14
 
 * Added self/player/wildcard/NPC kit claims, with kit-first or player-first syntax, online account/nickname resolution and explicit `player:` / `actor:` targeting. Claims replace the saved inventory/equipment loadout; active reservations and dead players are rejected before giving kits.

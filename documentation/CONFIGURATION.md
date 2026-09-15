@@ -1,11 +1,13 @@
 # Configuration and storage
 
-Files are generated under `plugins/EasyScripting/`. Keep your existing files when updating. Missing top-level files are copied from the JAR. Existing values are preserved except for the documented, backed-up GUI/default migrations below; exact old shipped message/help text is updated in memory. Reload uses `/es reload`; definitions edited outside the plugin load during a server restart. Invalid YAML is preserved and its path is logged.
+Files are generated under `plugins/EasyScripting/`. Keep your existing files when updating. Missing top-level files are copied from the JAR. Existing values are preserved except for the documented, backed-up GUI/default migrations below; exact old shipped message/help text is updated in memory. Reload uses `/es reload`; definitions edited outside the plugin load during a server restart. Invalid YAML is preserved and its path is logged. Shipped explanations are added to uncommented existing keys on reload; configured values and your own comments stay intact. The asynchronous YAML writer preserves headers, nested comments and inline comments.
 
 ## Top-level YAML
 
 | File | Settings |
 | --- | --- |
+| actor-ai.yml | Commented and validated movement, social wandering, group budgets, totem refill and combat reaction settings |
+| command-help.yml | Command syntax, simple descriptions and examples used for contextual error feedback |
 | config.yml | Limits, security gates, actor backend/defaults, optional item autoclear |
 | npc-identities.yml | Automatic NPC identities, username prefixes/suffixes and Java account skin pool |
 | nicknames.yml | Username API enablement, timeout and local fallback; connection-only nicknames preserve skins |
@@ -86,7 +88,7 @@ Fade timings accept 0–1200; stay accepts 1–1200. All timings must be YAML in
 
 ## GUI customization
 
-`guis.yml` uses `schema: 2`. Upgrading a schema-1 or unversioned layout validates the complete new defaults, saves the old file beside it as `guis-v1-backup-<unique-id>.yml`, then installs the redesigned layout. A backup failure aborts the upgrade. Existing schema-2 values survive reload; missing leaves inherit bundled defaults. Unknown future schemas are rejected.
+`guis.yml` uses `schema: 3`. Upgrading a schema-1, schema-2 or unversioned layout validates the complete new defaults, saves the old file beside it as `guis-before-v3-<UUID>.yml`, then installs the redesigned layout. A backup failure aborts the upgrade. Existing schema-3 values survive reload; missing leaves inherit bundled defaults. Unknown future schemas are rejected.
 
 Inventories use six rows so all 41 player inventory/equipment slots fit the kit editor. Slot indices are 0..53. The top row holds a header and NPC tabs. The default 21 content slots occupy the interior of rows 2–4; row 5 holds workflow controls. Footer slots are previous 45, create/save 47, Back 48, Home 49, Close 50, Help 51 and next 53. `layout.content-slots` must be unique and separate from navigation and workflow controls. Keep at least 13 slots for player flags. Overlapping controls on the same screen are rejected.
 
@@ -96,17 +98,26 @@ Titles accept `{name}` and `{page}`. `entries.<menu>` configures create labels, 
 
 Changing a YAML button cannot grant permissions or cause it to execute as console. Chat input is bound to the initiating player's UUID, expires in 60 seconds and is never treated as an arbitrary root command.
 
-Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. Navigation uses `dynamic.controls.actor-section-*` and persistent `actor-tab-*` tabs. Acting controls include `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording`, `actor-autoplay` and `actor-mode-stop/repeat/reverse`. Appearance includes `actor-tablist`. Combat controls are `actor-health`, `actor-hittable`, `actor-immortal`, `actor-combat-respawn`. Placeholders include `{id}`, `{name}`, `{skin}`, `{mode}`, `{recording}`, `{acting}`, `{autoplay}`, `{health}`, `{status}`; toggle labels use `{state}`.
+Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. The overview uses four `dynamic.controls.actor-section-*` cards with Back/Home navigation. The old top-row tabs are removed. Acting controls include `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording`, `actor-autoplay` and `actor-mode-stop/repeat/reverse`. Appearance includes `actor-tablist`. Combat controls are `actor-health`, `actor-hittable`, `actor-immortal`, `actor-combat-respawn`, `actor-aggressive`, `actor-combat-kit` and `actor-combat-group`. Group controls use `menus.group-details` and `dynamic.controls.group-*`. The home Record session page uses `menus.session`; `{session}` expands to ON or OFF. Placeholders include `{id}`, `{name}`, `{skin}`, `{mode}`, `{recording}`, `{acting}`, `{autoplay}`, `{health}`, `{status}`; toggle labels use `{state}`.
+
+### NPC AI tuning
+
+See the fully commented `actor-ai.yml` and [NPC guide](NPC-GROUPS.md). `movement` controls eye tracking, social radius, wander/home radius, walking speed and wander cadence. `groups` controls enablement, group/target limits, shared path budget, repathing, formation spacing, following/chasing speed, engagement/reach and attack/knockback timing. `combat` controls carried-totem handling, reaction delays, accuracy, attack jitter, jumps, beneficial potion bursts and delayed shield use.
+
+Times are whole server ticks (20 per second at normal TPS), speed values are native navigation multipliers, distances are blocks and chances range from 0 to 1. Every setting is validated with the bounds documented beside it. `combat.totem-refill-ticks: 1` is the minimum supported refill delay. `groups.enabled: false` disables faction simulation and alliance protection; standalone aggression still works. `features.actors: false` stops both. Neither setting pools NPC resources.
+
+`command-help.yml` has `commands` entries with `syntax`, `description` and optional `example`. Values are plain text shown through unparsed chat placeholders. The bundled catalogue is generated from COMMANDS.md by `scripts/update-command-help.py`. Editing help text changes explanations, not command behavior or permissions.
 
 ## Definitions and state
 
 | Directory/file | Contents |
 | --- | --- |
 | scenes/ | Schema-1 timelines |
-| actors/ | Actor type, transform, behavior, equipment, name, skin owner, optional cached signed texture, recording, playback-mode, autoplay and tablist |
+| actors/ | Commented actor definitions with transform, identity, group, aggressive state, equipment, 36 personal backpack slots, held slot, recording and playback options |
+| groups/ | Commented schema-1 faction definitions: real-player leader UUID, intelligence and follow/hold order; active wars and targets do not persist |
 | loadouts/ | Saved 41-slot kits |
 | kit-exports/ | Portable EasyScripting schema-1 kit YAML; explicit import/export |
-| recordings/ | Schema-2 frame lists with transforms, hands, armor, pose, animation/fire cues and movement state; legacy schema-1 files remain readable |
+| recordings/ | Schema-3 frame lists with transforms, hands, armor, pose, explicit gliding, animation/fire cues and movement state; legacy schema-1/2 files remain readable |
 | warps/ | Locations and individual access nodes |
 | regions/ | Selected block data, container contents and sign text |
 | villagers/ | Profession/biome/level and trade templates |

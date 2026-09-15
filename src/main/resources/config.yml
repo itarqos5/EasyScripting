@@ -1,37 +1,67 @@
 # EasyScripting 0.1 - all durations use server ticks (20 ticks = 1 second).
+# Internal file-format version; keep the shipped value.
 schema: 1
+# Safety ceilings for stored entities and synchronous work; raise gradually after observing server load.
 limits:
+  # Maximum saved NPCs across all groups (1..1000). Two 100-NPC factions require at least 200.
   actors: 200
+  # Maximum concurrently running scenes (1..100).
   active-scenes: 8
+  # Maximum timeline actions processed in one server tick (1..10000).
   actions-per-tick: 200
+  # Maximum actions stored in one scene (1..100000).
   scene-actions: 10000
+  # Maximum length of one NPC movement capture (20..72000 ticks).
   recording-ticks: 2400
+  # Maximum blocks in one saved region (1..1000000).
   region-blocks: 131072
+  # Maximum region blocks processed per tick (1..10000); lower smooths large restores.
   region-blocks-per-tick: 1024
+  # Maximum radius in blocks for bounded entity cleanup commands.
   cleanup-radius: 128
 security:
   # Requires additional commands.console / commands.player permission.
+  # Permit scene command actions; the director still needs commands.player or commands.console permission.
   allow-command-actions: false
+  # Allow effects that modify blocks; the director still needs destructive permission.
   destructive-effects: false
 actors:
+  # Default entity type for /actor create; PLAYER requires Citizens, ZOMBIE works without it.
   default-type: PLAYER
   # Player actors need a matching Citizens release. Mob actors are built in.
+  # Enable the optional Citizens player-NPC backend when Citizens is installed.
   citizens-enabled: true
+  # Broadcast the NPC name leaving the server when a mortal NPC dies and is deleted.
   announce-death-leave: true
+  # Initial settings for newly created NPCs only; saved NPCs keep their own values.
   defaults:
+    # Internal creation-default migration marker; keep at 2.
     version: 2
+    # Start the assigned performance after capture/spawn when available.
     autoplay: true
+    # Prevent NPC death while allowing hits and knockback. False makes new NPCs mortal.
     immortal: false
+    # Allow direct melee/sweep damage. Falls, projectiles and explosions are separate.
     hittable: true
+    # Allow entity collision/pushing for new NPCs.
     collidable: true
+    # Show the NPC name above its head.
     nametag: true
+    # Keep player NPCs visible in the player tab list.
     tablist: false
+    # Look at nearby visible players even while standing still; moving NPCs also look automatically.
     look-nearby: false
+    # Start ambient social wandering on newly created NPCs.
     wander: false
 spawn:
+  # Send a player to the saved EasyScripting spawn on their first join.
   on-first-join: false
+  # Use the saved EasyScripting spawn when a player respawns.
   on-respawn: false
 world:
+  # Seconds between configured nearby dropped-item cleanups; 0 disables automatic cleanup.
   auto-clear-seconds: 0
+  # Cleanup radius in blocks around online players (1..128).
   auto-clear-radius: 32
+  # World names where automatic cleanup is allowed; an empty list leaves it inactive.
   auto-clear-worlds: []
