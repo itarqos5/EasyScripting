@@ -62,9 +62,7 @@ public final class KitClaims {
       String actorId = target.substring(6);
       actors.available(actorId);
       var actor = actors.get(actorId);
-      kits.apply(id, actor.requireEntity());
-      actors.rememberKit(actor.id(), kits.contents(id));
-      actors.save(actor);
+      actors.applyKit(actor.id(), kits.contents(id));
       return 1;
     }
     List<? extends Player> recipients;

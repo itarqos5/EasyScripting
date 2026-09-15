@@ -37,5 +37,7 @@ voice-muted: '<red>Voice chat is muted for this production.'
 feedback:
   # Global command/menu feedback. Off by default to keep recording audio clean.
   enabled: false
+  # Minecraft sound key played after successful feedback when enabled.
   success: ui.button.click
+  # Minecraft sound key played after an error when enabled.
   error: entity.villager.no

@@ -85,20 +85,39 @@ public final class ActorWandering {
         int y = near.getBlockY() - 1 + offset * sign;
         if (y < world.getMinHeight() || y + 3 >= world.getMaxHeight()) continue;
         Block floor = world.getBlockAt(x, y, z);
-        if (!floor.getType().isSolid() || hazardous(floor.getType())) continue;
-        double top = floor.getBoundingBox().getMaxY();
-        Block feet = world.getBlockAt(x, (int) Math.floor(top + 0.001), z);
-        Block head = world.getBlockAt(x, (int) Math.floor(top + 1.8), z);
-        if ((!feet.isPassable() && !feet.equals(floor))
-            || !head.isPassable()
-            || feet.isLiquid()
-            || head.isLiquid()
-            || hazardous(feet.getType())
-            || hazardous(head.getType())) continue;
-        return new Location(world, x + 0.5, top, z + 0.5);
+        Location standing = standingOn(floor, near.getYaw(), near.getPitch());
+        if (standing != null) return standing;
       }
     }
     return null;
+  }
+
+  /** Resolve this X/Z column to its highest safe standing surface without copying the caller's Y. */
+  public static Location highestGround(Location column) {
+    World world = column.getWorld();
+    int x = column.getBlockX(), z = column.getBlockZ();
+    if (!world.isChunkLoaded(x >> 4, z >> 4)) return null;
+    Block floor = world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING_NO_LEAVES);
+    return standingOn(floor, column.getYaw(), column.getPitch());
+  }
+
+  /** Reserve three blocks of clear space so both PLAYER actors and taller mob actors spawn safely. */
+  private static Location standingOn(Block floor, float yaw, float pitch) {
+    World world = floor.getWorld();
+    if (!floor.getType().isSolid() || hazardous(floor.getType())) return null;
+    double top = floor.getBoundingBox().getMaxY();
+    if (!Double.isFinite(top)
+        || top < world.getMinHeight()
+        || top + 3 >= world.getMaxHeight()) return null;
+    int first = (int) Math.floor(top + 0.0001);
+    int last = (int) Math.floor(top + 2.9999);
+    for (int y = first; y <= last; y++) {
+      Block space = world.getBlockAt(floor.getX(), y, floor.getZ());
+      // A slab or similar support can share the feet block; its collision ends at top.
+      if (space.equals(floor)) continue;
+      if (!space.isPassable() || space.isLiquid() || hazardous(space.getType())) return null;
+    }
+    return new Location(world, floor.getX() + 0.5, top, floor.getZ() + 0.5, yaw, pitch);
   }
 
   private static boolean hazardous(Material material) {

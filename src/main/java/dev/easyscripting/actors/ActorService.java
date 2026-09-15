@@ -3,9 +3,11 @@ package dev.easyscripting.actors;
 import dev.easyscripting.api.Actor;
 import dev.easyscripting.config.Settings;
 import dev.easyscripting.core.*;
+import dev.easyscripting.players.IdentityProvider;
 import dev.easyscripting.storage.YamlStore;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.*;
@@ -25,12 +27,16 @@ public final class ActorService implements Listener, AutoCloseable {
   private final Deque<String> recentNames = new ArrayDeque<>();
   private Consumer<String> removed = id -> {};
   private Consumer<ActorDefinition> deleted = definition -> {};
+  private Consumer<ActorDefinition> died = definition -> {};
   private Consumer<ManagedActor> spawned = actor -> {};
   private UUID behaviorJob;
   private boolean closing;
   private final Map<String, String> leases = new HashMap<>();
   private final Map<Chunk, Integer> chunkTickets = new HashMap<>();
   private java.util.function.Predicate<String> blockedIdentity = name -> false;
+  private java.util.function.Predicate<String> retiredIdentity = name -> false;
+  private Supplier<? extends Collection<String>> reservedIdentityNames = List::of;
+  private IdentityProvider identityProvider;
   private java.util.function.Predicate<ManagedActor> directed = actor -> false;
 
   public void autonomousDirector(java.util.function.Predicate<ManagedActor> director) {
@@ -43,6 +49,19 @@ public final class ActorService implements Listener, AutoCloseable {
 
   public void identityFilter(java.util.function.Predicate<String> filter) {
     blockedIdentity = filter;
+  }
+
+  public void retiredIdentityFilter(java.util.function.Predicate<String> filter) {
+    retiredIdentity = filter;
+  }
+
+  public void identityProvider(IdentityProvider provider) {
+    identityProvider = provider;
+  }
+
+  /** Names held by other live identity systems, including aliases hidden during NPC acting. */
+  public void reservedIdentityNames(Supplier<? extends Collection<String>> names) {
+    reservedIdentityNames = Objects.requireNonNull(names);
   }
 
   public void purgeIdentity(String name) {
@@ -96,6 +115,11 @@ public final class ActorService implements Listener, AutoCloseable {
 
   public void onDeleted(Consumer<ActorDefinition> listener) {
     deleted = deleted.andThen(listener);
+  }
+
+  /** Natural mortal deaths only; manual/group deletion deliberately does not invoke this hook. */
+  public void onDied(Consumer<ActorDefinition> listener) {
+    died = died.andThen(listener);
   }
 
   public void onSpawned(Consumer<ManagedActor> listener) {
@@ -362,6 +386,7 @@ public final class ActorService implements Listener, AutoCloseable {
     ActorDefinition copy = ActorDefinition.read(newId, source.definition.yaml());
     copy.location = location;
     copy.hidden = false;
+    prepareCopyIdentity(copy, settings.npcIdentities().enabled(), this::chooseIdentity);
     ManagedActor a = new ManagedActor(copy);
     spawn(a);
     actors.put(newId, a);
@@ -374,6 +399,11 @@ public final class ActorService implements Listener, AutoCloseable {
     ActorDefinition d = a.definition;
     if ((key.equals("name") || key.equals("skin")) && blockedIdentity.test(value))
       throw new IllegalArgumentException("Actor identity is blacklisted.");
+    if (key.equals("name")
+        && (retiredIdentity.test(value)
+            || (identityProvider != null && identityProvider.reservedRealName(value))))
+      throw new IllegalArgumentException(
+          "That username belongs to a dead identity, joined real player, or operator.");
     switch (key) {
       case "name" -> {
         if (value.length() > 48)
@@ -437,36 +467,117 @@ public final class ActorService implements Listener, AutoCloseable {
   }
 
   private void chooseIdentity(ActorDefinition definition) {
-    List<String> occupied = new ArrayList<>();
-    for (ManagedActor actor : list()) occupied.add(actor.definition.name);
-    for (Player player : Bukkit.getOnlinePlayers()) occupied.add(player.getName());
-    occupied.add(definition.id);
+    List<String> actorNames = new ArrayList<>(), onlineNames = new ArrayList<>();
+    for (ManagedActor actor : list()) actorNames.add(actor.definition.name);
+    for (Player player : Bukkit.getOnlinePlayers()) {
+      onlineNames.add(player.getName());
+      if (player.getPlayerProfile().getName() != null)
+        onlineNames.add(player.getPlayerProfile().getName());
+    }
+    List<String> occupied =
+        identityReservations(
+            actorNames, onlineNames, reservedIdentityNames.get(), definition.id);
+    java.util.function.Predicate<String> blockedName =
+        name ->
+            blockedIdentity.test(name)
+                || retiredIdentity.test(name)
+                || (identityProvider != null && identityProvider.reservedRealName(name));
     var identity =
         settings
             .npcIdentities()
             .choose(
                 occupied,
+                blockedName,
                 blockedIdentity,
                 definition.type.equals("PLAYER"),
                 definition.skin,
                 java.util.concurrent.ThreadLocalRandom.current(),
-                recentNames);
+                recentNames,
+                identityProvider == null ? List.of() : identityProvider.usernames(),
+                identityProvider == null ? List.of() : identityProvider.skinOwners());
     definition.name = identity.name();
     definition.skin = identity.skin();
     definition.skinTexture = "";
     definition.skinSignature = "";
     recentNames.addLast(identity.name());
     while (recentNames.size() > 8) recentNames.removeFirst();
+    if (identityProvider != null) identityProvider.claim(identity.name());
   }
 
-  /** Keep mob reserve items too: their equipment API alone exposes no backpack. */
-  public void rememberKit(String id, ItemStack[] contents) {
+  static void prepareCopyIdentity(
+      ActorDefinition copy,
+      boolean generatedIdentities,
+      Consumer<ActorDefinition> identityAllocator) {
+    if (generatedIdentities) identityAllocator.accept(copy);
+    else copy.name = copy.id;
+  }
+
+  static List<String> identityReservations(
+      Collection<String> actorNames,
+      Collection<String> onlineNames,
+      Collection<String> externallyReservedNames,
+      String actorId) {
+    Map<String, String> unique = new LinkedHashMap<>();
+    for (Collection<String> names :
+        List.of(actorNames, onlineNames, externallyReservedNames, List.of(actorId)))
+      for (String name : names)
+        if (name != null && !name.isBlank())
+          unique.putIfAbsent(name.toLowerCase(Locale.ROOT), name);
+    return List.copyOf(unique.values());
+  }
+
+  /**
+   * Replace an actor's saved loadout and, when it is spawned, its live loadout. Hidden actors keep
+   * the same kit for their next spawn. Mob slot zero is equipped in the main hand instead of being
+   * duplicated in the reserve inventory.
+   */
+  public void applyKit(String id, ItemStack[] contents) {
+    if (contents == null || contents.length != 41)
+      throw new IllegalArgumentException("An actor kit must contain exactly 41 inventory slots.");
     ManagedActor actor = get(id);
-    if (!(actor.requireEntity() instanceof Player)) {
-      actor.definition.inventory = Arrays.copyOf(contents, 36);
-      actor.definition.inventory[0] = null; // Already equipped in the mob's main hand.
-    }
+    ItemStack[] kit = cloneItems(contents, 41);
+    actor.definition.inventory = cloneItems(kit, 36);
+    int mainSlot = actor.definition.type.equals("PLAYER") ? actor.definition.heldSlot : 0;
+    actor.definition.equipment =
+        new ItemStack[] {
+          cloneItem(kit[mainSlot]),
+          cloneItem(kit[40]),
+          cloneItem(kit[39]),
+          cloneItem(kit[38]),
+          cloneItem(kit[37]),
+          cloneItem(kit[36])
+        };
+    if (!actor.definition.type.equals("PLAYER")) actor.definition.inventory[0] = null;
+    actor
+        .entity()
+        .ifPresent(
+            entity -> {
+              if (entity instanceof Player player) {
+                player.closeInventory();
+                player.getInventory().setContents(cloneItems(kit, 41));
+                return;
+              }
+              EntityEquipment equipment = entity.getEquipment();
+              if (equipment == null)
+                throw new IllegalArgumentException("This actor has no equipment.");
+              equipment.setItemInMainHand(cloneItem(kit[0]));
+              equipment.setBoots(cloneItem(kit[36]));
+              equipment.setLeggings(cloneItem(kit[37]));
+              equipment.setChestplate(cloneItem(kit[38]));
+              equipment.setHelmet(cloneItem(kit[39]));
+              equipment.setItemInOffHand(cloneItem(kit[40]));
+            });
     save(actor);
+  }
+
+  private static ItemStack[] cloneItems(ItemStack[] source, int length) {
+    ItemStack[] copy = Arrays.copyOf(source, length);
+    for (int slot = 0; slot < copy.length; slot++) copy[slot] = cloneItem(copy[slot]);
+    return copy;
+  }
+
+  private static ItemStack cloneItem(ItemStack item) {
+    return item == null ? null : item.clone();
   }
 
   /** Temporary possession removes the entity without changing its saved visibility or position. */
@@ -531,28 +642,78 @@ public final class ActorService implements Listener, AutoCloseable {
     get(id).requireEntity().setHealth(0);
   }
 
-  public void pattern(
-      String prefix, String type, String shape, int count, double spacing, Location center) {
+  public List<String> pattern(
+      String prefix,
+      String type,
+      String shape,
+      String side,
+      int count,
+      double spacing,
+      Location anchor,
+      Consumer<ManagedActor> initialize) {
     Checks.id(prefix);
     if (actors.size() + count > settings.limit("actors"))
       throw new IllegalArgumentException("Pattern would exceed actor limit.");
-    List<Location> locations = PatternLayout.locations(shape, count, spacing, center);
-    for (int i = 0; i < count; i++)
-      if (actors.containsKey(prefix + "_" + (i + 1)))
-        throw new IllegalArgumentException("Pattern id already exists: " + prefix + "_" + (i + 1));
+    if (prefix.length() > 44)
+      throw new IllegalArgumentException("Pattern prefix must be at most 44 characters.");
+    String normalizedType = type.toUpperCase(Locale.ROOT);
+    if (normalizedType.equals("PLAYER")) {
+      if (players == null)
+        throw new IllegalArgumentException(
+            "PLAYER actors require Citizens. Install it or choose a living mob type.");
+    } else {
+      EntityType entityType = Checks.choice(EntityType.class, normalizedType);
+      if (!entityType.isAlive() || !entityType.isSpawnable())
+        throw new IllegalArgumentException("Pattern type must be PLAYER or a spawnable living mob.");
+    }
+    List<String> ids = new ArrayList<>(count);
+    for (int suffix = 1; ids.size() < count; suffix++) {
+      String id = prefix + "_" + suffix;
+      Checks.id(id);
+      if (!actors.containsKey(id)) ids.add(id);
+    }
+    List<Location> nominal = PatternLayout.locations(shape, count, spacing, anchor, side);
+    List<Location> locations = new ArrayList<>(count);
+    Set<Long> columns = new HashSet<>();
+    for (Location column : nominal) {
+      int x = column.getBlockX(), z = column.getBlockZ();
+      if (!column.getWorld().isChunkLoaded(x >> 4, z >> 4))
+        throw new IllegalArgumentException(
+            "Formation reaches unloaded terrain at " + x + ", " + z + "; load the area first.");
+      if (!column.getWorld().getWorldBorder().isInside(column))
+        throw new IllegalArgumentException(
+            "Formation reaches outside the world border at " + x + ", " + z + ".");
+      long key = ((long) x << 32) ^ (z & 0xffffffffL);
+      if (!columns.add(key))
+        throw new IllegalArgumentException(
+            "Formation positions overlap after block alignment; increase spacing.");
+      Location safe = ActorWandering.highestGround(column);
+      if (safe == null)
+        throw new IllegalArgumentException(
+            "No safe highest surface at " + x + ", " + z + "; clear water, hazards and overhead blocks.");
+      locations.add(safe);
+    }
     List<String> made = new ArrayList<>();
     try {
       for (int i = 0; i < count; i++) {
-        String id = prefix + "_" + (i + 1);
-        ManagedActor a = create(id, type, locations.get(i));
+        String id = ids.get(i);
+        ManagedActor a = create(id, normalizedType, locations.get(i));
         made.add(id);
         a.definition.group = prefix;
+        initialize.accept(a);
         save(a);
       }
     } catch (RuntimeException ex) {
-      for (String id : made) remove(id);
+      for (String id : made.reversed()) {
+        try {
+          remove(id);
+        } catch (RuntimeException cleanup) {
+          ex.addSuppressed(cleanup);
+        }
+      }
       throw ex;
     }
+    return List.copyOf(made);
   }
 
   private void ensureBehaviors() {
@@ -667,7 +828,26 @@ public final class ActorService implements Listener, AutoCloseable {
     // Tombstone immediately: restoration and shutdown saves must not resurrect this definition.
     actor.pendingDeletion = true;
     store.delete("actors", actor.id());
-    deleted.accept(actor.definition);
+    try {
+      died.accept(actor.definition);
+    } catch (RuntimeException error) {
+      plugin
+          .getLogger()
+          .log(
+              java.util.logging.Level.SEVERE,
+              "Could not retire dead actor identity '" + actor.definition.name + "'",
+              error);
+    }
+    try {
+      deleted.accept(actor.definition);
+    } catch (RuntimeException error) {
+      plugin
+          .getLogger()
+          .log(
+              java.util.logging.Level.SEVERE,
+              "Could not clean up data owned by dead actor '" + actor.id() + "'",
+              error);
+    }
     if (settings.file("config").getBoolean("actors.announce-death-leave", true))
       Bukkit.broadcast(
           new dev.easyscripting.config.Messages(settings)

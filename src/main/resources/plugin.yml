@@ -21,6 +21,9 @@ commands:
   nickname:
     description: Give an online real player a temporary random nickname
     usage: /nickname <player> [off] | off
+  deadusers:
+    description: Browse and release usernames retired by deaths
+    usage: /deadusers [list|search|remove]
   es:
     description: EasyScripting studio, tools and configuration
     aliases: [easyscripting, script]

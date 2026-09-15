@@ -62,13 +62,38 @@ class GroupTacticsTest {
   }
 
   @Test
-  void hundredFormationSlotsAreDistinctSpacedAndLocal() {
-    var slots = IntStream.range(0, 100).mapToObj(i -> GroupTactics.formation(i, 2.5)).toList();
+  void hundredTrailingSlotsAreDistinctSpacedAndBehindTheLeader() {
+    var slots =
+        IntStream.range(0, 100)
+            .mapToObj(i -> GroupTactics.trailingFormation(i, 100, 2.5, new org.bukkit.util.Vector(0, 0, 1)))
+            .toList();
     assertEquals(100, new HashSet<>(slots).size());
     for (int i = 0; i < slots.size(); i++) {
-      assertTrue(slots.get(i).length() >= 2.49 && slots.get(i).length() <= 12.51);
+      assertTrue(slots.get(i).getZ() <= -2.49);
       for (int j = i + 1; j < slots.size(); j++)
-        assertTrue(slots.get(i).distance(slots.get(j)) > 1.8);
+        assertTrue(slots.get(i).distance(slots.get(j)) > 2.49);
     }
+  }
+
+  @Test
+  void movementHeadingStaysStableWhileStoppedAndTurnsWithTravel() {
+    var east = new org.bukkit.util.Vector(1, 0, 0);
+    assertEquals(east, GroupTactics.movementHeading(east, new org.bukkit.util.Vector(), 180));
+    var turned =
+        GroupTactics.movementHeading(east, new org.bukkit.util.Vector(0, 0, 0.3), 90);
+    assertTrue(turned.getX() > 0 && turned.getZ() > 0);
+    var slot = GroupTactics.trailingFormation(0, 1, 2.5, east);
+    assertTrue(slot.getX() < 0);
+  }
+
+  @Test
+  void distantGoalsUseWalkingWaypointsAndFriendlyDamageIsOneWay() {
+    var waypoint =
+        GroupTactics.waypoint(
+            new org.bukkit.util.Vector(), new org.bukkit.util.Vector(100, 0, 0), 32);
+    assertEquals(32, waypoint.getX(), 0.0001);
+    assertFalse(GroupTactics.blocksFriendlyDamage(null, "red")); // real leader -> member
+    assertTrue(GroupTactics.blocksFriendlyDamage("red", "red")); // member -> leader/member
+    assertFalse(GroupTactics.blocksFriendlyDamage("red", "blue"));
   }
 }

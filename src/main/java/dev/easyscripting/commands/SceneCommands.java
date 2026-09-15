@@ -1,6 +1,6 @@
 package dev.easyscripting.commands;
 
-import dev.easyscripting.actors.ActorService;
+import dev.easyscripting.actors.*;
 import dev.easyscripting.api.Scene;
 import dev.easyscripting.config.*;
 import dev.easyscripting.core.*;
@@ -22,6 +22,7 @@ public final class SceneCommands {
       SceneService scenes,
       ActionRegistry actions,
       ActorService actors,
+      ActorGroupService groups,
       RecordingService recordings,
       ActingService acting,
       CameraService cameras,
@@ -192,17 +193,49 @@ public final class SceneCommands {
               access.require(s, "kit.edit");
               settings.require("kits");
               actors.available(a.get(1));
-              kits.apply(a.get(2), actors.get(a.get(1)).requireEntity());
-              actors.rememberKit(a.get(1), kits.contents(a.get(2)));
+              actors.applyKit(a.get(1), kits.contents(a.get(2)));
             }
-            case "pattern" ->
-                actors.pattern(
-                    a.get(1),
-                    a.get(5, "PLAYER"),
-                    a.get(2),
-                    a.integer(3, 1, 200),
-                    Checks.decimal(a.get(4, "2"), .5, 20),
-                    Args.player(s).getLocation());
+            case "pattern" -> {
+              if (a.size() < 6 || a.size() > 8)
+                throw new IllegalArgumentException(
+                    "Use /actor pattern <prefix> <line|circle|disc|grid|square>"
+                        + " <front|behind> <count> <kit> [spacing] [type].");
+              access.require(s, "kit.edit");
+              settings.require("kits");
+              Player creator = Args.player(s);
+              String prefix = Checks.id(a.get(1));
+              String kit = a.get(5);
+              groups.get(prefix);
+              kits.contents(kit); // Validate the required kit before creating any entity.
+              Player anchor = groups.onlineLeader(prefix).orElse(creator);
+              List<String> made =
+                  actors.pattern(
+                      prefix,
+                      a.get(7, settings.file("config").getString("actors.default-type", "PLAYER")),
+                      a.get(2),
+                      a.get(3),
+                      a.integer(4, 1, 200),
+                      Checks.decimal(a.get(6, "2"), 1, 20),
+                      anchor.getLocation(),
+                      actor -> groups.initializeMember(prefix, actor, kit));
+              messages.ok(
+                  s,
+                  "Created "
+                      + made.size()
+                      + " "
+                      + a.get(2).toLowerCase(Locale.ROOT)
+                      + " actor(s) "
+                      + a.get(3).toLowerCase(Locale.ROOT)
+                      + " "
+                      + anchor.getName()
+                      + " with kit '"
+                      + kit
+                      + "' ("
+                      + made.getFirst()
+                      + ".."
+                      + made.getLast()
+                      + ").");
+            }
             case "all" -> {
               String group = a.get(1);
               for (ActorService.ManagedActor actor : actors.list())
@@ -236,9 +269,7 @@ public final class SceneCommands {
                           .requireEntity()
                           .setVelocity(actor.requireEntity().getVelocity().setY(.42));
                   case "kit" -> {
-                    kits.apply(a.get(3), actor.requireEntity());
-                    actors.rememberKit(actor.id(), kits.contents(a.get(3)));
-                    actors.save(actor);
+                    actors.applyKit(actor.id(), kits.contents(a.get(3)));
                   }
                   default -> throw new IllegalStateException("Unvalidated group operation");
                 }
@@ -248,9 +279,9 @@ public final class SceneCommands {
             default -> throw new IllegalArgumentException("Unknown actor operation.");
           }
         },
-        (s, a) ->
-            a.size() == 1
-                ? List.of(
+        (s, a) -> {
+          if (a.size() == 1)
+            return List.of(
                     "create",
                     "list",
                     "info",
@@ -276,35 +307,47 @@ public final class SceneCommands {
                     "pattern",
                     "all",
                     "delete",
-                    "gui")
-                : a.size() == 2
-                    ? actors.ids()
-                    : a.get(0).equals("gui") && a.size() == 3
-                        ? List.of("overview", "appearance", "movement", "acting", "combat")
-                        : a.get(0).equals("autoplay") && a.size() == 3
-                            ? List.of("on", "off")
-                            : a.get(0).equals("mode") && a.size() == 3
-                                ? List.of("stop", "repeat", "reverse")
-                                : a.get(0).equals("recording") && a.size() == 3
-                                    ? recordings.ids()
-                                    : a.get(0).equals("set") && a.size() == 3
-                                        ? List.of(
-                                            "name",
-                                            "skin",
-                                            "group",
-                                            "immortal",
-                                            "hittable",
-                                            "collidable",
-                                            "nametag",
-                                            "tablist",
-                                            "look",
-                                            "wander",
-                                            "aggressive",
-                                            "pose",
-                                            "glow",
-                                            "sneak",
-                                            "sprint")
-                                        : List.of());
+                    "gui");
+          if (a.get(0).equals("pattern"))
+            return switch (a.size()) {
+              case 2 -> groups.ids();
+              case 3 -> List.of("line", "circle", "disc", "grid", "square");
+              case 4 -> List.of("behind", "front");
+              case 6 -> kits.ids();
+              case 7 -> List.of("2");
+              case 8 ->
+                  Arrays.stream(EntityType.values())
+                      .filter(type -> type == EntityType.PLAYER || (type.isAlive() && type.isSpawnable()))
+                      .map(type -> type.name().toLowerCase(Locale.ROOT))
+                      .toList();
+              default -> List.of();
+            };
+          if (a.size() == 2) return actors.ids();
+          if (a.get(0).equals("gui") && a.size() == 3)
+            return List.of("overview", "appearance", "movement", "acting", "combat");
+          if (a.get(0).equals("autoplay") && a.size() == 3) return List.of("on", "off");
+          if (a.get(0).equals("mode") && a.size() == 3)
+            return List.of("stop", "repeat", "reverse");
+          if (a.get(0).equals("recording") && a.size() == 3) return recordings.ids();
+          if (a.get(0).equals("set") && a.size() == 3)
+            return List.of(
+                "name",
+                "skin",
+                "group",
+                "immortal",
+                "hittable",
+                "collidable",
+                "nametag",
+                "tablist",
+                "look",
+                "wander",
+                "aggressive",
+                "pose",
+                "glow",
+                "sneak",
+                "sprint");
+          return List.of();
+        });
     router.add(
         "camera",
         "effects",

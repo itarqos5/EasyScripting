@@ -6,6 +6,8 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Consumer;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.Material;
+import org.bukkit.entity.EntityType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class Settings {
@@ -85,7 +87,11 @@ public final class Settings {
       Path path = plugin.getDataFolder().toPath().resolve(file + ".yml");
       if (!path.toFile().exists()) plugin.saveResource(file + ".yml", false);
       next.put(file, YamlStore.read(path));
-      if (file.equals("messages") || file.equals("moderation")) {
+      if (file.equals("messages")
+          || file.equals("moderation")
+          || file.equals("actor-ai")
+          || file.equals("npc-identities")
+          || file.equals("items")) {
         try (var input = plugin.getResource(file + ".yml")) {
           var defaults =
               YamlConfiguration.loadConfiguration(
@@ -129,6 +135,8 @@ public final class Settings {
     ActorCombatSettings nextCombat = ActorCombatSettings.read(next.get("actor-ai"));
     validateModeration(next.get("moderation"));
     validateNicknames(next.get("nicknames"));
+    validateNpcIdentityProvider(next.get("npc-identities"));
+    validateItems(next.get("items"));
     if (next.get("kits").getInt("schema") != 1
         || !(next.get("kits").get("max-provider-kits") instanceof Integer)
         || next.get("kits").getInt("max-provider-kits") < 1
@@ -288,6 +296,52 @@ public final class Settings {
         || yaml.getInt("api-timeout-millis") < 500
         || yaml.getInt("api-timeout-millis") > 10000)
       throw new IllegalArgumentException("nicknames.yml: api-timeout-millis must be 500..10000.");
+  }
+
+  public static void validateItems(YamlConfiguration yaml) {
+    String material = yaml.getString("group-actor-tool.material", "");
+    Material parsed = Material.matchMaterial(material);
+    if (parsed == null || !parsed.isItem())
+      throw new IllegalArgumentException(
+          "items.yml: group-actor-tool.material must be a Bukkit item material.");
+    String type = yaml.getString("group-actor-tool.actor-type", "");
+    try {
+      if (!EntityType.valueOf(type.toUpperCase(Locale.ROOT)).isAlive())
+        throw new IllegalArgumentException();
+    } catch (IllegalArgumentException invalid) {
+      throw new IllegalArgumentException(
+          "items.yml: group-actor-tool.actor-type must be a living Bukkit entity type.");
+    }
+    Object cooldown = yaml.get("group-actor-tool.cooldown-ticks");
+    if (!(cooldown instanceof Integer)
+        || yaml.getInt("group-actor-tool.cooldown-ticks") < 1
+        || yaml.getInt("group-actor-tool.cooldown-ticks") > 100)
+      throw new IllegalArgumentException(
+          "items.yml: group-actor-tool.cooldown-ticks must be an integer from 1 to 100.");
+    if (!(yaml.get("group-actor-tool.name") instanceof String name) || name.isBlank())
+      throw new IllegalArgumentException("items.yml: group-actor-tool.name must be text.");
+    if (!(yaml.get("group-actor-tool.lore") instanceof List<?> lore)
+        || lore.size() > 20
+        || lore.stream().anyMatch(line -> !(line instanceof String)))
+      throw new IllegalArgumentException(
+          "items.yml: group-actor-tool.lore must be a list of at most 20 text lines.");
+  }
+
+  public static void validateNpcIdentityProvider(YamlConfiguration yaml) {
+    if (!(yaml.get("api-enabled") instanceof Boolean))
+      throw new IllegalArgumentException("npc-identities.yml: api-enabled must be true or false.");
+    Object timeout = yaml.get("api-timeout-millis");
+    if (!(timeout instanceof Integer)
+        || yaml.getInt("api-timeout-millis") < 500
+        || yaml.getInt("api-timeout-millis") > 10000)
+      throw new IllegalArgumentException(
+          "npc-identities.yml: api-timeout-millis must be an integer from 500 to 10000.");
+    Object refresh = yaml.get("api-refresh-minutes");
+    if (!(refresh instanceof Integer)
+        || yaml.getInt("api-refresh-minutes") < 1
+        || yaml.getInt("api-refresh-minutes") > 1440)
+      throw new IllegalArgumentException(
+          "npc-identities.yml: api-refresh-minutes must be an integer from 1 to 1440.");
   }
 
   /** Merge new actor-menu leaves in memory; preserve customized values and the original file. */

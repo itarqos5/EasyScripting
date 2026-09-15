@@ -28,10 +28,22 @@ groups:
   paths-per-tick: 8
   # Minimum time before replacing an NPC path; moving targets must also have changed position (10..100).
   repath-ticks: 20
-  # Distance in blocks between formation rings (1.5..5); larger groups use more rings.
+  # FOLLOW-only path refresh interval (1..20). Five ticks keeps up with a walking player without pathing every tick.
+  follow-repath-ticks: 5
+  # Repath after the moving formation slot shifts this many blocks (0.1..4).
+  follow-goal-change: 0.5
+  # Stop pathing once an NPC is this close to its assigned trailing slot (0.5..3).
+  follow-arrival-distance: 1.0
+  # Distance in blocks between trailing rows and columns (1.5..5); larger groups use more rows.
   follow-spacing: 2.5
-  # Native walking speed multiplier while following or moving to a formation (0.1..3).
-  follow-speed: 1.2
+  # Normal player-like walking speed multiplier while following or moving to a formation (0.1..3).
+  follow-speed: 1.0
+  # Beyond this distance from its slot, a follower uses the catch-up pace (3..48).
+  follow-catch-up-distance: 8.0
+  # Sprint-like path speed used only while catching up; must be at least follow-speed (0.1..3).
+  follow-catch-up-speed: 1.3
+  # Very distant followers walk through intermediate path targets this far apart; they do not teleport (8..80).
+  follow-waypoint-distance: 32.0
   # Native speed multiplier while pursuing an enemy (0.1..3).
   chase-speed: 1.35
   # Maximum distance in blocks between an NPC and an eligible enemy; targets outside it are dropped (8..96).

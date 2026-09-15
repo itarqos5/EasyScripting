@@ -11,11 +11,11 @@ for line in (root / "documentation/COMMANDS.md").read_text(encoding="utf-8").spl
     cells = re.split(r"(?<!\\)\|", line.strip().strip("|"))
     if len(cells) < 2:
         continue
-    for command in re.findall(r"`(/(?:es|actor|scene|nickname|actors|kits)\b[^`]*)`", cells[0]):
+    for command in re.findall(r"`(/(?:es|actor|scene|nickname|actors|kits|deadusers)\b[^`]*)`", cells[0]):
         command = command.replace(r"\|", "|").strip()
         first, *rest = command.split(" ", 1)
         if first != "/es":
-            shortcut = {"/actors": "menu actors", "/kits": "kits"}.get(first, first[1:])
+            shortcut = {"/actors": "menu actors", "/kits": "kits", "/deadusers": "deadusers"}.get(first, first[1:])
             command = "/es " + shortcut + (" " + rest[0] if rest else "")
         description = cells[1].strip().replace("`", "").replace("**", "").replace(r"\|", "|")
         example = ""

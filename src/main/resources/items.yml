@@ -7,3 +7,22 @@ random-fill-materials:
   - IRON_INGOT
   - BREAD
   - ARROW
+
+# Persistent item used to create one equipped member in a bound NPC group.
+group-actor-tool:
+  # Valid Bukkit item material used for newly issued tools.
+  material: BLAZE_ROD
+  # Living entity type used when /es group tool omits its optional type. PLAYER requires Citizens.
+  actor-type: PLAYER
+  # Prevent a held click from creating several actors (1..100 ticks; 20 ticks = one second).
+  cooldown-ticks: 8
+  # MiniMessage display name. Available placeholders: {group}, {kit}, {type}.
+  name: "<gold><bold>{group}</bold> actor tool"
+  # MiniMessage lore (at most 20 lines). Binding data is stored in the item's persistent data.
+  lore:
+    - "<gray>Group: <white>{group}"
+    - "<gray>Kit: <white>{kit}"
+    - "<gray>Type: <white>{type}"
+    - ""
+    - "<yellow>Right-click a block to create the next member."
+    - "<dark_gray>IDs increment as {group}-actor-1, -2, ..."

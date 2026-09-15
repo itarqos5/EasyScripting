@@ -271,12 +271,21 @@ public final class GuiSchema {
             "group-follow",
             "group-hold",
             "group-move",
+            "group-deploy",
             "group-attack",
             "group-fight",
             "group-intelligence",
+            "group-shared-immortal",
+            "group-shared-kit",
+            "group-shared-identities",
+            "group-tool",
             "group-info",
             "group-clear-leader",
             "group-delete")) takeControl(y, key, groupPage);
+    Set<Integer> deadUsers = new HashSet<>(navigation);
+    deadUsers.remove(y.getInt("dynamic.create-slot"));
+    takeControl(y, "dead-users-search", deadUsers);
+    takeControl(y, "dead-users-clear", deadUsers);
     Set<Integer> groupLibrary = new HashSet<>(taken);
     groupLibrary.remove(y.getInt("dynamic.create-slot"));
     takeControl(y, "group-create", groupLibrary);

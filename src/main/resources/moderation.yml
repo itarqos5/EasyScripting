@@ -19,7 +19,6 @@ locked-worlds: []
 dimension-whitelist: {}
 # Command names blocked by moderation; command bypass permission still applies.
 blocked-commands: []
-# Literal case-insensitive phrases; never interpreted as regular expressions.
 # Literal case-insensitive chat phrases to reject; not regular expressions.
 blocked-phrases: []
 # Notify moderators when a player edits a sign.
@@ -28,6 +27,9 @@ sign-alerts: false
 join-messages: true
 # Allow normal player leave messages.
 leave-messages: true
+# Permit ordinary block placement; false blocks players without the documented bypass.
 build: true
+# Permit ordinary block breaking; false blocks players without the documented bypass.
 break: true
+# Permit player-versus-player damage; false blocks it under the production rule.
 pvp: true

@@ -15,8 +15,14 @@ public record ActorAiSettings(
     int maxTargets,
     int pathsPerTick,
     int repathTicks,
+    int followRepathTicks,
+    double followGoalChange,
+    double followArrivalDistance,
     double followSpacing,
     double followSpeed,
+    double followCatchUpDistance,
+    double followCatchUpSpeed,
+    double followWaypointDistance,
     double chaseSpeed,
     double engagementRadius,
     double meleeReach,
@@ -26,6 +32,20 @@ public record ActorAiSettings(
     integer(y, "schema", 1, 1);
     if (!(y.get("groups.enabled") instanceof Boolean))
       throw new IllegalArgumentException("actor-ai.yml: groups.enabled must be true or false.");
+    double followSpeed = number(y, "groups.follow-speed", 0.1, 3);
+    double arrival = number(y, "groups.follow-arrival-distance", 0.5, 3);
+    double catchUp = number(y, "groups.follow-catch-up-distance", 3, 48);
+    double catchUpSpeed = number(y, "groups.follow-catch-up-speed", 0.1, 3);
+    double waypoint = number(y, "groups.follow-waypoint-distance", 8, 80);
+    if (arrival >= catchUp)
+      throw new IllegalArgumentException(
+          "actor-ai.yml: follow-arrival-distance must be below follow-catch-up-distance.");
+    if (catchUp >= waypoint)
+      throw new IllegalArgumentException(
+          "actor-ai.yml: follow-catch-up-distance must be below follow-waypoint-distance.");
+    if (catchUpSpeed < followSpeed)
+      throw new IllegalArgumentException(
+          "actor-ai.yml: follow-catch-up-speed must be at least follow-speed.");
     return new ActorAiSettings(
         number(y, "movement.look-radius", 1, 32),
         number(y, "movement.walk-speed", 0.1, 3),
@@ -38,8 +58,14 @@ public record ActorAiSettings(
         integer(y, "groups.max-targets", 1, 256),
         integer(y, "groups.paths-per-tick", 1, 32),
         integer(y, "groups.repath-ticks", 10, 100),
+        integer(y, "groups.follow-repath-ticks", 1, 20),
+        number(y, "groups.follow-goal-change", 0.1, 4),
+        arrival,
         number(y, "groups.follow-spacing", 1.5, 5),
-        number(y, "groups.follow-speed", 0.1, 3),
+        followSpeed,
+        catchUp,
+        catchUpSpeed,
+        waypoint,
         number(y, "groups.chase-speed", 0.1, 3),
         number(y, "groups.engagement-radius", 8, 96),
         number(y, "groups.melee-reach", 1, 3),

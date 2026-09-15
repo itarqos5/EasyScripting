@@ -1,12 +1,9 @@
-# Per-player overrides are stored under state/deaths.yml.
 # Default death behavior: normal, spectator, kick or respawn. Per-player overrides live in state/deaths.yml.
 default-mode: normal
-# Retaining a loadout still consumes Curse of Vanishing items, matching vanilla death semantics.
 # Still consume Curse of Vanishing items when keep-inventory is enabled.
 keep-inventory-respects-vanishing: true
 # Death-message audience: -1 normal broadcast, 0 suppress, positive values are a same-world radius in blocks.
 message-radius: -1
-# -1 broadcasts normally; 0 suppresses; positive values limit distance in same world.
 # Permission required for automatic spectator mode on death.
 spectator-permission: easyscripting.death.spectator
 # MiniMessage text sent when the configured death mode kicks a player.

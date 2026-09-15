@@ -58,7 +58,8 @@ public final class CommandRouter implements CommandExecutor, TabCompleter {
     if (command.equals("actors")
         && (original.length == 0 || (original.length == 1 && original[0].isBlank())))
       return new String[] {"menu", "actors"};
-    if (Set.of("scene", "actor", "actors", "kits", "nickname").contains(command)) {
+    if (Set.of("scene", "actor", "actors", "kits", "nickname", "deadusers")
+        .contains(command)) {
       String[] args = new String[original.length + 1];
       args[0] = command.equals("actors") ? "actor" : command;
       System.arraycopy(original, 0, args, 1, original.length);

@@ -2,6 +2,7 @@ package dev.easyscripting.actors;
 
 import dev.easyscripting.config.*;
 import dev.easyscripting.core.*;
+import dev.easyscripting.items.KitService;
 import dev.easyscripting.storage.YamlStore;
 import java.util.*;
 import java.util.function.Function;
@@ -11,6 +12,7 @@ import org.bukkit.event.*;
 import org.bukkit.event.entity.*;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.Vector;
 
 /**
  * Main-thread group simulation. Equipment, damage and deaths remain owned by individual entities.
@@ -21,9 +23,11 @@ public final class ActorGroupService implements Listener, AutoCloseable {
   private final Settings settings;
   private final TickEngine ticks;
   private final YamlStore store;
+  private final KitService kits;
   private final Function<Player, Optional<String>> acting;
   private final Map<String, ActorGroup> groups = new TreeMap<>();
   private final Map<String, Brain> brains = new HashMap<>();
+  private final Map<String, GroupMotion> groupMotion = new HashMap<>();
   private final Map<String, UUID> assignments = new HashMap<>();
   private final Map<String, UUID> soloTargets = new HashMap<>();
   private ActorCombatService combat;
@@ -49,6 +53,12 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     Location lastGoal;
     long nextPath, nextAttack, pauseUntil;
     boolean moving;
+    boolean sprintOverride;
+  }
+
+  private static final class GroupMotion {
+    long tick = -1;
+    Vector heading;
   }
 
   public ActorGroupService(
@@ -57,12 +67,14 @@ public final class ActorGroupService implements Listener, AutoCloseable {
       Settings settings,
       TickEngine ticks,
       YamlStore store,
+      KitService kits,
       Function<Player, Optional<String>> acting) {
     this.plugin = plugin;
     this.actors = actors;
     this.settings = settings;
     this.ticks = ticks;
     this.store = store;
+    this.kits = kits;
     this.acting = acting;
     actors.autonomousDirector(
         a ->
@@ -132,6 +144,20 @@ public final class ActorGroupService implements Listener, AutoCloseable {
         .toList();
   }
 
+  /** Prefer an available assigned leader as the anchor for a newly deployed formation. */
+  public Optional<Player> onlineLeader(String id) {
+    ActorGroup group = groups.get(id);
+    if (group == null || group.leader == null) return Optional.empty();
+    Player leader = Bukkit.getPlayer(group.leader);
+    return leader != null
+            && leader.isOnline()
+            && !leader.isDead()
+            && leader.getGameMode() != GameMode.SPECTATOR
+            && acting.apply(leader).isEmpty()
+        ? Optional.of(leader)
+        : Optional.empty();
+  }
+
   public void requireOrder(org.bukkit.command.CommandSender sender, String id) {
     if (!get(id).canOrder(sender.isOp(), sender instanceof Player p ? p.getUniqueId() : null))
       throw new IllegalArgumentException("Only this group's leader or an operator can order it.");
@@ -155,31 +181,87 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     refreshAt = 0;
   }
 
-  public void delete(String id) {
+  /** Delete the faction and every actor assigned to it. Stale bound tools then fail safely. */
+  public int delete(String id) {
     ActorGroup group = get(id);
+    List<ActorService.ManagedActor> doomed = List.copyOf(members(id));
     halt(group, true);
-    for (var actor : members(id)) {
-      actor.definition.group = "default";
-      actors.save(actor);
+    RuntimeException failure = null;
+    for (var actor : doomed)
+      try {
+        actors.remove(actor.id());
+      } catch (RuntimeException error) {
+        if (failure == null) failure = error;
+        else failure.addSuppressed(error);
+      }
+    if (failure != null) {
+      refreshAt = 0;
+      throw failure;
     }
     groups.remove(id);
+    groupMotion.remove(id);
     store.delete("groups", id);
     groups.values().forEach(g -> g.enemies.remove(id));
     refreshAt = 0;
+    return doomed.size();
+  }
+
+  /** Create one safely grounded, equipped member for a persistent bound tool. */
+  public ActorService.ManagedActor createMember(
+      String id, String requiredKit, String type, Location location) {
+    ActorGroup group = get(id);
+    kits.contents(requiredKit); // Validate before allocating an entity or advancing the counter.
+    int index = group.nextActorIndex;
+    String actorId;
+    while (true) {
+      if (index >= Integer.MAX_VALUE - 1)
+        throw new IllegalArgumentException("This group's actor counter is exhausted.");
+      actorId = id + "-actor-" + index;
+      try {
+        Checks.id(actorId);
+      } catch (IllegalArgumentException invalid) {
+        throw new IllegalArgumentException(
+            "Group ID '"
+                + id
+                + "' is too long for <group>-actor-<number> actor IDs. Use a shorter group ID.");
+      }
+      if (!actors.ids().contains(actorId)) break;
+      index++;
+    }
+    ActorService.ManagedActor actor = actors.create(actorId, type, location);
+    try {
+      initializeMember(id, actor, requiredKit);
+      group.nextActorIndex = index + 1;
+      save(group);
+      return actor;
+    } catch (RuntimeException error) {
+      try {
+        actors.remove(actorId);
+      } catch (RuntimeException cleanup) {
+        error.addSuppressed(cleanup);
+      }
+      throw error;
+    }
   }
 
   public int add(String id, String selector) {
-    get(id);
+    ActorGroup group = get(id);
     List<ActorService.ManagedActor> selected;
     if (selector.startsWith("tag:")) {
       String tag = Checks.id(selector.substring(4));
       selected = actors.list().stream().filter(a -> a.group().equals(tag)).toList();
     } else selected = List.of(actors.get(selector));
     if (selected.isEmpty()) throw new IllegalArgumentException("No actors match " + selector + ".");
-    for (var actor : selected) actors.available(actor.id());
+    org.bukkit.inventory.ItemStack[] sharedContents =
+        group.memberKit.isBlank() ? null : kits.contents(group.memberKit);
+    for (var actor : selected) {
+      actors.available(actor.id());
+    }
     for (var actor : selected) {
       actor.stop();
       actor.definition.group = id;
+      if (group.memberImmortal != null) actor.definition.immortal = group.memberImmortal;
+      if (sharedContents != null) actors.applyKit(actor.id(), sharedContents);
       actors.save(actor);
       brains.remove(actor.id());
     }
@@ -229,6 +311,48 @@ public final class ActorGroupService implements Listener, AutoCloseable {
       halt(group, false);
     }
     save(group);
+    refreshAt = 0;
+  }
+
+  public int sharedImmortal(String id, boolean value) {
+    ActorGroup group = get(id);
+    List<ActorService.ManagedActor> team = members(id);
+    group.memberImmortal = value;
+    for (var actor : team) {
+      actor.definition.immortal = value;
+      actors.save(actor);
+    }
+    save(group);
+    return team.size();
+  }
+
+  public int sharedKit(String id, String kit) {
+    settings.require("kits");
+    ActorGroup group = get(id);
+    org.bukkit.inventory.ItemStack[] contents = kits.contents(kit);
+    List<ActorService.ManagedActor> team = members(id);
+    for (var actor : team) actors.available(actor.id());
+    for (var actor : team) actors.applyKit(actor.id(), contents);
+    group.memberKit = kit;
+    save(group);
+    return team.size();
+  }
+
+  public int sharedIdentities(String id) {
+    List<ActorService.ManagedActor> team = members(id);
+    for (var actor : team) actors.randomize(actor.id());
+    return team.size();
+  }
+
+  /** Apply persistent group defaults plus the required tool/pattern kit before first use. */
+  public void initializeMember(String id, ActorService.ManagedActor actor, String requiredKit) {
+    settings.require("kits");
+    ActorGroup group = get(id);
+    org.bukkit.inventory.ItemStack[] contents = kits.contents(requiredKit);
+    actor.definition.group = id;
+    if (group.memberImmortal != null) actor.definition.immortal = group.memberImmortal;
+    actors.applyKit(actor.id(), contents);
+    actors.save(actor);
     refreshAt = 0;
   }
 
@@ -289,6 +413,10 @@ public final class ActorGroupService implements Listener, AutoCloseable {
         + g.order.name().toLowerCase(Locale.ROOT)
         + "; intelligence="
         + g.intelligence
+        + "; shared immortal="
+        + (g.memberImmortal == null ? "individual" : g.memberImmortal)
+        + "; shared kit="
+        + (g.memberKit.isBlank() ? "individual" : g.memberKit)
         + "; targets="
         + g.targets.size()
         + "; enemy groups="
@@ -321,6 +449,7 @@ public final class ActorGroupService implements Listener, AutoCloseable {
       group.targets.clear();
       group.enemies.clear();
     }
+    groupMotion.remove(group.id);
     for (var actor : members(group.id)) {
       if (!actors.busy(actor.id())) actor.stop();
       brains.remove(actor.id());
@@ -496,15 +625,17 @@ public final class ActorGroupService implements Listener, AutoCloseable {
         }
         return budget;
       }
-      return navigate(actor, brain, target.getLocation(), settings.actorAi().chaseSpeed(), budget);
+      return navigate(
+          actor, brain, target.getLocation(), settings.actorAi().chaseSpeed(), budget, false);
     }
     if (combat != null) combat.idle(actor);
-    actor.lookNearby(true);
     if (group == null) {
+      actor.lookNearby(true);
       soloTargets.remove(actor.id());
       stopMotion(actor, brain);
       return budget;
     }
+    actor.look(null);
     Location center =
         group.order == ActorGroup.Order.FOLLOW && leader != null
             ? leader.getLocation()
@@ -514,46 +645,114 @@ public final class ActorGroupService implements Listener, AutoCloseable {
       return budget;
     }
     int index = members.getOrDefault(group.id, List.of()).indexOf(actor);
+    List<ActorService.ManagedActor> team = members.getOrDefault(group.id, List.of());
+    boolean following = group.order == ActorGroup.Order.FOLLOW;
+    Vector slot =
+        following
+            ? GroupTactics.trailingFormation(
+                Math.max(0, index),
+                Math.max(1, team.size()),
+                settings.actorAi().followSpacing(),
+                movementHeading(group, leader))
+            : GroupTactics.formation(Math.max(0, index), settings.actorAi().followSpacing());
     Location goal =
-        ActorWandering.ground(
-            center
-                .clone()
-                .add(
-                    GroupTactics.formation(Math.max(0, index), settings.actorAi().followSpacing())),
-            3);
-    if (goal == null || entity.getLocation().distanceSquared(goal) > 96 * 96) {
+        ActorWandering.ground(center.clone().add(slot), 6);
+    if (goal == null) {
       stopMotion(actor, brain);
       return budget;
     }
-    if (entity.getLocation().distanceSquared(goal) < 1.5) {
+    double distanceSquared = entity.getLocation().distanceSquared(goal);
+    if (distanceSquared
+        <= settings.actorAi().followArrivalDistance()
+            * settings.actorAi().followArrivalDistance()) {
       stopMotion(actor, brain);
+      if (leader != null) actor.look(leader.getEyeLocation());
       return budget;
     }
-    return navigate(actor, brain, goal, settings.actorAi().followSpeed(), budget);
+    double speed =
+        following
+                && distanceSquared
+                >= settings.actorAi().followCatchUpDistance()
+                    * settings.actorAi().followCatchUpDistance()
+            ? settings.actorAi().followCatchUpSpeed()
+            : settings.actorAi().followSpeed();
+    if (distanceSquared
+        > settings.actorAi().followWaypointDistance()
+            * settings.actorAi().followWaypointDistance()) {
+      Vector point =
+          GroupTactics.waypoint(
+              entity.getLocation().toVector(),
+              goal.toVector(),
+              settings.actorAi().followWaypointDistance());
+      Location intermediate =
+          ActorWandering.ground(
+              new Location(
+                  entity.getWorld(),
+                  point.getX(),
+                  point.getY(),
+                  point.getZ(),
+                  goal.getYaw(),
+                  0),
+              12);
+      if (intermediate != null) goal = intermediate;
+    }
+    return navigate(actor, brain, goal, speed, budget, following);
+  }
+
+  private Vector movementHeading(ActorGroup group, Player leader) {
+    if (leader == null) return new Vector(0, 0, 1);
+    GroupMotion motion = groupMotion.computeIfAbsent(group.id, ignored -> new GroupMotion());
+    if (motion.tick != tick) {
+      motion.heading =
+          GroupTactics.movementHeading(motion.heading, leader.getVelocity(), leader.getYaw());
+      motion.tick = tick;
+    }
+    return motion.heading.clone();
   }
 
   private int navigate(
-      ActorService.ManagedActor actor, Brain brain, Location goal, double speed, int budget) {
-    if (budget < 1 || tick < brain.nextPath) return budget;
-    if (actor.navigating()
+      ActorService.ManagedActor actor,
+      Brain brain,
+      Location goal,
+      double speed,
+      int budget,
+      boolean following) {
+    if (budget < 1) return budget;
+    boolean navigating = actor.navigating();
+    double change = following ? settings.actorAi().followGoalChange() : 1.5;
+    if (navigating
         && brain.lastGoal != null
         && brain.lastGoal.getWorld() == goal.getWorld()
-        && brain.lastGoal.distanceSquared(goal) < 2.25) return budget;
-    brain.nextPath = tick + settings.actorAi().repathTicks();
+        && brain.lastGoal.distanceSquared(goal) < change * change) return budget;
+    // A completed FOLLOW path gets another chance immediately when the leader has moved on.
+    if (tick < brain.nextPath && (!following || navigating)) return budget;
+    brain.nextPath =
+        tick
+            + (following
+                ? settings.actorAi().followRepathTicks()
+                : settings.actorAi().repathTicks());
     try {
       actor.move(goal, speed);
       brain.lastGoal = goal.clone();
       brain.moving = true;
+      if (following && actor.requireEntity() instanceof Player player) {
+        player.setSprinting(
+            actor.definition.sprinting || speed > settings.actorAi().followSpeed());
+        brain.sprintOverride = true;
+      }
     } catch (IllegalArgumentException | IllegalStateException ex) {
       stopMotion(actor, brain);
-      brain.nextPath = tick + 40;
+      brain.nextPath = tick + (following ? 10 : 40);
     }
     return budget - 1;
   }
 
   private void stopMotion(ActorService.ManagedActor actor, Brain brain) {
     if (brain.moving) actor.stop();
+    if (brain.sprintOverride && actor.entity().orElse(null) instanceof Player player)
+      player.setSprinting(actor.definition.sprinting);
     brain.moving = false;
+    brain.sprintOverride = false;
     brain.lastGoal = null;
   }
 
@@ -604,6 +803,30 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     return groupOf(entity).filter(group.id::equals).isPresent();
   }
 
+  /** Group membership without treating the real player leader as an attacking member. */
+  private Optional<String> memberGroupOf(Entity entity) {
+    if (entity == null || !settings.actorAi().groupsEnabled()) return Optional.empty();
+    var actor = actors.byEntity(entity.getUniqueId());
+    if (actor.isPresent() && groups.containsKey(actor.get().group()))
+      return Optional.of(actor.get().group());
+    if (entity instanceof Player player) {
+      var performing = acting.apply(player);
+      if (performing.isPresent()) {
+        try {
+          String group = actors.get(performing.get()).group();
+          if (groups.containsKey(group)) return Optional.of(group);
+        } catch (IllegalArgumentException ignored) {
+        }
+      }
+    }
+    return Optional.empty();
+  }
+
+  private boolean blocksFriendlyDamage(Entity source, Entity victim) {
+    return GroupTactics.blocksFriendlyDamage(
+        memberGroupOf(source).orElse(null), groupOf(victim).orElse(null));
+  }
+
   private Entity source(Entity entity) {
     if (entity instanceof Projectile p && p.getShooter() instanceof Entity shooter) return shooter;
     if (entity instanceof TNTPrimed tnt) return tnt.getSource();
@@ -620,14 +843,14 @@ public final class ActorGroupService implements Listener, AutoCloseable {
 
   @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
   public void friendlyFire(EntityDamageByEntityEvent event) {
-    if (enabled() && allied(source(event.getDamager()), event.getEntity()))
+    if (enabled() && blocksFriendlyDamage(source(event.getDamager()), event.getEntity()))
       event.setCancelled(true);
   }
 
   @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
   public void friendlyKnockback(
       io.papermc.paper.event.entity.EntityPushedByEntityAttackEvent event) {
-    if (enabled() && allied(source(event.getPushedBy()), event.getEntity()))
+    if (enabled() && blocksFriendlyDamage(source(event.getPushedBy()), event.getEntity()))
       event.setCancelled(true);
   }
 
@@ -639,7 +862,7 @@ public final class ActorGroupService implements Listener, AutoCloseable {
       return;
     Entity owner = source(event.getEntity());
     for (LivingEntity target : event.getAffectedEntities())
-      if (allied(owner, target)) event.setIntensity(target, 0);
+      if (blocksFriendlyDamage(owner, target)) event.setIntensity(target, 0);
   }
 
   @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -652,7 +875,7 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     if (effects.stream()
         .allMatch(effect -> ActorCombatService.beneficial(effect.getType().getKey().getKey())))
       return;
-    event.getAffectedEntities().removeIf(target -> allied(source(cloud), target));
+    event.getAffectedEntities().removeIf(target -> blocksFriendlyDamage(source(cloud), target));
   }
 
   @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -745,6 +968,7 @@ public final class ActorGroupService implements Listener, AutoCloseable {
               g.enemies.clear();
             });
     brains.clear();
+    groupMotion.clear();
     assignments.clear();
     soloTargets.clear();
   }

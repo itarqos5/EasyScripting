@@ -1,11 +1,13 @@
 # Internal file-format version; keep the shipped value.
 schema: 1
-# Random User generates readable usernames. No player name, UUID or address is sent.
-# Use the Random User username API for temporary real-player nicknames.
+# Use Random User v1.4 for temporary real-player nickname candidates.
+# No Minecraft player identity/client address is placed in the request; the provider sees the
+# server's ordinary network connection. Results use the same rules as generated actor names:
+# 5..16 characters, a letter plus a digit/underscore, and no current actor/nickname,
+# blacklisted/dead identity, known joined real account, or current operator name.
 api-enabled: true
-# Maximum wait for the username HTTP request, in milliseconds.
+# Maximum wait for the username HTTP request, in milliseconds (500..10000).
 api-timeout-millis: 4000
-# Use the varied name fragments from npc-identities.yml if the API is unavailable.
-# Use local varied name fragments when the API is disabled or unavailable.
+# Use lower-case fragments from npc-identities.yml when the API is disabled or unavailable.
 local-fallback: true
 # Names are temporary for the current connection. Skins are preserved.

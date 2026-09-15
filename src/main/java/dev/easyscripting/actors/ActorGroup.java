@@ -15,6 +15,12 @@ public final class ActorGroup {
   public final String id;
   public UUID leader;
   public boolean intelligence = true;
+  /** Null keeps each member's existing value until an operator chooses a shared value. */
+  public Boolean memberImmortal;
+  /** Empty keeps individual kits; a value becomes the default for current and future members. */
+  public String memberKit = "";
+  /** Monotonic suffix shared by every copy of this group's bound actor tool. */
+  public int nextActorIndex = 1;
   public Order order = Order.HOLD;
   public Location destination;
   final Set<UUID> targets = new LinkedHashSet<>();
@@ -36,6 +42,9 @@ public final class ActorGroup {
     y.set("schema", 1);
     y.set("leader", leader == null ? "" : leader.toString());
     y.set("intelligence", intelligence);
+    if (memberImmortal != null) y.set("shared.immortal", memberImmortal);
+    y.set("shared.kit", memberKit);
+    y.set("next-actor-index", nextActorIndex);
     // Follow survives restarts; active battles and one-off movement orders do not.
     y.set("order", order == Order.FOLLOW ? "follow" : "hold");
     y.options()
@@ -47,6 +56,20 @@ public final class ActorGroup {
     y.setComments(
         "intelligence",
         List.of("true: defend allies and attack ordered enemies; false: only follow/move/hold."));
+    if (memberImmortal != null)
+      y.setComments(
+          "shared.immortal",
+          List.of(
+              "Shared Immortal value applied to every current member and to actors added later."));
+    y.setComments(
+        "shared.kit",
+        List.of(
+            "Saved EasyScripting kit applied to every current member and to actors added later;"
+                + " empty keeps individual kits."));
+    y.setComments(
+        "next-actor-index",
+        List.of(
+            "Next suffix for bound tools: <group>-actor-<number>. Maintained automatically."));
     y.setComments(
         "order",
         List.of(
@@ -63,6 +86,19 @@ public final class ActorGroup {
     String leader = y.getString("leader", "");
     if (!leader.isBlank()) group.leader = UUID.fromString(leader);
     group.intelligence = y.getBoolean("intelligence");
+    Object immortal = y.get("shared.immortal");
+    if (immortal != null && !(immortal instanceof Boolean))
+      throw new IllegalArgumentException(
+          "groups/" + id + ".yml: shared.immortal must be true or false.");
+    group.memberImmortal = (Boolean) immortal;
+    group.memberKit = y.getString("shared.kit", "");
+    if (!group.memberKit.isBlank()) Checks.id(group.memberKit);
+    Object next = y.get("next-actor-index");
+    if (next != null
+        && (!(next instanceof Integer value) || value < 1 || value == Integer.MAX_VALUE))
+      throw new IllegalArgumentException(
+          "groups/" + id + ".yml: next-actor-index must be an integer from 1 to 2147483646.");
+    group.nextActorIndex = next == null ? 1 : (Integer) next;
     group.order = Checks.choice(Order.class, y.getString("order", "hold"));
     if (group.order == Order.MOVE) group.order = Order.HOLD;
     return group;

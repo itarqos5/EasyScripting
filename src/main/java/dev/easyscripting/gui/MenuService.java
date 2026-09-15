@@ -5,6 +5,7 @@ import dev.easyscripting.config.*;
 import dev.easyscripting.items.KitAccess;
 import dev.easyscripting.items.KitService;
 import dev.easyscripting.players.IdentityService;
+import dev.easyscripting.players.DeadUserRegistry;
 import dev.easyscripting.players.PlayerService;
 import dev.easyscripting.recording.ActingService;
 import dev.easyscripting.recording.RecordingService;
@@ -44,6 +45,7 @@ public final class MenuService implements Listener, AutoCloseable {
   private final Set<UUID> viewers = new HashSet<>();
   private dev.easyscripting.integration.KitImports kitImports;
   private dev.easyscripting.actors.ActorGroupService groups;
+  private DeadUserRegistry deadUsers;
   private BooleanSupplier recordingSession = () -> false;
 
   public void recordingSession(BooleanSupplier session) {
@@ -52,6 +54,10 @@ public final class MenuService implements Listener, AutoCloseable {
 
   public void groups(dev.easyscripting.actors.ActorGroupService groups) {
     this.groups = groups;
+  }
+
+  public void deadUsers(DeadUserRegistry deadUsers) {
+    this.deadUsers = deadUsers;
   }
 
   public void kitImports(dev.easyscripting.integration.KitImports imports) {
@@ -289,6 +295,7 @@ public final class MenuService implements Listener, AutoCloseable {
                               "Enter a new group ID, such as red. Existing actors with that group"
                                   + " tag are adopted."));
               });
+      case "dead-users" -> deadUsers(p, "", page);
       case "scenes" -> {
         access.require(p, "scene.play");
         listing(
@@ -541,6 +548,120 @@ public final class MenuService implements Listener, AutoCloseable {
                           ? "entries.kits.claim-empty-lore"
                           : "layout.empty-lore")));
     navigation(p, h, menu, page, ids.size());
+    show(p, h);
+  }
+
+  public void deadUsers(Player p, String query, int requestedPage) {
+    access.require(p, "identity");
+    if (deadUsers == null) throw new IllegalStateException("Dead-user registry is unavailable.");
+    List<DeadUserRegistry.Entry> entries = deadUsers.list(query);
+    List<Integer> slots = slots();
+    int page =
+        Math.max(0, Math.min(requestedPage, Math.max(0, (entries.size() - 1) / slots.size())));
+    MenuHolder h = base(p, "dead-users", query, page);
+    h.refresh = () -> deadUsers(p, query, page);
+    for (int i = 0; i < slots.size() && page * slots.size() + i < entries.size(); i++) {
+      DeadUserRegistry.Entry entry = entries.get(page * slots.size() + i);
+      int slot = slots.get(i);
+      String date =
+          java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm z")
+              .withZone(java.time.ZoneId.systemDefault())
+              .format(java.time.Instant.ofEpochMilli(entry.diedAt()));
+      List<String> lore =
+          settings.file("guis").getStringList("entries.dead-users.lore").stream()
+              .map(
+                  line ->
+                      line.replace("{kind}", entry.kind())
+                          .replace("{owner}", entry.owner())
+                          .replace("{date}", date))
+              .toList();
+      ItemStack head = icon(Material.PLAYER_HEAD, "<white>Dead identity", lore);
+      var safeName = head.getItemMeta();
+      safeName.displayName(
+          net.kyori.adventure.text.Component.text(
+              entry.name(), net.kyori.adventure.text.format.NamedTextColor.WHITE));
+      head.setItemMeta(safeName);
+      if (!entry.texture().isBlank()
+          && !entry.skinOwner().isBlank()
+          && entry.skinOwner().matches("[A-Za-z0-9_]{1,16}")) {
+        var meta = (org.bukkit.inventory.meta.SkullMeta) head.getItemMeta();
+        var profile = Bukkit.createProfileExact(null, entry.skinOwner());
+        profile.clearProperties();
+        profile.setProperty(
+            new com.destroystokyo.paper.profile.ProfileProperty(
+                "textures",
+                entry.texture(),
+                entry.signature().isBlank() ? null : entry.signature()));
+        meta.setPlayerProfile(profile);
+        head.setItemMeta(meta);
+      }
+      h.inventory.setItem(slot, head);
+      h.actions.put(
+          slot,
+          click -> {
+            if (click == ClickType.SHIFT_RIGHT) {
+              DeadUserRegistry.Entry removed = deadUsers.remove(entry.name());
+              messages.ok(
+                  p,
+                  "Removed dead username '"
+                      + removed.name()
+                      + "'. It can now be generated again.");
+              deadUsers(p, query, page);
+            } else
+              messages.ok(
+                  p,
+                  entry.name()
+                      + " died as a "
+                      + entry.kind()
+                      + " on "
+                      + date
+                      + ". Shift-right-click to make it reusable.");
+          });
+    }
+    if (entries.isEmpty())
+      h.inventory.setItem(
+          layout("empty-slot"),
+          icon(
+              Material.WRITABLE_BOOK,
+              settings
+                  .file("guis")
+                  .getString(
+                      "entries.dead-users.empty",
+                      query.isBlank()
+                          ? "<white>No dead usernames saved"
+                          : "<white>No matching dead usernames"),
+              settings.file("guis").getStringList("entries.dead-users.empty-lore")));
+    control(
+        h,
+        "dead-users-search",
+        47,
+        Material.SPYGLASS,
+        click ->
+            prompt(
+                p,
+                "deadusers search",
+                "Enter all or part of a dead username. Type cancel to return."));
+    control(
+        h,
+        "dead-users-clear",
+        52,
+        Material.MILK_BUCKET,
+        click -> deadUsers(p, "", 0));
+    if (query.isBlank()) disabled(h, "dead-users-clear", "No search filter is active.");
+    if (page > 0)
+      button(
+          h,
+          layout("previous-slot"),
+          Material.ARROW,
+          settings.file("guis").getString("layout.previous-name", "Previous"),
+          click -> deadUsers(p, query, page - 1));
+    if ((page + 1) * slots.size() < entries.size())
+      button(
+          h,
+          layout("next-slot"),
+          Material.ARROW,
+          settings.file("guis").getString("layout.next-name", "Next"),
+          click -> deadUsers(p, query, page + 1));
     show(p, h);
   }
 
@@ -1649,6 +1770,17 @@ public final class MenuService implements Listener, AutoCloseable {
         });
     control(
         h,
+        "group-deploy",
+        26,
+        Material.ARMOR_STAND,
+        c ->
+            prompt(
+                p,
+                "actor pattern " + id,
+                "Enter <disc|square> <front|behind> <count> <kit> [spacing] [type]. Every NPC"
+                    + " gets the kit and a highest-surface spawn."));
+    control(
+        h,
         "group-attack",
         29,
         Material.IRON_SWORD,
@@ -1706,6 +1838,46 @@ public final class MenuService implements Listener, AutoCloseable {
         });
     control(
         h,
+        "group-shared-immortal",
+        35,
+        Material.TOTEM_OF_UNDYING,
+        c -> {
+          command(p, "group immortal " + id + " " + !Boolean.TRUE.equals(group.memberImmortal));
+          h.refresh.run();
+        });
+    control(
+        h,
+        "group-shared-kit",
+        36,
+        Material.CHEST,
+        c ->
+            picker(
+                p,
+                "Choose the shared kit",
+                kits.ids(),
+                0,
+                Material.CHEST,
+                kit -> {
+                  command(p, "group kit " + id + " " + kit);
+                  h.refresh.run();
+                },
+                h.refresh));
+    control(
+        h,
+        "group-shared-identities",
+        37,
+        Material.NAME_TAG,
+        c ->
+            confirm(
+                p,
+                "all identities in " + id,
+                () -> {
+                  command(p, "group identities " + id);
+                  h.refresh.run();
+                },
+                h.refresh));
+    control(
+        h,
         "group-info",
         38,
         Material.BOOK,
@@ -1722,6 +1894,23 @@ public final class MenuService implements Listener, AutoCloseable {
           command(p, "group leader " + id + " off");
           h.refresh.run();
         });
+    control(
+        h,
+        "group-tool",
+        42,
+        Material.BLAZE_ROD,
+        c ->
+            picker(
+                p,
+                "Choose the tool's required kit",
+                kits.ids(),
+                0,
+                Material.CHEST,
+                kit -> {
+                  command(p, "group tool " + id + " " + kit);
+                  h.refresh.run();
+                },
+                h.refresh));
     control(
         h,
         "group-delete",
@@ -1755,7 +1944,12 @@ public final class MenuService implements Listener, AutoCloseable {
               "group-leader",
               "group-add",
               "group-remove",
+              "group-deploy",
               "group-intelligence",
+              "group-shared-immortal",
+              "group-shared-kit",
+              "group-shared-identities",
+              "group-tool",
               "group-clear-leader",
               "group-delete")) disabled(h, key, "Only operators can manage groups.");
     Player leader = group.leader == null ? null : Bukkit.getPlayer(group.leader);
@@ -1770,7 +1964,11 @@ public final class MenuService implements Listener, AutoCloseable {
             "{order}",
             group.order.name(),
             "{intelligence}",
-            group.intelligence ? "ON" : "OFF");
+            group.intelligence ? "ON" : "OFF",
+            "{shared-immortal}",
+            group.memberImmortal == null ? "INDIVIDUAL" : group.memberImmortal ? "ON" : "OFF",
+            "{shared-kit}",
+            group.memberKit.isBlank() ? "INDIVIDUAL" : group.memberKit);
     for (ItemStack item : h.inventory.getContents()) {
       if (item == null || !item.hasItemMeta()) continue;
       var meta = item.getItemMeta();
@@ -1818,11 +2016,14 @@ public final class MenuService implements Listener, AutoCloseable {
             () -> {
               if (!e.getPlayer().isOnline()) return;
               if (!cancelled) command(e.getPlayer(), pending.prefix + " " + text);
-              try {
-                pending.back.run();
-              } catch (IllegalArgumentException | IllegalStateException ex) {
-                messages.error(e.getPlayer(), ex.getMessage());
-              }
+              // Commands such as dead-user search open their own result page. Keep that page.
+              if (!(e.getPlayer().getOpenInventory().getTopInventory().getHolder()
+                  instanceof MenuHolder))
+                try {
+                  pending.back.run();
+                } catch (IllegalArgumentException | IllegalStateException ex) {
+                  messages.error(e.getPlayer(), ex.getMessage());
+                }
             });
   }
 

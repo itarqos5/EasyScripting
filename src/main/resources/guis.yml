@@ -79,6 +79,13 @@ menus:
     material: "WHITE_BANNER"
     parent: "groups"
     description: ["<gray>Leader: {leader} · Members: {members}", "<gray>Order: {order} · Intelligence: {intelligence}", "<gray>Glowing buttons show the current choices."]
+  # Searchable retired-identity browser; it returns to Studio settings.
+  dead-users:
+    title: "<dark_gray>Dead usernames · {page}"
+    heading: "<white><bold>Dead usernames"
+    material: "PLAYER_HEAD"
+    parent: "settings"
+    description: ["<gray>Names retire when their actor or nicknamed player dies.", "<gray>They cannot be generated again while listed here.", "<gray>Shift-right-click a head to release its username."]
   main:
     title: "<dark_gray>EasyScripting · Studio"
     heading: "<white><bold>EasyScripting · Studio"
@@ -242,6 +249,14 @@ menus:
         lore: ["<gray>Choose who can use each feature.","","<yellow>Click to select"]
         action: "menu permissions"
         permission: "admin"
+      # Open the identities retired by natural actor or nicknamed-player deaths.
+      dead-users:
+        slot: 22
+        material: "PLAYER_HEAD"
+        name: "<white>Dead usernames"
+        lore: ["<gray>Browse identities retired by deaths.", "<gray>Release a name when it may be reused.", "", "<yellow>Click to select"]
+        action: "menu dead-users"
+        permission: "identity"
   item:
     title: "<dark_gray>Held item editor"
     heading: "<white><bold>Held item editor"
@@ -656,6 +671,11 @@ entries:
     create: "<green>Create template"
     empty: "<white>No villager templates saved"
     lore: ["<gray>ID: <white>{id}","<gray>{detail}","","<yellow>Click to spawn this template","<red>Shift-right click to delete"]
+  # Text used for empty and populated rows in the retired-identity browser.
+  dead-users:
+    empty: "<white>No dead usernames saved"
+    empty-lore: ["<gray>Natural actor and nicknamed-player deaths appear here.", "<gray>A search with no matches also shows this page."]
+    lore: ["<gray>Kind: <white>{kind}", "<gray>Owner: <white>{owner}", "<gray>Died: <white>{date}", "", "<red>Shift-right-click to release this name"]
 dynamic:
   actor-aggressive: "<white>Retaliate when hit: {state}"
   actor-combat-kit: "<aqua>Equip combat supplies"
@@ -669,12 +689,21 @@ dynamic:
   group-follow: "<green>Follow the leader"
   group-hold: "<yellow>Hold / stop orders"
   group-move: "<aqua>Move here"
+  # Group batch/tool controls added in 0.1.8; placeholders show current saved values.
+  group-deploy: "<green>Deploy equipped formation"
   group-attack: "<red>Attack a target"
   group-fight: "<red>Fight another group"
   group-intelligence: "<white>Intelligence: {intelligence}"
   group-info: "<aqua>Refresh / show status"
   group-clear-leader: "<yellow>Unassign leader"
   group-delete: "<red>Delete group"
+  group-shared-immortal: "<white>Shared Immortal: {shared-immortal}"
+  group-shared-kit: "<aqua>Shared kit: {shared-kit}"
+  group-shared-identities: "<light_purple>Randomize all identities"
+  group-tool: "<gold>Create bound actor tool"
+  # Dead-user browser workflow labels; removal itself is shift-right-click on an entry.
+  dead-users-search: "<aqua>Search dead usernames"
+  dead-users-clear: "<yellow>Clear search"
   controls:
     actor-aggressive:
       slot: 31
@@ -715,7 +744,7 @@ dynamic:
     group-follow:
       slot: 20
       material: "LEATHER_BOOTS"
-      lore: ["<gray>Follow in spaced formation.", "<gray>With intelligence ON, attack the leader's targets."]
+      lore: ["<gray>Walk in stable rows behind the leader.", "<gray>Uses normal pace, then sprints to catch up.", "<gray>With intelligence ON, attack the leader's targets."]
     group-hold:
       slot: 22
       material: "SHIELD"
@@ -724,6 +753,11 @@ dynamic:
       slot: 24
       material: "COMPASS"
       lore: ["<gray>Walk to a formation around where you stand.", "<gray>Uses paths; never teleports through obstacles."]
+    # Prompt for a filled disc/square; the actor command also accepts line/circle/grid.
+    group-deploy:
+      slot: 26
+      material: "ARMOR_STAND"
+      lore: ["<gray>Create a filled disc or square in front/behind.", "<gray>A saved kit is required for every new NPC.", "<gray>Each column uses its highest safe surface."]
     group-attack:
       slot: 29
       material: "IRON_SWORD"
@@ -735,7 +769,7 @@ dynamic:
     group-intelligence:
       slot: 33
       material: "COMPARATOR"
-      lore: ["<gray>ON: obey attacks, divide targets and defend allies.", "<gray>OFF: follow/move orders only.", "<gray>Friendly fire is always blocked within a group."]
+      lore: ["<gray>ON: obey attacks, divide targets and defend allies.", "<gray>OFF: follow/move orders only.", "<gray>NPCs cannot hurt allies/leaders; leaders can hit their NPCs."]
     group-info:
       slot: 38
       material: "BOOK"
@@ -747,7 +781,37 @@ dynamic:
     group-delete:
       slot: 43
       material: "BARRIER"
-      lore: ["<gray>Delete the group after confirmation.", "<gray>Its actors remain alive and become unassigned."]
+      lore: ["<gray>Delete the group after confirmation.", "<red>Every NPC in this group is permanently deleted.", "<gray>Manual deletion does not add their names to Dead Users."]
+    # Apply and persist one Immortal default for all current and later group members.
+    group-shared-immortal:
+      slot: 35
+      material: "TOTEM_OF_UNDYING"
+      lore: ["<gray>Set Immortal for every current group member.", "<gray>The same value applies to members added later.", "<yellow>Click to toggle the shared value."]
+    # Pick the saved kit applied to available current members and later additions.
+    group-shared-kit:
+      slot: 36
+      material: "CHEST"
+      lore: ["<gray>Choose one saved kit for every current member.", "<gray>The kit also applies when an existing actor joins.", "<yellow>Click to choose a kit."]
+    # Confirm before rerolling each current member's generated name and skin.
+    group-shared-identities:
+      slot: 37
+      material: "NAME_TAG"
+      lore: ["<gray>Give every member a fresh unused username and skin.", "<gray>Works while members are following or playing takes.", "<yellow>Click, then confirm."]
+    # Pick a kit and issue a persistent item bound to this group and default actor type.
+    group-tool:
+      slot: 42
+      material: "BLAZE_ROD"
+      lore: ["<gray>Bind an item to this group and a required kit.", "<gray>Right-click a block to create {group}-actor-1, -2, ...", "<gray>Each actor uses that column's highest safe surface."]
+    # Ask for a case-insensitive partial name; Previous/Next keep this filter.
+    dead-users-search:
+      slot: 47
+      material: "SPYGLASS"
+      lore: ["<gray>Enter a full username or part of one in chat.", "<gray>Pagination keeps the active search filter."]
+    # Clear the active dead-user search filter and show every saved entry.
+    dead-users-clear:
+      slot: 52
+      material: "MILK_BUCKET"
+      lore: ["<gray>Show every retired username again."]
     kits-import-all:
       slot: 40
       material: "CHEST_MINECART"

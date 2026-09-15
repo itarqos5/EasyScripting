@@ -53,6 +53,9 @@ class CommandHelpTest {
     assertArrayEquals(
         new String[] {"kits", "claim", "starter", "*"},
         CommandRouter.expand("kits", new String[] {"claim", "starter", "*"}));
+    assertArrayEquals(
+        new String[] {"deadusers", "list"},
+        CommandRouter.expand("deadusers", new String[] {"list"}));
   }
 
   @Test

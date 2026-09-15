@@ -37,6 +37,10 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       Messages messages = new Messages(settings);
       Access access = new Access(settings);
       TickEngine ticks = own(new TickEngine(this));
+      DeadUserRegistry deadUsers = new DeadUserRegistry(store);
+      deadUsers.load();
+      IdentityProvider identityProvider = own(new IdentityProvider(this, settings, ticks));
+      settings.onChange(identityProvider::reload);
       // Nicknames restore last, after scenes, acting and deferred player snapshots release.
       IdentityService identities = own(new IdentityService(this, settings, store, messages));
       identities.load();
@@ -47,6 +51,9 @@ public final class EasyScriptingPlugin extends JavaPlugin {
           && getServer().getPluginManager().isPluginEnabled("Citizens"))
         playerBackend = new CitizensBackend(this);
       ActorService actors = own(new ActorService(this, settings, store, ticks, playerBackend));
+      actors.identityProvider(identityProvider);
+      actors.reservedIdentityNames(() -> identities.directory().names());
+      actors.retiredIdentityFilter(deadUsers::contains);
       actors.load();
       KitService kits = new KitService(store);
       kits.load();
@@ -58,6 +65,14 @@ public final class EasyScriptingPlugin extends JavaPlugin {
           player -> players.flag(player, "freeze", !players.flag(player.getUniqueId(), "freeze")));
       identities.onBlacklist(actors::purgeIdentity);
       actors.identityFilter(identities::blocked);
+      identities.nicknameFilter(
+          name ->
+              deadUsers.contains(name)
+                  || identityProvider.reservedRealName(name)
+                  || actors.list().stream()
+                      .anyMatch(actor -> actor.definition.name.equalsIgnoreCase(name)));
+      DeadIdentityService deadIdentities =
+          new DeadIdentityService(actors, identities, deadUsers, ticks);
       ActionRegistry actions = new ActionRegistry(settings);
       SceneService scenes =
           own(new SceneService(this, settings, messages, store, ticks, actors, players, actions));
@@ -69,15 +84,19 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       ActingService acting =
           own(new ActingService(settings, messages, actors, players, recordings));
       ActorGroupService groups =
-          own(new ActorGroupService(this, actors, settings, ticks, store, acting::actor));
+          own(new ActorGroupService(this, actors, settings, ticks, store, kits, acting::actor));
       groups.load();
+      GroupActorTool groupActorTools =
+          new GroupActorTool(this, settings, messages, groups, kits);
       ActorCombatService combat = own(new ActorCombatService(actors, groups, settings, ticks));
       groups.combat(combat);
       identities.guards(p -> players.available(p.getUniqueId()), p -> acting.actor(p).isPresent());
       players.onRestore(identities::afterRestore);
       players.onCapture(identities::captureIdentity);
       NicknameService nicknames =
-          own(new NicknameService(settings, messages, identities, actors, ticks));
+          own(
+              new NicknameService(
+                  settings, messages, identities, actors, ticks, identityProvider, deadUsers));
       CameraService cameras = own(new CameraService(ticks, players));
       ModerationService moderation =
           own(new ModerationService(this, settings, messages, players, ticks));
@@ -131,15 +150,19 @@ public final class EasyScriptingPlugin extends JavaPlugin {
                   teams,
                   villagers));
       menus.groups(groups);
+      menus.deadUsers(deadUsers);
       menus.recordingSession(moderation::recording);
       for (Listener listener :
           List.of(
               players,
               actors,
               groups,
+              groupActorTools,
               combat,
               items,
+              identityProvider,
               identities,
+              deadIdentities,
               scenes,
               recordings,
               acting,
@@ -154,7 +177,8 @@ public final class EasyScriptingPlugin extends JavaPlugin {
               locks,
               menus)) getServer().getPluginManager().registerEvents(listener, this);
       CommandRouter router = new CommandRouter(this, access, messages, settings);
-      GroupCommands.register(router, groups, actors, messages, menus);
+      GroupCommands.register(router, groups, actors, groupActorTools, messages, menus);
+      DeadUserCommands.register(router, deadUsers, messages, menus);
       KitImports imports = own(new KitImports(kits, settings, ticks, messages));
       menus.kitImports(imports);
       KitClaims claims = new KitClaims(kits, players, actors, nicknames, access);
@@ -186,12 +210,14 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       router.add(
           "menu",
           "use",
-          "[main|scenes|actors|groups|players|kits|warps|session|recording|features|item|teams|production|world|effects|permissions|villagers]",
+          "[main|scenes|actors|groups|dead-users|players|kits|warps|session|recording|features"
+              + "|item|teams|production|world|effects|permissions|villagers]",
           (s, a) -> menus.open(Args.player(s), a.get(0, "main"), 0),
           "main",
           "scenes",
           "actors",
           "groups",
+          "dead-users",
           "players",
           "kits",
           "warps",
@@ -276,6 +302,7 @@ public final class EasyScriptingPlugin extends JavaPlugin {
           scenes,
           actions,
           actors,
+          groups,
           recordings,
           acting,
           cameras,
@@ -308,7 +335,8 @@ public final class EasyScriptingPlugin extends JavaPlugin {
           teams,
           villagers,
           voice);
-      for (String name : List.of("es", "scene", "actor", "actors", "kits", "nickname")) {
+      for (String name :
+          List.of("es", "scene", "actor", "actors", "kits", "nickname", "deadusers")) {
         var command = Objects.requireNonNull(getCommand(name));
         command.setExecutor(router);
         command.setTabCompleter(router);

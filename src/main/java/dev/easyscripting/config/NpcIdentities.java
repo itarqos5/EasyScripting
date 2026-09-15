@@ -1,5 +1,6 @@
 package dev.easyscripting.config;
 
+import dev.easyscripting.players.GeneratedUsername;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.random.RandomGenerator;
@@ -16,6 +17,10 @@ public record NpcIdentities(
     usernames = List.copyOf(usernames);
     skins = List.copyOf(skins);
     suffixes = List.copyOf(suffixes);
+    if (usernames.isEmpty() || usernames.stream().anyMatch(name -> !GeneratedUsername.valid(name)))
+      throw new IllegalArgumentException(
+          "Generated username pools require 5..16 characters, at least one letter, and at least"
+              + " one digit or underscore.");
   }
 
   public record Selection(String name, String skin) {}
@@ -32,13 +37,20 @@ public record NpcIdentities(
     List<String> names = new ArrayList<>();
     for (String prefix : prefixes)
       for (String suffix : suffixes) {
-        String candidate = prefix + suffix;
-        if (candidate.length() > 16)
+        String base = (prefix + suffix).toLowerCase(Locale.ROOT);
+        if (base.length() > 15)
           throw invalid(
               "name-prefixes/name-suffixes",
-              candidate,
-              "combined username of at most 16 characters");
-        if (unique.add(candidate.toLowerCase(Locale.ROOT))) names.add(candidate);
+              base,
+              "combined fallback name of at most 15 characters before its required digit");
+        for (int digit = 0; digit <= 9; digit++) {
+          String candidate = base + digit;
+          if (unique.add(candidate.toLowerCase(Locale.ROOT))) names.add(candidate);
+        }
+        String underscored = (prefix + "_" + suffix).toLowerCase(Locale.ROOT);
+        if (underscored.length() <= 16
+            && GeneratedUsername.valid(underscored)
+            && unique.add(underscored.toLowerCase(Locale.ROOT))) names.add(underscored);
       }
     return new NpcIdentities(enabled, names, skins, suffixes);
   }
@@ -74,36 +86,58 @@ public record NpcIdentities(
       String previousSkin,
       RandomGenerator random,
       Collection<String> recentNames) {
+    return choose(
+        unavailable,
+        blacklisted,
+        blacklisted,
+        playerActor,
+        previousSkin,
+        random,
+        recentNames,
+        List.of(),
+        List.of());
+  }
+
+  public Selection choose(
+      Collection<String> unavailable,
+      Predicate<String> blockedName,
+      Predicate<String> blockedSkin,
+      boolean playerActor,
+      String previousSkin,
+      RandomGenerator random,
+      Collection<String> recentNames,
+      Collection<String> publicNames,
+      Collection<String> publicSkins) {
     Set<String> occupied = new HashSet<>();
     unavailable.forEach(name -> occupied.add(name.toLowerCase(Locale.ROOT)));
-    List<String> availableNames =
-        usernames.stream()
-            .filter(
-                name ->
-                    !occupied.contains(name.toLowerCase(Locale.ROOT)) && !blacklisted.test(name))
-            .toList();
+    List<String> availableNames = available(publicNames, occupied, blockedName, true);
+    if (availableNames.isEmpty())
+      availableNames = available(usernames, occupied, blockedName, false);
     if (availableNames.isEmpty())
       throw new IllegalArgumentException(
-          "No unused NPC usernames remain. Add name-prefixes/name-suffixes in npc-identities.yml or"
-              + " remove unused actors.");
+          "No unused generated usernames remain. Wait for the public provider or expand the"
+              + " fallback fragments in npc-identities.yml.");
     // Prefer unused recent endings as well as unused full names. Respect even tiny custom pools.
     Set<String> recentSuffixes = new HashSet<>();
     for (String name : recentNames)
       suffixes.stream()
           .map(s -> s.toLowerCase(Locale.ROOT))
-          .filter(s -> name.toLowerCase(Locale.ROOT).endsWith(s))
+          .filter(s -> name.toLowerCase(Locale.ROOT).matches(".*" + s + "(?:[0-9]|$)"))
           .forEach(recentSuffixes::add);
     List<String> varied =
         availableNames.stream()
             .filter(
                 name ->
                     recentSuffixes.stream()
-                        .noneMatch(s -> name.toLowerCase(Locale.ROOT).endsWith(s)))
+                        .noneMatch(s -> name.toLowerCase(Locale.ROOT).matches(".*" + s + "(?:[0-9]|$)")))
             .toList();
     if (!varied.isEmpty()) availableNames = varied;
     String skin = "";
     if (playerActor) {
-      List<String> availableSkins = skins.stream().filter(name -> !blacklisted.test(name)).toList();
+      List<String> availableSkins =
+          publicSkins.stream().filter(name -> !blockedSkin.test(name)).distinct().toList();
+      if (availableSkins.isEmpty())
+        availableSkins = skins.stream().filter(name -> !blockedSkin.test(name)).toList();
       if (availableSkins.isEmpty())
         throw new IllegalArgumentException(
             "All npc-identities.yml skin-owners are blacklisted. Add an allowed skin account.");
@@ -113,6 +147,20 @@ public record NpcIdentities(
       skin = availableSkins.get(random.nextInt(availableSkins.size()));
     }
     return new Selection(availableNames.get(random.nextInt(availableNames.size())), skin);
+  }
+
+  private static List<String> available(
+      Collection<String> source,
+      Set<String> occupied,
+      Predicate<String> blocked,
+      boolean validateGenerated) {
+    Map<String, String> unique = new LinkedHashMap<>();
+    for (String name : source) {
+      if (validateGenerated && !GeneratedUsername.valid(name)) continue;
+      String normalized = name.toLowerCase(Locale.ROOT);
+      if (!occupied.contains(normalized) && !blocked.test(name)) unique.putIfAbsent(normalized, name);
+    }
+    return List.copyOf(unique.values());
   }
 
   private static IllegalArgumentException invalid(String key, Object value, String expected) {

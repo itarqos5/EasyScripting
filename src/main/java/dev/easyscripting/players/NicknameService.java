@@ -16,7 +16,8 @@ public final class NicknameService implements AutoCloseable {
   private final IdentityService identities;
   private final ActorService actors;
   private final TickEngine ticks;
-  private final UsernameClient client = new UsernameClient();
+  private final IdentityProvider provider;
+  private final DeadUserRegistry deadUsers;
   private final Map<UUID, UUID> jobs = new HashMap<>();
   private boolean closing;
 
@@ -25,12 +26,16 @@ public final class NicknameService implements AutoCloseable {
       Messages messages,
       IdentityService identities,
       ActorService actors,
-      TickEngine ticks) {
+      TickEngine ticks,
+      IdentityProvider provider,
+      DeadUserRegistry deadUsers) {
     this.settings = settings;
     this.messages = messages;
     this.identities = identities;
     this.actors = actors;
     this.ticks = ticks;
+    this.provider = provider;
+    this.deadUsers = deadUsers;
     identities.onNicknameChange(this::cancel);
   }
 
@@ -67,7 +72,7 @@ public final class NicknameService implements AutoCloseable {
     try {
       response =
           api
-              ? client.request(config.getInt("api-timeout-millis", 4000))
+              ? provider.requestUsernames(config.getInt("api-timeout-millis", 4000))
               : CompletableFuture.completedFuture(List.of());
     } catch (RejectedExecutionException full) {
       throw new IllegalArgumentException("Username lookup queue is full. Try again shortly.");
@@ -104,10 +109,16 @@ public final class NicknameService implements AutoCloseable {
                             .npcIdentities()
                             .choose(
                                 occupied,
+                                candidate ->
+                                    identities.blocked(candidate)
+                                        || deadUsers.contains(candidate)
+                                        || provider.reservedRealName(candidate),
                                 identities::blocked,
                                 false,
                                 "",
                                 ThreadLocalRandom.current(),
+                                List.of(),
+                                List.of(),
                                 List.of())
                             .name();
                   }
@@ -115,6 +126,7 @@ public final class NicknameService implements AutoCloseable {
                     throw new IllegalArgumentException(
                         "Username API unavailable or no unused name returned. Try again shortly.");
                   identities.nick(player, name);
+                  provider.claim(name);
                   if (!(sender instanceof Player p) || p.isOnline())
                     sender.sendMessage(
                         messages.text(
@@ -135,8 +147,11 @@ public final class NicknameService implements AutoCloseable {
   }
 
   private boolean usable(Player player, String name) {
-    return identities.directory().available(player.getUniqueId(), name)
+    return GeneratedUsername.valid(name)
+        && identities.directory().available(player.getUniqueId(), name)
         && !identities.blocked(name)
+        && !deadUsers.contains(name)
+        && !provider.reservedRealName(name)
         && !name.equalsIgnoreCase(identities.accountName(player))
         && actors.list().stream().noneMatch(a -> a.definition.name.equalsIgnoreCase(name));
   }
@@ -166,6 +181,5 @@ public final class NicknameService implements AutoCloseable {
   public void close() {
     closing = true;
     for (UUID id : List.copyOf(jobs.keySet())) cancel(id);
-    client.close();
   }
 }

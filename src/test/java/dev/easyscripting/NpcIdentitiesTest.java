@@ -3,6 +3,7 @@ package dev.easyscripting;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.easyscripting.config.NpcIdentities;
+import dev.easyscripting.players.GeneratedUsername;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -19,8 +20,10 @@ class NpcIdentitiesTest {
     for (int i = 0; i < 100; i++) {
       var selection = pool.choose(names, n -> false, false, "", random, recent);
       for (String suffix : pool.suffixes())
-        if (selection.name().endsWith(suffix))
-          assertTrue(recent.stream().noneMatch(n -> n.endsWith(suffix)), selection.name());
+        if (selection.name().matches(".*" + suffix + "(?:[0-9]|$)"))
+          assertTrue(
+              recent.stream().noneMatch(n -> n.matches(".*" + suffix + "(?:[0-9]|$)")),
+              selection.name());
       names.add(selection.name());
       recent.addLast(selection.name());
       if (recent.size() > 8) recent.removeFirst();
@@ -31,11 +34,16 @@ class NpcIdentitiesTest {
   void tinyCustomSuffixPoolFallsBackWithoutHanging() {
     var pool =
         new NpcIdentities(
-            true, List.of("AmberCrow", "RiverCrow"), List.of("Notch"), List.of("Crow"));
+            true, List.of("AmberCrow1", "RiverCrow2"), List.of("Notch"), List.of("Crow"));
     assertEquals(
-        "RiverCrow",
+        "RiverCrow2",
         pool.choose(
-                List.of("AmberCrow"), n -> false, false, "", new Random(1), List.of("AmberCrow"))
+                List.of("AmberCrow1"),
+                n -> false,
+                false,
+                "",
+                new Random(1),
+                List.of("AmberCrow1"))
             .name());
   }
 
@@ -52,7 +60,7 @@ class NpcIdentitiesTest {
     var random = new Random(421);
     for (int i = 0; i < 200; i++) {
       var chosen = pool.choose(names, value -> false, true, "", random);
-      assertTrue(chosen.name().matches("[A-Za-z0-9_]{1,16}"));
+      assertTrue(GeneratedUsername.valid(chosen.name()), chosen.name());
       assertTrue(names.add(chosen.name()));
       assertTrue(pool.skins().contains(chosen.skin()));
     }
@@ -63,21 +71,23 @@ class NpcIdentitiesTest {
   void skipsOccupiedAndBlacklistedNamesAndSkins() {
     var pool =
         new NpcIdentities(
-            true, List.of("RiverFox", "CedarHawk", "AmberWolf"), List.of("Notch", "jeb_"));
+            true,
+            List.of("RiverFox1", "CedarHawk2", "AmberWolf3"),
+            List.of("Notch", "jeb_"));
     var chosen =
         pool.choose(
-            List.of("RIVERFOX"),
-            value -> value.equals("CedarHawk") || value.equals("Notch"),
+            List.of("RIVERFOX1"),
+            value -> value.equals("CedarHawk2") || value.equals("Notch"),
             true,
             "",
             new Random(1));
-    assertEquals("AmberWolf", chosen.name());
+    assertEquals("AmberWolf3", chosen.name());
     assertEquals("jeb_", chosen.skin());
   }
 
   @Test
   void rerollUsesAnotherSkinWhenOneIsAvailable() {
-    var pool = new NpcIdentities(true, List.of("RiverFox"), List.of("Notch", "jeb_"));
+    var pool = new NpcIdentities(true, List.of("RiverFox1"), List.of("Notch", "jeb_"));
     assertEquals(
         "jeb_", pool.choose(List.of(), name -> false, true, "NOTCH", new Random(1)).skin());
   }
@@ -90,17 +100,17 @@ class NpcIdentitiesTest {
 
   @Test
   void exhaustionIsBoundedAndHasActionableError() {
-    var pool = new NpcIdentities(true, List.of("RiverFox"), List.of("Notch"));
+    var pool = new NpcIdentities(true, List.of("RiverFox1"), List.of("Notch"));
     var error =
         assertThrows(
             IllegalArgumentException.class,
-            () -> pool.choose(List.of("riverfox"), name -> false, true, "", new Random(1)));
+            () -> pool.choose(List.of("riverfox1"), name -> false, true, "", new Random(1)));
     assertTrue(error.getMessage().contains("npc-identities.yml"));
   }
 
   @Test
   void allBlockedSkinOwnersRejectInsteadOfSilentlyUsingDefaultSkin() {
-    var pool = new NpcIdentities(true, List.of("RiverFox"), List.of("Notch"));
+    var pool = new NpcIdentities(true, List.of("RiverFox1"), List.of("Notch"));
     assertThrows(
         IllegalArgumentException.class,
         () -> pool.choose(List.of(), name -> name.equals("Notch"), true, "", new Random(1)));
@@ -112,7 +122,29 @@ class NpcIdentitiesTest {
     yaml.set("name-prefixes", List.of("AReallyLongName"));
     var error = assertThrows(IllegalArgumentException.class, () -> NpcIdentities.read(yaml));
     assertTrue(error.getMessage().contains("npc-identities.yml"));
-    assertTrue(error.getMessage().contains("16 characters"));
+    assertTrue(error.getMessage().contains("15 characters"));
+  }
+
+  @Test
+  void fifteenCharacterBaseFitsItsRequiredFinalDigit() {
+    var yaml = defaults();
+    yaml.set("name-prefixes", List.of("abcdefghij"));
+    yaml.set("name-suffixes", List.of("klmno"));
+    var pool = NpcIdentities.read(yaml);
+    assertEquals(11, pool.usernames().size());
+    assertTrue(pool.usernames().stream().allMatch(GeneratedUsername::valid));
+    assertTrue(pool.usernames().stream().allMatch(name -> name.length() == 16));
+  }
+
+  @Test
+  void localFallbacksAlwaysContainADigitOrUnderscore() {
+    var yaml = defaults();
+    yaml.set("name-prefixes", List.of("Sun"));
+    yaml.set("name-suffixes", List.of("Vale"));
+    var pool = NpcIdentities.read(yaml);
+    assertEquals(11, pool.usernames().size());
+    assertTrue(pool.usernames().contains("sun_vale"));
+    assertTrue(pool.usernames().stream().allMatch(GeneratedUsername::valid));
   }
 
   @Test

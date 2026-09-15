@@ -22,6 +22,10 @@ public final class GroupCommands {
           "remove",
           "leader",
           "intelligence",
+          "immortal",
+          "kit",
+          "identities",
+          "tool",
           "follow",
           "hold",
           "stop",
@@ -33,12 +37,14 @@ public final class GroupCommands {
       CommandRouter router,
       ActorGroupService groups,
       ActorService actors,
+      GroupActorTool tools,
       Messages messages,
       MenuService menus) {
     router.add(
         "group",
         "use",
-        "[gui|list|create|delete|info|add|remove|leader|intelligence|follow|hold|stop|move|attack|fight]"
+        "[gui|list|create|delete|info|add|remove|leader|intelligence|immortal|kit|identities|tool"
+            + "|follow|hold|stop|move|attack|fight]"
             + " [group] [value]",
         (sender, args) -> {
           String operation = args.get(0, "gui").toLowerCase(Locale.ROOT);
@@ -56,25 +62,51 @@ public final class GroupCommands {
             throw new IllegalArgumentException("Use /es group gui or /es help.");
           String id = Checks.id(args.get(1));
           boolean manage =
-              Set.of("create", "delete", "add", "remove", "leader", "intelligence")
+              Set.of(
+                      "create",
+                      "delete",
+                      "add",
+                      "remove",
+                      "leader",
+                      "intelligence",
+                      "immortal",
+                      "kit",
+                      "identities",
+                      "tool")
                   .contains(operation);
           if (manage) ActorGroupService.requireManager(sender);
           else groups.requireOrder(sender, id);
-          int expected =
-              Set.of("add", "remove", "leader", "intelligence", "attack", "fight")
+          int minimum =
+              Set.of(
+                      "add",
+                      "remove",
+                      "leader",
+                      "intelligence",
+                      "immortal",
+                      "kit",
+                      "attack",
+                      "fight")
                       .contains(operation)
                   ? 3
-                  : 2;
-          if (args.size() != expected)
+                  : operation.equals("tool") ? 3 : 2;
+          int maximum = operation.equals("tool") ? 4 : minimum;
+          if (args.size() < minimum || args.size() > maximum)
             throw new IllegalArgumentException(
                 "Use /es group "
                     + operation
                     + " <group>"
-                    + (expected == 3 ? " <value>" : "")
+                    + (minimum == 3 ? " <value>" : "")
+                    + (operation.equals("tool") ? " [type]" : "")
                     + ".");
           switch (operation) {
             case "create" -> groups.create(id);
-            case "delete" -> groups.delete(id);
+            case "delete" -> {
+              int count = groups.delete(id);
+              messages.ok(
+                  sender,
+                  "Deleted group " + id + " and permanently deleted " + count + " NPC(s).");
+              return;
+            }
             case "info" -> {
               messages.ok(sender, groups.info(id));
               return;
@@ -87,7 +119,7 @@ public final class GroupCommands {
                       + count
                       + " actor(s) to "
                       + id
-                      + ". Individual equipment and health kept.");
+                      + ". Configured shared kit and Immortal defaults were applied.");
               return;
             }
             case "remove" -> groups.remove(id, args.get(2));
@@ -97,6 +129,44 @@ public final class GroupCommands {
               groups.leader(id, target);
             }
             case "intelligence" -> groups.intelligence(id, Checks.bool(args.get(2)));
+            case "immortal" -> {
+              boolean value = Checks.bool(args.get(2));
+              int count = groups.sharedImmortal(id, value);
+              messages.ok(
+                  sender,
+                  "Set shared Immortal "
+                      + (value ? "ON" : "OFF")
+                      + " for "
+                      + count
+                      + " NPC(s) in "
+                      + id
+                      + ".");
+              return;
+            }
+            case "kit" -> {
+              int count = groups.sharedKit(id, args.get(2));
+              messages.ok(
+                  sender,
+                  "Applied shared kit '"
+                      + args.get(2)
+                      + "' to "
+                      + count
+                      + " NPC(s) in "
+                      + id
+                      + ".");
+              return;
+            }
+            case "identities" -> {
+              int count = groups.sharedIdentities(id);
+              messages.ok(
+                  sender,
+                  "Randomized the identities of " + count + " NPC(s) in " + id + ".");
+              return;
+            }
+            case "tool" -> {
+              tools.give(Args.player(sender), id, args.get(2), args.get(3, tools.defaultType()));
+              return;
+            }
             case "follow" -> groups.order(id, ActorGroup.Order.FOLLOW, null);
             case "hold", "stop" -> groups.order(id, ActorGroup.Order.HOLD, null);
             case "move" ->
@@ -114,17 +184,17 @@ public final class GroupCommands {
           }
           messages.ok(
               sender,
-              operation.equals("delete")
-                  ? "Deleted group " + id + "; its NPCs are now unassigned."
-                  : "Group " + id + ": " + operation + " applied. " + groups.info(id));
+              "Group " + id + ": " + operation + " applied. " + groups.info(id));
         },
         (sender, args) -> {
           if (args.size() <= 1) return OPERATIONS;
           if (args.size() == 2)
             return args.get(0).equals("create") ? List.of() : groups.visible(sender);
+          if (args.size() == 4 && args.get(0).equals("tool")) return tools.livingTypes();
           if (args.size() != 3) return List.of();
           return switch (args.get(0)) {
-            case "intelligence" -> List.of("on", "off");
+            case "intelligence", "immortal" -> List.of("on", "off");
+            case "kit", "tool" -> tools.kitIds();
             case "fight" -> groups.ids();
             case "add" -> {
               List<String> ids = new ArrayList<>(actors.ids());

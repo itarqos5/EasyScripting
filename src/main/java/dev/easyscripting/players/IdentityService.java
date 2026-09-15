@@ -31,9 +31,14 @@ public final class IdentityService implements Listener, AutoCloseable {
   private java.util.function.Consumer<UUID> cancelNickname = id -> {};
   private final Map<UUID, UUID> requests = new HashMap<>();
   private java.util.function.Consumer<String> purgeIdentity = name -> {};
+  private java.util.function.Predicate<String> unavailableNickname = name -> false;
 
   public void onBlacklist(java.util.function.Consumer<String> purge) {
     purgeIdentity = purge;
+  }
+
+  public void nicknameFilter(java.util.function.Predicate<String> filter) {
+    unavailableNickname = filter;
   }
 
   public boolean blocked(String name) {
@@ -69,6 +74,9 @@ public final class IdentityService implements Listener, AutoCloseable {
     settings.require("identity");
     requireAvailable(p);
     validate(name);
+    if (unavailableNickname.test(name))
+      throw new IllegalArgumentException(
+          "That username is reserved by an actor, dead identity, joined real player, or operator.");
     if (directory.get(p.getUniqueId()) == null) connected(p);
     if (!directory.available(p.getUniqueId(), name))
       throw new IllegalArgumentException("Nickname is already in use.");
