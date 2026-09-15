@@ -4,6 +4,8 @@ This is the command guide for **EasyScripting 0.1.7**. Use `/es status` to see y
 
 Every successful command sends feedback, including commands that previously finished silently.
 
+Reviewed against release 0.1.7: 31 registered command groups plus `/es help`, and 33 scene action types.
+
 Each section lists the exact syntax, what it does and an example. Replace example names such as `Alex`, `guard`, `starter` and `opening` with names on your server.
 
 ## Start here
@@ -13,7 +15,7 @@ Each section lists the exact syntax, what it does and an example. Replace exampl
 - `on|off` means choose **one**: `on` or `off`.
 - `/es`, `/easyscripting` and `/script` are the same command.
 - `/actor ...` is short for `/es actor ...`; `/scene ...` is short for `/es scene ...`; `/nickname ...` is short for `/es nickname ...`.
-- `/actors` opens the NPC library. `/kits ...` is short for `/es kits ...`. There is no EasyScripting `/kit`, `/act` or `/finish` root command.
+- `/actors` opens the NPC library; `/actors ...` with arguments also accepts the `/actor ...` subcommands. `/kits ...` is short for `/es kits ...`. There is no EasyScripting `/kit`, `/act` or `/finish` root command.
 - Use lowercase command words. IDs such as `guard_1` use lowercase letters, numbers, underscores or hyphens, start with a letter/number, and contain at most 48 characters. Team IDs contain at most 12.
 - A **player name** identifies a real player; an **actor ID** identifies your saved NPC. Renaming an NPC does not change its ID.
 - Most time values use **ticks**: 20 ticks = about 1 second at normal server speed. 100 ticks = about 5 seconds.
@@ -81,6 +83,8 @@ Access: `actor`. A `PLAYER` NPC requires **Citizens** installed for your server 
 | `/es actor group <group\|*> <hide\|show\|respawn\|jump>` | Run that operation for the group/every actor. | `/actor group extras jump` |
 | `/es actor group <group\|*> kit <kit>` | Give a kit to the group/every actor. Actual operators only. | `/actor group extras kit starter` |
 
+The visible actor section labels are **Identity & clothing**, **Movement**, **Record & replay**, and **Combat & supplies**. Direct `/actor gui` section arguments remain `appearance`, `movement`, `acting`, and `combat`.
+
 For example, create a mob without Citizens using `/actor create guard ZOMBIE`. Group patterns use their prefix as the group name. Server actor limits still apply.
 
 ### Every actor setting
@@ -91,13 +95,13 @@ Use `/actor set <id> <setting> <value>`.
 | --- | --- | --- |
 | `name <text>` | Change displayed name; keep skin and ID. | `/actor set guard name RiverScout` |
 | `skin <account>` | Use a Java account's skin; PLAYER only. Account name, not a PNG or NameMC URL. | `/actor set guard skin Notch` |
-| `group <id>` | Put the actor in a named group. | `/actor set guard group extras` |
+| `group <id>` | Set its group tag; a matching registered `/es group` faction uses that membership. | `/actor set guard group extras` |
 | `immortal on\|off` | ON: can be hit and knocked back but will not die. OFF: can die. New actors default to OFF. | `/actor set guard immortal on` |
 | `hittable on\|off` | ON: allow direct melee hits. OFF: block melee/sweeps; falls, projectiles and explosions still work. | `/actor set guard hittable off` |
 | `collidable on\|off` | Toggle physical entity collision. | `/actor set guard collidable off` |
 | `nametag on\|off` | Show/hide overhead name. | `/actor set guard nametag on` |
 | `tablist on\|off` | Show/hide a PLAYER NPC in the Tab player list. | `/actor set guard tablist on` |
-| `look on\|off` | Toggle looking at nearby players. | `/actor set guard look on` |
+| `look on\|off` | Toggle idle looking at nearby visible players; walking/wandering also tracks them. | `/actor set guard look on` |
 | `wander on\|off` | Wander near visible players/NPCs, falling back to a bounded area around home. | `/actor set guard wander on` |
 | `aggressive on\|off` | An ungrouped NPC retaliates when hit, using its own supplies and fallible combat reactions. Grouped NPCs use group Intelligence instead. | `/actor set guard aggressive on` |
 | `pose <pose>` | Set an entity pose, such as STANDING, SNEAKING, SWIMMING or SLEEPING. Rendering depends on the entity. | `/actor set guard pose SNEAKING` |
@@ -105,7 +109,7 @@ Use `/actor set <id> <setting> <value>`.
 | `sneak on\|off` | Toggle sneaking. | `/actor set guard sneak on` |
 | `sprint on\|off` | Toggle PLAYER sprint flag; this alone does not create a route. | `/actor set guard sprint on` |
 | `mode stop\|repeat\|reverse` | Alternative form of `/actor mode`. | `/actor set guard mode repeat` |
-| `recording <id>` | Set recording ID; prefer `/actor recording`, which also checks the recording exists. | `/actor set guard recording entrance` |
+| `recording <id>` | Select an existing take; same validation and old-take cleanup as `/actor recording`. Requires record permission. | `/actor set guard recording entrance` |
 
 Names/skins/modes can change during recording **playback**. A currently possessed NPC or scene-controlled NPC may reject conflicting edits. Stop before changing position, kit or selected recording.
 
@@ -154,7 +158,7 @@ Groups are factions of independent actors. Each NPC keeps its own equipment, bac
 | `/es group remove <group> <actor>` | Remove an NPC from the faction without deleting it. Operators only. | `/es group remove red guard` |
 | `/es group leader <group> <online-player>` | Assign a real account name as leader and begin following. Operators only. | `/es group leader red Alex` |
 | `/es group leader <group> off` | Clear its leader and hold position. Operators only. | `/es group leader red off` |
-| `/es group intelligence <group> on\|off` | ON enables coordinated attacks, defensive reactions and supplies. OFF follows movement orders only. Operators only. | `/es group intelligence red on` |
+| `/es group intelligence <group> on\|off` | ON enables coordinated attacks and defensive combat reactions. OFF follows movement orders only; automatic totem handling is separate. Operators only. | `/es group intelligence red on` |
 | `/es group follow <group>` | Clear current attacks and follow the leader in formation; the leader's later hits add enemies. | `/es group follow red` |
 | `/es group hold <group>` | Clear orders and stop at current positions. Intelligent groups can still defend themselves if attacked. | `/es group hold red` |
 | `/es group stop <group>` | Same as hold. Use Intelligence OFF as well to stop retaliation. | `/es group stop red` |
@@ -354,9 +358,11 @@ Anyone with ordinary `use` access can browse the kits they are allowed to claim.
 
 A real player's account name or temporary nickname works. If both arguments are kit IDs, use `player:` or `actor:` to remove ambiguity. Console must specify a recipient. Wildcard validates the selected players first; if one is dead or busy in a reserved take, resolve that before trying again.
 
-For NPCs, stop the active recording/scene or finish acting before applying a kit. PLAYER actors receive a player loadout; other living actors receive supported main-hand, armor and offhand equipment.
+For NPCs, stop the active recording/scene or finish acting before applying a kit. PLAYER actors receive a player loadout; other living actors receive supported main-hand, armor and offhand equipment plus their own 36-slot reserve backpack. Mob main-hand equipment comes from kit slot 0; that item is removed from the reserve copy.
 
 ### Create, edit and delete
+
+Use singular `/es kit` for create/save/edit/delete. `/kits` is an alias of plural `/es kits` for the GUI, claims, access and imports; `/kits create` and `/es kits create` are not commands. Use `/es kit save fighter` to capture your inventory, or `/es kit create fighter` for an empty kit.
 
 | Command | What it does | Example |
 | --- | --- | --- |
@@ -473,7 +479,7 @@ Access: `warp`; saving/deleting/access changes need `warp.edit`; teleporting ano
 | `/es spawn set` | Save the special spawn warp at your location. | `/es spawn set` |
 | `/es spawn` or `/es spawn go` | Teleport yourself to the saved spawn warp. | `/es spawn` |
 
-Automatic spawn routing is configured in moderation.yml; `spawn.bypass` bypasses that automatic routing.
+Automatic spawn routing is configured in config.yml (`spawn.on-first-join` and `spawn.on-respawn`); `spawn.bypass` bypasses that automatic routing.
 
 ## World controls
 
@@ -614,7 +620,7 @@ Access: `team`. These are shared scoreboard teams, not per-viewer disguises. IDs
 | `/es team set <id> nametags on\|off` | Show/hide team nametags. | `/es team set cast nametags on` |
 | `/es team set <id> collision on\|off` | Toggle team collision. | `/es team set cast collision off` |
 
-Team membership uses scoreboard names; it is separate from the UUID-based kit allow-list.
+Team membership uses scoreboard names; it is separate from `/es group` combat factions and the UUID-based kit allow-list.
 
 ## Villagers
 
@@ -649,7 +655,7 @@ If the integration is unavailable, the command explains which dependency is need
 ## GUI use and common mistakes
 
 - **Back**, **Home** and **Close** are in the footer. Pages with more entries have Previous/Next.
-- NPC pages separate Appearance, Movement, Acting & Playback and Combat.
+- NPC overview cards open Identity & clothing, Movement, Record & replay, and Combat & supplies. Home **Record session** opens server-session ON/OFF; it does not start an NPC performance.
 - Kit operators can create/import/edit/delete; eligible non-operators can browse and claim.
 - Destructive GUI deletion/capture controls ask for confirmation. Direct delete/save commands execute directly.
 - A “busy” error means a scene, acting session, camera or replay currently owns the entity. Stop or finish that operation before applying a conflicting change.

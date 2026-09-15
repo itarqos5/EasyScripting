@@ -1,5 +1,7 @@
 # Configuration and storage
 
+Current schema/reference: **EasyScripting 0.1.7**. See [the shipped YAML files](../src/main/resources/) for the authoritative defaults and inline explanations.
+
 Files are generated under `plugins/EasyScripting/`. Keep your existing files when updating. Missing top-level files are copied from the JAR. Existing values are preserved except for the documented, backed-up GUI/default migrations below; exact old shipped message/help text is updated in memory. Reload uses `/es reload`; definitions edited outside the plugin load during a server restart. Invalid YAML is preserved and its path is logged. Shipped explanations are added to uncommented existing keys on reload; configured values and your own comments stay intact. The asynchronous YAML writer preserves headers, nested comments and inline comments.
 
 ## Top-level YAML
@@ -90,7 +92,7 @@ Fade timings accept 0–1200; stay accepts 1–1200. All timings must be YAML in
 
 `guis.yml` uses `schema: 3`. Upgrading a schema-1, schema-2 or unversioned layout validates the complete new defaults, saves the old file beside it as `guis-before-v3-<UUID>.yml`, then installs the redesigned layout. A backup failure aborts the upgrade. Existing schema-3 values survive reload; missing leaves inherit bundled defaults. Unknown future schemas are rejected.
 
-Inventories use six rows so all 41 player inventory/equipment slots fit the kit editor. Slot indices are 0..53. The top row holds a header and NPC tabs. The default 21 content slots occupy the interior of rows 2–4; row 5 holds workflow controls. Footer slots are previous 45, create/save 47, Back 48, Home 49, Close 50, Help 51 and next 53. `layout.content-slots` must be unique and separate from navigation and workflow controls. Keep at least 13 slots for player flags. Overlapping controls on the same screen are rejected.
+Inventories use six rows so all 41 player inventory/equipment slots fit the kit editor. Slot indices are 0..53. The top row holds the information header. Actor sections are opened from overview cards; the old top-row tabs are removed. The default 21 content slots occupy the interior of rows 2–4; row 5 holds workflow controls. Footer slots are previous 45, create/save 47, Back 48, Home 49, Close 50, Help 51 and next 53. `layout.content-slots` must be unique and separate from navigation and workflow controls. Keep at least 13 slots for player flags. Overlapping controls on the same screen are rejected.
 
 `menus.<name>` defines `title`, `heading`, `material`, `description` and optional `parent` for Back navigation. `buttons.<id>` accepts `slot`, `material`, `name`, `lore`, `action`, optional permission suffix and optional `prompt`. Actions begin with `menu `, `command ` or `input `. Commands are suffixes of `/es`, run as the clicking player, and always pass through permission checks. `dynamic.controls` configures slots/materials/lore for actor, timeline and take controls; labels are under `dynamic`. Keep the kit footer in slots 45..53; slots 0..40 are the saved loadout and 41..44 are reserved spacing.
 
@@ -98,7 +100,7 @@ Titles accept `{name}` and `{page}`. `entries.<menu>` configures create labels, 
 
 Changing a YAML button cannot grant permissions or cause it to execute as console. Chat input is bound to the initiating player's UUID, expires in 60 seconds and is never treated as an arbitrary root command.
 
-Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. The overview uses four `dynamic.controls.actor-section-*` cards with Back/Home navigation. The old top-row tabs are removed. Acting controls include `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording`, `actor-autoplay` and `actor-mode-stop/repeat/reverse`. Appearance includes `actor-tablist`. Combat controls are `actor-health`, `actor-hittable`, `actor-immortal`, `actor-combat-respawn`, `actor-aggressive`, `actor-combat-kit` and `actor-combat-group`. Group controls use `menus.group-details` and `dynamic.controls.group-*`. The home Record session page uses `menus.session`; `{session}` expands to ON or OFF. Placeholders include `{id}`, `{name}`, `{skin}`, `{mode}`, `{recording}`, `{acting}`, `{autoplay}`, `{health}`, `{status}`; toggle labels use `{state}`.
+Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. The overview uses four `dynamic.controls.actor-section-*` cards with Back/Home navigation. The old top-row tabs are removed. Acting controls include `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording`, `actor-autoplay` and `actor-mode-stop/repeat/reverse`. Identity & clothing includes `actor-tablist`; internal keys still use `actor-appearance`. Combat controls are `actor-health`, `actor-hittable`, `actor-immortal`, `actor-combat-respawn`, `actor-aggressive`, `actor-combat-kit` and `actor-combat-group`. Group controls use `menus.group-details` and `dynamic.controls.group-*`. The home Record session page uses `menus.session`; `{session}` expands to ON or OFF. Placeholders include `{id}`, `{name}`, `{skin}`, `{mode}`, `{recording}`, `{acting}`, `{autoplay}`, `{health}`, `{status}`; toggle labels use `{state}`.
 
 ### NPC AI tuning
 
@@ -158,9 +160,9 @@ actions:
 
 Actions sort by tick, preserving YAML order for equal ticks. World positions require a loaded world and finite bounded coordinates. Unknown actions, malformed list entries and invalid identifiers are rejected. A missing actor is an execution preflight error, allowing definitions to be loaded before the cast is created.
 
-Snapshots restore location/rotation, inventory/equipment, health, food, XP, gamemode/flight/speeds, potion effects, velocity, fire, air, fall state, glow/invisibility/invulnerability/gravity, pose and player control flags. Display/list names are captured; the identity service's underlying profile history/skin policy is separate. Scoreboard membership, custom borders and arbitrary third-party state are not part of a take snapshot.
+Snapshots restore location/rotation, inventory/equipment, health, food, XP, gamemode/flight/gliding/speeds, potion effects, velocity, fire, air, fall state, glow/invisibility/invulnerability/gravity, pose and player control flags. Display/list names are captured; the identity service's underlying profile history/skin policy is separate. Scoreboard membership, custom borders and arbitrary third-party state are not part of a take snapshot.
 
-## Kit access and recording sessions (0.1.6)
+## Kit access and recording sessions
 
 `/es kits` exposes a per-kit **Who can claim?** page. Management/gifts use actual operator status; `permissions.yml` kit overrides cannot bypass it. Claiming replaces the 41-slot hotbar/storage/armor/offhand loadout. Access lives alongside `schema: 1` and `contents` in `loadouts/<id>.yml`:
 
@@ -171,6 +173,8 @@ access:
 
 Modes are `operators`, `everyone`, or `player`. Player mode also needs `access.player` (a UUID); `access.player-name` is only a display hint. Set it without editing YAML using `/es kits access starter player Alex`. Switching to operators/everyone clears the selected player. Missing policies default to operators; malformed policies never grant public access. Inventory edits and EasyScripting export/import retain the policy. Imported external-provider kits default to operators.
 
+Mob kit recipients store reserve items in `actors/<id>.yml → inventory`; PLAYER actors use their real inventory. `equipment` contains main hand, offhand, helmet, chestplate, leggings and boots; `held-slot` is the player hotbar selection (0–8). These are individual per-NPC supplies, not group storage.
+
 Bulk imports use one shared-engine job, at most one kit per tick, one batch at a time, and the existing `max-provider-kits` cap. IDs receive numeric suffixes when occupied; no existing kit is overwritten. Cancel/de-op/disconnect/feature-disable/shutdown stops further imports and retains completed ones. Saves go through the bounded YAML writer; disk failures are logged and rejected submissions do not create phantom kits.
 
 New GUI controls under `dynamic.controls`: `kits-import-all`, `kits-import-cancel`, `kit-give-player`, `kit-give-actor`, `kit-access`, `kit-access-info`, `kit-access-operators`, `kit-access-everyone`, `kit-access-player`. Their labels are under `dynamic`; `{access}` shows the policy. New pages are `menus.kit-access`, `menus.kit-provider`, `menus.kit-recipients`. Missing defaults are inherited; overlapping controls fail validation. Customized labels are preserved except documented old shipped help/action migrations.
@@ -179,10 +183,10 @@ New GUI controls under `dynamic.controls`: `kits-import-all`, `kits-import-cance
 
 NPC performances are created with `/actor act` and `/actor finish`; `/es record`'s old movement subcommands are removed. Permanent NPC deletion/death removes its unshared selected take from active storage. Shared takes remain until their last NPC is removed. Hide/unload/disable/shutdown do not delete takes. Removed YAML uses existing trash retention. Successful commands now send descriptive feedback; the existing `success` template controls its style. `feedback.enabled` still controls only sounds.
 
-## Nicknames and kit imports (0.1.5)
+## Nicknames and kit imports
 
 `nicknames.yml`: `schema: 1`, `api-enabled: true`, `api-timeout-millis: 4000` (integer 500–10000), `local-fallback: true`. The fixed HTTPS Random User endpoint generates names; no Minecraft player data is sent in the request. Its response is bounded to 16 KiB, eight candidates and two worker threads with a bounded queue. Disable the API to use the local NPC prefix/suffix pool only. Skin properties are preserved. Nicknames expire on disconnect; stale saved `state/identities.yml` active aliases are cleared at startup.
 
 `kits.yml`: `schema: 1`, boolean `providers.PlayerKits2`, `providers.PlayerKits`, `providers.Essentials`, `providers.CMI` (all true), and `max-provider-kits: 1000` (integer 1–10000). Imports require the provider installed and enabled. Only items are copied; actions, costs, permissions and cooldowns are excluded. Supported public API adapters live in the EasyScripting JAR, without redistributing another plugin. Unknown formats can be captured through your inventory. See [kit import usage](USERGUIDE.md#9-create-edit-and-import-kits).
 
-Kit GUI additions use `menus.kit-details`, `dynamic.controls.kits-import`, `kit-apply`, `kit-edit`, `kit-capture`, `kit-export`, `kit-delete`, `kit-import-inventory`, and `kit-save-apply`. Their names/lore/icons/slots are configurable. The library importer defaults to slot 40; editor Import inventory uses 46 and Save & equip uses 52. Schema-2 layouts inherit these missing leaves; collisions with custom slots are reported for you to resolve. Old configured `command chat mute ...` buttons are rewritten to `command chat block ...` in memory.
+Kit GUI additions use `menus.kit-details`, `dynamic.controls.kits-import`, `kit-apply`, `kit-edit`, `kit-capture`, `kit-export`, `kit-delete`, `kit-import-inventory`, and `kit-save-apply`. Their names/lore/icons/slots are configurable. The library importer defaults to slot 40; editor Import inventory uses 46 and Save & equip uses 52. Current schema-3 layouts inherit missing leaves; schema-1/2 layouts first receive the documented backup and full upgrade. In current layouts, collisions with custom slots are reported for you to resolve. Old configured `command chat mute ...` buttons are rewritten to `command chat block ...` in memory.

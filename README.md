@@ -1,5 +1,7 @@
 # EasyScripting
 
+Current release: **[0.1.7](https://github.com/itarqos5/EasyScripting/releases/tag/v0.1.7)**. [Download the plugin JAR](https://github.com/itarqos5/EasyScripting/releases/download/v0.1.7/EasyScripting-0.1.7.jar). Documentation describes this release.
+
 Paper/Purpur tools for scripted SMP productions: actors, timed scenes, movement recordings, repeatable takes, kits, inventory tools, world controls and configurable inventory menus.
 
 **Need help with a command?** The [complete command guide](documentation/COMMANDS.md) explains every `/es` command and shortcut, every NPC/player setting, and every scene action with simple descriptions and examples. Follow the [step-by-step user guide](documentation/USERGUIDE.md) for your first NPC or recording.
@@ -18,7 +20,7 @@ On Windows, use `.\gradlew.bat build`.
 
 Copy `build/libs/EasyScripting-0.1.7.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
 
-The primary target is Paper 26.2 with Java 25. The plugin produces Java 21 bytecode and uses the shared Paper API surface for 1.21.8, 1.21.11 and 26.1 compatibility. Test evidence and its limits are in [TESTING.md](documentation/TESTING.md). Purpur is a compatibility target; Folia and Spigot are not supported.
+The project targets Paper/Purpur, with Paper 26.2 as its original primary target. Release 0.1.7 was compiled against Paper 1.21.8 and 1.21.11 using JDK 25 and produces Java 21 bytecode. Its 138 unit tests pass; no server/client was launched for this release. Earlier 26.x compilation and runtime results are historical, not fresh 0.1.7 verification. See [TESTING.md](documentation/TESTING.md) for the exact matrix. Purpur is a compatibility target; Folia and Spigot are not supported.
 
 Optional integrations:
 
@@ -35,7 +37,7 @@ Version 0.1.7 fixes looking/wandering and adds leader-controlled NPC factions, s
 
 ## Nicknames, chat and kits
 
-Version 0.1.6 adds `/es kits claim <kit> [player|*|actor:id]`, bulk provider imports and per-kit access for operators/everyone/one player plus operators. Only actual operators can manage or gift kits. Commands now report their result. `/es record on|off` controls a recording MOTD and blocks non-operator joins/reconnects; NPC performances use `/actor act` and `/actor finish`.
+Use `/es kits claim <kit> [player|*|actor:id]`, bulk provider imports and per-kit access for operators/everyone/one player plus operators. Only actual operators can manage or gift kits. Commands now report their result. `/es record on|off` controls a recording MOTD and blocks non-operator joins/reconnects; NPC performances use `/actor act` and `/actor finish`.
 
 * `/nickname <real-player-or-nickname>` assigns an API-generated username while preserving the skin. `/nickname <player-or-nickname> off` resets one; `/nickname off` resets everyone. Names expire on disconnect. Tab, nametag and ordinary death/quit messages use the nickname; the client's authenticated account name cannot be changed by a server plugin.
 * `/es chat block on` restricts public chat to current operators; `off` restores it. No argument toggles. `/es chat death <name>` prints a white simulated death message without killing anyone; broadcast sends chat and a title.
@@ -47,7 +49,7 @@ See the [usage guide](documentation/USERGUIDE.md#7-nickname-real-players), [kit 
 
 With Citizens installed, `/actor create guard_1` automatically assigns a random displayed username and skin. Keep the result as-is, use `/actor set guard_1 name RiverScout` or `/actor set guard_1 skin Notch` to change one part, or `/actor randomize guard_1` to reroll both. `/actor info guard_1` shows the identity; the actor's ID remains `guard_1`. Names, skin owners and resolved skin textures persist across restarts. Pools and automatic assignment are configured in `npc-identities.yml`; existing actors are unchanged on upgrade.
 
-`/actor gui guard_1` opens an overview with Identity & clothing, Movement, Record & replay, and Combat & supplies cards. Choose or change the end mode (`stop`, `repeat` or `reverse`) before recording, afterward or during playback. Name, skin and random identity can also change during playback. Appearance includes a tab-list toggle for PLAYER NPCs. `/actor act guard_1 entrance` puts you in the NPC's place and costume; `/actor finish` restores you, saves the performance and starts it automatically. Autoplay is enabled by default; use `/actor autoplay guard_1 off` for manual playback. While acting, direct melee is blocked but falls, projectiles and explosions can hurt you. On NPCs, Hittable only controls melee; Immortal keeps hits and knockback but prevents death. New NPCs default to Immortal OFF. NPC deaths permanently remove the actor, announce its name leaving the game, and delete its take unless another NPC uses it. Shared takes remain until their final NPC is removed. `/actor stop guard_1` holds its current position and disables autoplay. See [the acting workflow](documentation/USERGUIDE.md#act-as-an-npc-and-save-its-performance).
+`/actor gui guard_1` opens an overview with Identity & clothing, Movement, Record & replay, and Combat & supplies cards. Choose or change the end mode (`stop`, `repeat` or `reverse`) before recording, afterward or during playback. Name, skin and random identity can also change during playback. Identity & clothing includes a tab-list toggle for PLAYER NPCs. `/actor act guard_1 entrance` puts you in the NPC's place and costume; `/actor finish` restores you, saves the performance and starts it automatically. Autoplay is enabled by default; use `/actor autoplay guard_1 off` for manual playback. While acting, direct melee is blocked but falls, projectiles and explosions can hurt you. On NPCs, Hittable only controls melee; Immortal keeps hits and knockback but prevents death. New NPCs default to Immortal OFF. NPC deaths permanently remove the actor, announce its name leaving the game, and delete its take unless another NPC uses it. Shared takes remain until their final NPC is removed. `/actor stop guard_1` holds its current position and disables autoplay. See [the acting workflow](documentation/USERGUIDE.md#act-as-an-npc-and-save-its-performance).
 
 The redesigned studio groups tools into clear categories, provides saved-recording/costume pickers and uses consistent Back, Home and Close buttons. All menus are configured in `guis.yml`. Upgrading from layout 1 or 2 saves `guis-before-v3-<UUID>.yml` beside it before installing layout schema 3. Other project documentation is in [`documentation/`](documentation/USERGUIDE.md).
 
@@ -83,11 +85,11 @@ All durations are server ticks unless a setting explicitly says seconds. Lag str
 
 ## Configuration and permissions
 
-`config.yml` controls limits; `features.yml` enables feature groups; `messages.yml` contains MiniMessage templates; `guis.yml` controls titles, layout, buttons and navigation. Separate YAML files configure moderation, items, potions, death, effects and recording. `/es reload` validates settings and GUI layout before replacing the active configuration. Scene/actor definitions edited on disk load on a full server restart.
+`actor-ai.yml` controls NPC movement and combat; `command-help.yml` supplies syntax explanations; `config.yml` controls limits; `features.yml` enables feature groups; `messages.yml` contains MiniMessage templates; `guis.yml` controls titles, layout, buttons and navigation. Separate YAML files configure moderation, items, potions, death, effects and recording. `/es reload` validates settings and GUI layout before replacing the active configuration. Actor/group/scene/kit/recording definitions edited on disk load on a full server restart. Edit saved definitions only while stopped, so live saves cannot overwrite them.
 
 Most control permissions default to operators. Merely opening the studio does not grant its controls. Console/player command actions are disabled by default and need an explicit configuration option plus their separate permission. Real destructive explosions need both configuration and `easyscripting.destructive`; cleanup and forced death also require the destructive node, which does not default to operators.
 
-See [USERGUIDE.md](documentation/USERGUIDE.md), [COMMANDS.md](documentation/COMMANDS.md), [PERMISSIONS.md](documentation/PERMISSIONS.md), [CONFIGURATION.md](documentation/CONFIGURATION.md), [API.md](documentation/API.md), [TESTING.md](documentation/TESTING.md) and [CHANGELOG.md](documentation/CHANGELOG.md).
+See [NPC-GROUPS.md](documentation/NPC-GROUPS.md) for factions and supplies, [ARCHITECTURE.md](documentation/ARCHITECTURE.md) for service ownership, [USERGUIDE.md](documentation/USERGUIDE.md), [COMMANDS.md](documentation/COMMANDS.md), [PERMISSIONS.md](documentation/PERMISSIONS.md), [CONFIGURATION.md](documentation/CONFIGURATION.md), [API.md](documentation/API.md), [TESTING.md](documentation/TESTING.md) and [CHANGELOG.md](documentation/CHANGELOG.md).
 
 ## Operational boundaries
 

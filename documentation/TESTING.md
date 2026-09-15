@@ -1,8 +1,10 @@
 # Testing and acceptance
 
+Current release: **0.1.7**, commit `1ea6d202e249a3aba726d58d61e7f0966027060f`. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence. The Markdown follow-up checks documentation without rebuilding or replacing the released JAR.
+
 ## 0.1.7 validation
 
-138 unit tests pass. Added regression checks for eye-origin facing, zero-distance orientation, balanced/stable assignments across 100 NPCs, unique formation positions, disconnected/unreachable targets, real group YAML persistence, leader authorization, AI/combat bounds, held-totem half-heart behavior, consumed-stack conservation, command shortcuts/contextual help, legacy flight-frame compatibility and actual glide-flag application. Tests also cover comment inheritance without changing user values and preservation of detached nested/inline comments through the asynchronous writer. GUI schema-3 slot checks and existing suites pass. The item and entity fixtures do not emulate a running server.
+138 unit tests pass. Added regression checks for eye-origin facing, zero-distance orientation, balanced/stable assignments across 100 NPCs, unique formation positions, missing/unreachable target inputs, real group YAML persistence, leader authorization, AI/combat bounds, held-totem half-heart behavior, consumed-stack conservation, command shortcuts/contextual help, legacy flight-frame compatibility and actual glide-flag application. Tests also cover comment inheritance without changing user values and preservation of detached nested/inline comments through the asynchronous writer. GUI schema-3 slot checks and existing suites pass. The item and entity fixtures do not emulate a running server.
 
 Production and smoke compilation pass against Paper 1.21.8; production compilation also passes against Paper 1.21.11. The distributable is rebuilt against the baseline and emits Java 21 bytecode. Existing chat/login and newer-API passenger-retaining teleport deprecations remain. Shield activation uses Paper's experimental `LivingEntity.startUsingItem`, isolated in ActorCombatService; API compilation does not prove that a particular Citizens adapter renders/blocks correctly.
 
@@ -16,6 +18,22 @@ Live acceptance still required:
 * Enable `/es player halfheart`, suffer lethal damage with main/offhand totems, verify actual vanilla consumption/animation/effects and continued protection after the final totem. Confirm cancelled PvP does not reduce health.
 * Record a complete elytra flight and landing, finish with autoplay, inspect from another client in STOP/REPEAT/REVERSE modes, change skin during flight, take knockback, and stop midair. Confirm flight renders as elytra, swimming stays swimming, and stopping/restoration clears replay flight state. Old FALL_FLYING frames are supported; an old ambiguous swimming-only take must be recorded again.
 * Browse `/actors`, `/kits`, NPC/group pages and Record session ON/OFF. Check selected highlights, de-op while a GUI is open, invalid syntax feedback, upgrade backups and preserved custom comments after reload/restart.
+
+## Reproducing the current build checks
+
+With JDK 25, from the repository root on Windows:
+
+```powershell
+.\gradlew.bat build compileSmokeJava
+.\gradlew.bat compileJava -PpaperVersion=1.21.11-R0.1-SNAPSHOT
+.\gradlew.bat build compileSmokeJava
+```
+
+The final command rebuilds the distributable against the baseline 1.21.8 API after the compatibility compile. Use `./gradlew` on Linux/macOS. These commands do not start a Minecraft server. The HTML unit report is `build/reports/tests/test/index.html`; JUnit XML is under `build/test-results/test/`.
+
+The released plugin is [EasyScripting-0.1.7.jar](https://github.com/itarqos5/EasyScripting/releases/download/v0.1.7/EasyScripting-0.1.7.jar), SHA-256 `69f5af04262b1e3111d3eab609d655880ae027ae31bf5adf9040ec8c6aeeb434`. It contains the production descriptor and YAML resources, Java class major 65, and no smoke/Paper/Citizens classes. Sources are a separate release asset. No new runtime evidence is implied by a documentation-only commit.
+
+Current documentation checks cover all 12 Markdown files, local links/anchors, all 31 registered command groups, the public facade methods, permission declarations and configuration filenames. Old GUI/recording commands are retained only where explicitly describing history or migration.
 
 ## 0.1.6 validation
 
@@ -71,7 +89,7 @@ For future in-game acceptance, exercise these new scenarios on both a mob and a 
 
 The downloadable plugin is `build/libs/EasyScripting-0.1.3.jar`. The complete unit report is `build/reports/tests/test/index.html`.
 
-## Recorded environment
+## Historical server environment (0.1.0–0.1.2)
 
 Tests ran locally on Windows using Oracle JDK 25.0.1, Gradle wrapper 9.3.1 and disposable worlds. The user explicitly accepted the Minecraft EULA for these local servers. All server listeners were bound to 127.0.0.1, with RCON/query disabled. The 1.21.8 fixture uses offline authentication solely to admit the local protocol client. The original compatibility matrix was recorded for 0.1.0; the targeted 0.1.1 reruns are detailed below.
 
@@ -89,16 +107,18 @@ This evidence is not a visual comparison of two running proprietary/reference pl
 
 Paper emitted Windows performance-counter/OSHI warnings unrelated to the plugin. The retained `PlayerLoginEvent` permission-aware admission handler causes Paper's configuration-phase re-entry warning; plugins requiring that re-entry API are a current compatibility limitation. Boat replay uses the shared passenger-retaining teleport flag, deprecated on newer Paper; the targeted compile matrix still includes it.
 
-## Automated checks
+## Historical automated checks (0.1.0–0.1.2)
 
 ```sh
 ./gradlew build
 ./gradlew smokeJar
 ```
 
+The commands, artifacts and counts in this historical section describe the named earlier versions. Use the current build instructions above for 0.1.7; do not infer a fresh live test from these results.
+
 All 44 pure tests passed on 0.1.2. The original 24 cover timeline ordering, state transitions, cancellation inside an action, execution budgets, argument/identifier validation, malformed scene lists, round trips, repeat/append semantics, detached YAML, atomic writes and GUI layout rejection. Nine identity tests added in 0.1.1 cover 200 unique generated names, occupied names, blacklist filtering, alternate skins, mob behavior, bounded pool exhaustion and malformed YAML choices. Eleven checks added in 0.1.2 cover varied name endings, bounded tiny-pool fallback, all playback endpoint sequences (including single-frame and legacy reverse behavior), invalid playback inputs, and inheriting missing actor GUI controls while preserving custom entries. The unit test report is `build/reports/tests/test/index.html`.
 
-The `smokeJar` task produces **EasyScripting-SmokeTests-0.1.2.jar**, never included in the production JAR. Install it alongside EasyScripting only in a disposable test server and run `essmoke` from console. It creates 100 actors, tests ordering/pause/resume/cancellation/resource conflicts, deletes a referenced actor, tests forced-death permission denial and explicit authorization, restores a dead actor, and runs eight concurrent scenes. It removes its fixtures afterward. With compatible Citizens installed one actor uses the PLAYER backend. Without Citizens the suite uses mobs only. It grants the console a temporary destructive permission solely for the death fixture and removes it afterward. All 14 checks were rerun successfully on Paper 26.2 with 0.1.1.
+For 0.1.2, the `smokeJar` task produced **EasyScripting-SmokeTests-0.1.2.jar**,  never included in the production JAR. Install it alongside EasyScripting only in a disposable test server and run `essmoke` from console. It creates 100 actors, tests ordering/pause/resume/cancellation/resource conflicts, deletes a referenced actor, tests forced-death permission denial and explicit authorization, restores a dead actor, and runs eight concurrent scenes. It removes its fixtures afterward. With compatible Citizens installed one actor uses the PLAYER backend. Without Citizens the suite uses mobs only. It grants the console a temporary destructive permission solely for the death fixture and removes it afterward. All 14 checks were rerun successfully on Paper 26.2 with 0.1.1.
 
 ### NPC identity and persistence checks (0.1.1)
 
@@ -125,7 +145,7 @@ Paper 26.2 also loaded a valid scene while rejecting a separate file whose actio
 
 ### Acting, GUI sections and playback checks (0.1.2)
 
-Install the current production and smoke JARs on the disposable Paper 1.21.8 fixture, with exactly one copy of each plugin. Use Citizens 2.0.39 build 3938 for PLAYER actors on that server version. The companion `/esactingtest` command exists only in the test JAR.
+The recorded 0.1.2 run used its matching production and smoke JARs on the disposable Paper 1.21.8 fixture, with exactly one copy of each plugin. Use Citizens 2.0.39 build 3938 for PLAYER actors on that server version. The companion `/esactingtest` command exists only in the test JAR.
 
 ```text
 node scripts/acting-tests.cjs
@@ -139,7 +159,7 @@ The acting fixture drives a known airborne/grounded path with server teleports. 
 
 ## Manual behavioral acceptance
 
-Each row defines setup, equivalent action, pass condition and reset procedure. Use the same starting state when comparing with a legitimately obtained reference installation. Do not compare source code. These rows are acceptance procedures, not claims that all have been run.
+Each row defines setup, equivalent action, pass condition and reset procedure. Use the same starting state when comparing with a legitimately obtained reference installation. Do not compare source code. These rows are current 0.1.7 acceptance procedures, not claims that all have been run. A future server run must use updated fixtures and the exact deployment stack.
 
 | Feature | Setup | Action | Expected result / pass condition | Reset |
 | --- | --- | --- | --- | --- |
@@ -147,17 +167,20 @@ Each row defines setup, equivalent action, pass condition and reset procedure. U
 | Actor direction | Guard and performer within 3 blocks | Move, look, sneak, sprint, jump, swing | One intended movement/animation; no ambient AI fighting scene directions | Stop/reset scene |
 | Actor damage | Give target 20 health, immortal on | Attack for 2, then lethal damage; set hittable off | Nonlethal hit once; lethal prevention distinct from complete hit cancellation | Restore health and flags |
 | Actor death | Mortal actor, scene death action and destructive grant | Play with auto-restore on | Actor dies, announces leaving and is permanently deleted; reset/restart cannot recreate it | Delete fixture scene |
-| Groups/patterns | Empty loaded area, cap sufficient | Create each shape with 12 actors; hide/show group | Deterministic count/layout; group operations affect only members | Delete group members |
+| Pattern tags/bulk operations | Empty loaded area, cap sufficient | Create each shape with 12 actors; hide/show group | Deterministic count/layout; group operations affect only members | Delete group members |
 | Scene ordering | Two same-tick health actions, later swing | Play, pause, resume, stop | Stable order, no progress while paused, cancellation prevents later actions | Reset/delete fixture |
 | Scene conflict | Two scenes share actor or world | Play both | Second start rejected before mutations | Stop first |
 | Scene edits | Two scenes with different aliases | Append and repeat bounded range | Source targets resolve correctly; no unbounded task creation; excessive size rejected | Remove fixture scenes |
 | Takes | Costume, XP, potion, pose and location set | Snapshot, modify state/flags, reset twice | Original state restored repeatedly; changing a live item cannot alter snapshot | Discard take |
 | Disconnect/respawn | Player target in running scene | Disconnect or die | Scene cancels; pending restore applies once when alive and online | Rejoin, verify pending file soft-deleted |
 | World unload | Actor/scene in disposable secondary world | Request unload during take | Dependent scene stops; owned entities/jobs cleaned; no subsequent access to unloaded world | Reload world and respawn actors |
-| Movement recording | Player wears costume, holds two items | Record route/swing/boat; replay reverse and loop | Recorded transforms/hand cues repeat; stop removes owned boat and restores actor | Stop playback; delete recording |
-| Acting and playback | PLAYER actor and two graphical clients, performer with saved costume/profile | Act, walk/jump/sneak/swing/change armor; finish; play each mode | Observer sees NPC identity during acting and restored identity afterward; STOP holds endpoint, REPEAT resets to start, REVERSE alternates direction; equipment and cues match | Stop playback; delete actor/recording |
+| Movement recording | Player wears costume, holds two items | Use actor act/finish for route/swing/boat; replay reverse/repeat | Recorded transforms/hand cues repeat; stop removes the owned boat, restores gravity and keeps current actor position/equipment | Stop playback; delete the fixture actor so its unshared take is removed |
+| Acting and playback | PLAYER actor and two graphical clients, performer with saved costume/profile | Act, walk/jump/sneak/swing/change armor; finish; play each mode | Observer sees NPC identity during acting and restored identity afterward; STOP holds endpoint, REPEAT resets to start, REVERSE alternates direction; equipment and cues match | Stop playback; delete the fixture actor and its unshared take |
+| Combat factions | Two mortal hittable factions, two real leaders, finite kits | Follow/hold/move, hit multiple enemies and fight factions; disconnect leader | Correct authorization, split targeting, friendly-fire filtering and independent damage/deaths; no scripted winner | Hold, delete fixture actors/groups |
+| NPC supplies | Mortal NPC with extra totems, beneficial splash potions and shield | Pop held totem; trigger retaliation and overhead mace threat | Consumed stacks stay consumed, spare refill respects delay, potion throws are separate and shield reaction is fallible | Remove fixtures; restore AI tuning |
+| Elytra replay | Two clients, NPC costume with elytra | Record flight/landing, finish, replay modes, refresh identity and stop midair | Actual flight animation, old flight-frame support, swimming preserved and flight state released on stop | Stop and delete fixture actor/take |
 | Camera | Two clients; spectator path | Move camera for 80 ticks | Viewer follows smooth interpolation; other clients do not gain a player body; stop restores state | Camera stop |
-| Kit GUI | Three diamonds and armor | Save, clear, apply; copy through editor; try shift/drag/number/drop/double clicks | Original kit remains intact, no GUI item escapes; intentional copies require kit.edit | Delete kit and clear fixtures |
+| Kit GUI | Three diamonds and armor | Save, clear, apply; copy through editor; try shift/drag/number/drop/double clicks | Original kit remains intact, no GUI item escapes; intentional kit edits/copies require actual operator status | Delete kit and clear fixtures |
 | Pagination/confirmation | More entries than content slots | Next/back, shift-right delete, cancel then confirm | Page bounds correct; cancel preserves definition; confirm removes only selected entry | Delete fixtures |
 | Feature controls | Authorized admin plus ordinary player | Toggle feature, restart, click as unauthorized player | State persists; unauthorized user cannot toggle or invoke restricted action | Enable original groups |
 | Permission overrides | Explicit custom grant and denied control user | Override scene.play/warp; test console-command without extra grant | Custom node respected; sensitive privilege cannot be made public through GUI | Restore permissions.yml |
@@ -170,9 +193,9 @@ Each row defines setup, equivalent action, pass condition and reset procedure. U
 | Stasis totem | Tagged 3-pop totem and known destination | Trigger three genuine resurrections | Count remains on item; final pop schedules one teleport; no extra totem duplication | Remove test totems |
 | Item tools | Held item and staff permissions | Rename/lore/enchant/attribute/durability; kickstick and rod | Correct metadata; lower-privilege holder cannot use staff effect; kick omits quit announcement | Replace test items and reset freeze |
 | Container/frame locks | Container, hopper and item frame | Interact, break, dispense/equip, explode with/without bypass | Protected state survives unauthorized changes; bypass works | Unlock and remove fixtures |
-| Chat/sign policies | Two clients, literal blocked phrase | Mute, broadcast, fake messages, sign edit | Intended viewers receive template; forbidden literal is blocked; staff alert fires | Unmute and restore phrases |
+| Chat/sign policies | Two clients, literal blocked phrase | Block, de-op sender, broadcast, fake messages, sign edit | Only current operators speak while blocked; templates/literal filtering/alerts work | Unblock and restore phrases |
 | Session/voice | Two clients with voice mod and optional plugin | Start/end take with voice mute, use broadcast | Prior mute state restored; allowed broadcaster reaches connected voice users; no audio stored | Stop take, broadcast off |
-| Server/dimension lock | Allowed and denied test accounts | Connect/teleport with lock on | Denied account rejected; configured name/bypass admitted; no world mutation | Unlock |
+| Server/dimension lock | Allowed and denied test accounts | Connect/teleport with ordinary lock on, then recording-session mode on | Ordinary allow-list/bypass works; recording mode still rejects every non-operator reconnect | Stop session and unlock |
 | Region | Small set with chest and two-sided sign | Select/save, modify, restore/cancel | Block data, contents and sign text restored; bounds enforced; cancel stops further blocks | Restore fixture and remove it |
 | Effects | Test world, no valuable structures | Visual effects then projectiles; deny destructive permission | Visual effects leave blocks intact; projectiles obey caps; destructive command denied without gates | Effect stop; repair test world |
 | Teams | Two players and external scoreboard plugin | Create/join/color/glow/leave/delete | Basic team settings visible; glow restored on leave; check scoreboard compatibility | Delete test team |
@@ -183,4 +206,4 @@ Each row defines setup, equivalent action, pass condition and reset procedure. U
 
 ## Remaining release gates
 
-Run the multi-client visual, audio, world-unload and combat edge cases above on the exact deployment stack. A 100-actor smoke test establishes functionality, not a measured performance guarantee for 20 concurrent human players. Profile representative movement/recording and region jobs with Paper's bundled spark before raising limits. Validate screen appearance on a real Minecraft client; the protocol tests only inspect inventory state and packets.
+Run the multi-client visual, audio, world-unload and combat edge cases above on the exact deployment stack. The historical 100-actor creation smoke test does not benchmark the new group combat or establish a measured performance guarantee for 20 concurrent human players. Profile representative movement/recording and region jobs with Paper's bundled spark before raising limits. Validate screen appearance on a real Minecraft client; the protocol tests only inspect inventory state and packets.

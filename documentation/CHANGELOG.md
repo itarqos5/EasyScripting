@@ -1,5 +1,13 @@
 # Changelog
 
+Latest plugin release: **[0.1.7](https://github.com/itarqos5/EasyScripting/releases/tag/v0.1.7)**. Entries below describe each version at its release; later entries supersede changed behavior.
+
+## Documentation follow-up — 2026-09-15
+
+* Audited all Markdown against 0.1.7, corrected kit/spawn examples and current GUI labels, and clarified actor tags versus combat factions and scoreboard teams.
+* Replaced old architecture plans with the current service/ownership reference, documented public API boundaries and marked older runtime evidence as historical.
+* Updated permission, configuration, release and testing references. Documentation-only change; the published 0.1.7 JAR and its 138-test evidence remain unchanged.
+
 ## 0.1.7 — 2026-09-15
 
 * Repaired eye-origin facing and Citizens navigation setup. Social wandering uses short grounded paths around nearby players/NPCs and a fixed home fallback; looking continues while walking.
@@ -9,7 +17,7 @@
 * Fixed elytra replay rendering with a swimming animation by saving/applying actual gliding state, retaining it between replay frames and clearing it on stop. Legacy flight-pose frames remain readable.
 * Rebuilt actor navigation around four overview cards, added group/combat controls, `/actors` and `/kits`, and a home recording-session ON/OFF page. Old GUI layouts are backed up before schema-3 migration.
 * Added contextual syntax, expected values and examples for command errors. Documented new commands and every AI setting; added comments to existing configuration without replacing owner values/comments. Storage now retains nested comments during asynchronous saves.
-* Build-only validation and remaining live acceptance cases are recorded in TESTING.md. No Minecraft server was started for this release.
+* Validation: 138 unit tests, production/smoke compilation, additional Paper 1.21.11 compilation, documentation links and artifact inspection. Remaining live acceptance cases are recorded in [TESTING.md](TESTING.md). No Minecraft server was started for this release.
 
 ## 0.1.6 — 2026-09-14
 

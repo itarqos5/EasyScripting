@@ -4,11 +4,11 @@ This guide covers EasyScripting 0.1.7: setting up your cast, acting as an NPC, a
 
 ## 1. Install and open the studio
 
-1. Stop your Paper/Purpur server. The primary tested target is Paper 26.2 on Java 25; see [TESTING.md](TESTING.md) for other versions.
+1. Stop your Paper/Purpur server. Release 0.1.7 has build/API checks against Paper 1.21.8 and 1.21.11, not a new server test; see [TESTING.md](TESTING.md) for the version-specific evidence and use the Java version required by your server.
 2. Put `build/libs/EasyScripting-0.1.7.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
 3. For human NPCs and skins, also install a Citizens build compatible with your exact Minecraft version. Mob actors work without Citizens.
 4. Start the server. EasyScripting creates its YAML files under `plugins/EasyScripting/`.
-5. Join with operator access or the appropriate [permissions](PERMISSIONS.md), then run `/es`. Use `/es help` for commands you can access, and `/es status` to check loaded actors, scenes and active jobs.
+5. Join with operator access or the appropriate [permissions](PERMISSIONS.md), then run `/es`, `/actors` or `/kits`. Use `/es help` for commands you can access, and `/es status` to check loaded actors, scenes and active jobs.
 
 Simple Voice Chat is optional and only needed for voice mute/broadcast; participating clients need its voice mod. Movement recordings do not record microphone audio or video.
 
@@ -67,12 +67,12 @@ Mobs receive a random displayed name and keep their natural entity appearance. T
 
 Run `/actor gui guard_1`, or open `/es` → Actors → your actor. Choose a section:
 
-* **Appearance:** name, skin, random identity, costume kit, nametag visibility, glow and a PLAYER NPC tab-list switch.
+* **Identity & clothing:** name, skin, random identity, costume kit, nametag visibility, glow and a PLAYER NPC tab-list switch.
 * **Movement:** teleport, walk, hide, respawn and behavior settings.
-* **Acting & Playback:** act as the NPC, finish/cancel, browse saved recordings, select an end mode, toggle autoplay, play and stop.
-* **Combat:** Hittable and Immortal switches, plus Reset NPC spawn for living/hidden NPCs.
+* **Record & replay:** act as the NPC, finish/cancel, browse saved recordings, select an end mode, toggle autoplay, play and stop.
+* **Combat & supplies:** health, Hittable, Immortal, standalone Aggressive, kit/group controls, and Reset NPC spawn for living/hidden NPCs.
 
-Tabs across the top switch sections. Back returns to the actor overview, then the cast list; Home returns to the studio and Close exits. The overview shows the NPC ID, status and assigned recording. Selected modes and active switches glow. Unavailable actions explain what to do first. Appearance → Choose costume and Acting → Choose saved recording open pickers instead of asking you to remember an ID. Open a section directly with `/actor gui guard_1 acting` or `appearance`, `movement`, `combat`.
+The overview has four large section cards; there are no top-row section tabs. Back returns to the actor overview, then the cast list; Home returns to the studio and Close exits. The overview shows the NPC ID, status and assigned recording. Selected modes and active switches glow. Unavailable actions explain what to do first. Identity & clothing → Choose costume and Record & replay → Choose saved recording open pickers instead of asking you to remember an ID. Open a section directly with `/actor gui guard_1 acting` or `appearance`, `movement`, `combat`.
 
 The studio groups kits and item editing under **Wardrobe**, world/effects under **Stage tools**, teams/warps/villagers under **Organization**, and feature/permission controls under **Settings**. Empty libraries show a create button; hover over an entry to see its click actions. Deletion requires Shift-right click and confirmation. The kit editor keeps navigation and Save below the editable inventory.
 
@@ -108,7 +108,7 @@ Put the desired costume in your own inventory, armor and hands, then save a kit:
 /actor set guard_1 wander off
 ```
 
-`immortal` lets the NPC receive hits, hurt feedback and knockback but prevents death; new NPCs default to Immortal OFF. `hittable off` blocks direct melee attacks and sweeps only. Falls, projectiles (including wither skulls), explosions and other environmental damage remain enabled. `look` and `wander` enable ambient behavior; turn them off for a stationary shot. Actor settings also include collision, nametag visibility, pose, glow, sneak, sprint and group.
+`immortal` lets the NPC receive hits, hurt feedback and knockback but prevents death; new NPCs default to Immortal OFF. `hittable off` blocks direct melee attacks and sweeps only. Falls, projectiles (including wither skulls), explosions and other environmental damage remain enabled. `look` and `wander` enable ambient behavior; turn them off for a stationary shot. Actor settings also include collision, nametag visibility, pose, glow, sneak, sprint, group and standalone aggression. Looking also follows nearby players during walking even with idle Look OFF.
 
 To reposition the actor, stand at the destination and use `/actor here guard_1` for a teleport or `/actor move guard_1 1` for navigation. Hide it with `/actor hide guard_1` and return it with `/actor show guard_1`. Remove it with `/actor delete guard_1`.
 
@@ -122,17 +122,17 @@ For a crowd:
 /actor group crowd show
 ```
 
-Other patterns are `circle`, `grid` and `square`. The default server cap is 200 actors. IDs and group membership appear in `/actor list`; group commands accept a group name or `*` for all actors.
+Other patterns are `circle`, `grid` and `square`. The default server cap is 200 actors. The pattern names these actors `crowd_1` through `crowd_6` and gives them the `crowd` tag. `/actor list` lists IDs; `/actor info <id>` shows details. Bulk `/actor all` and `/actor group` commands accept a group tag or `*`. Register a combat faction with `/es group create crowd`; this is separate from `/es team` scoreboard teams. See [NPC groups](NPC-GROUPS.md).
 
 ### Act as an NPC and save its performance
 
-Open **Acting & Playback**, choose an end mode, then click **1 · Act as NPC**. A recording ID is generated automatically. To choose the ID yourself:
+Open **Record & replay**, choose an end mode, then click **1 · Act as NPC**. A recording ID is generated automatically. To choose the ID yourself:
 
 ```text
 /actor act guard_1 entrance_take
 ```
 
-You move to the NPC's position with its name, skin and costume. The NPC is temporarily removed so you can perform in its place. You use Survival mode while acting. Direct melee damage and its knockback are blocked, but falls, projectiles (including wither skulls), explosions, fire and other environmental damage affect you normally. Your prior invulnerability state is restored afterward. Lethal non-melee damage can end your performance; your original player state is queued for restoration after respawn. The NPC Immortal switch does not grant your acting player invulnerability. Walk, run, jump, turn, sneak, change your held items or armor, and swing your arms. Capture includes location/rotation, equipment, poses, main/off-hand swings, visual flames and supported boat movement. Saved hurt/flame cues are visual; real hits during playback are handled separately. It records **movements, equipment and animations**; block edits, damage to other entities, commands, chat and third-party abilities are not replayed.
+You move to the NPC's position with its name, skin and costume. The NPC is temporarily removed so you can perform in its place. You use Survival mode while acting. Direct melee damage and its knockback are blocked, but falls, projectiles (including wither skulls), explosions, fire and other environmental damage affect you normally. Your prior invulnerability state is restored afterward. Lethal non-melee damage can end your performance; your original player state is queued for restoration after respawn. The NPC Immortal switch does not grant your acting player invulnerability. Walk, run, jump, turn, sneak, change your held items or armor, and swing your arms. Capture includes location/rotation, equipment, poses, actual elytra gliding, main/off-hand swings, visual flames and supported boat movement. Saved hurt/flame cues are visual; real hits during playback are handled separately. It records **movements, equipment and animations**; block edits, damage to other entities, commands, chat and third-party abilities are not replayed.
 
 For a PLAYER NPC, let its skin finish loading before starting. Names outside Java's 1–16 character username format remain display/list labels while your underlying profile name stays unchanged. When acting for a mob, your character remains a player model wearing the mob's equipment; this is not a mob disguise.
 
@@ -158,11 +158,11 @@ Normal gravity and collisions resume when playback completes; finish on solid gr
 
 The recording, end mode and autoplay setting survive restarts. Autoplay also starts a visible, idle NPC on server startup, show or respawn, or when switched ON. A hidden, dead or busy NPC does not start; it does not queue behind an active scene. Explicit Stop turns Autoplay OFF, including across restart, until you enable it again. Manual Play still works. Switching autoplay OFF does not interrupt an existing replay; use Stop for that. `stop` still plays once; use `repeat` or `reverse` for continuous action. Old actor files without an autoplay field default to ON; set `/actor autoplay <id> off` to retain manual playback.
 
-Version 0.1.6 uses `/actor act`, `/actor finish` and `/actor play` for NPC performances. `/es record` now controls server recording-session mode with on/off; the old movement subcommands are removed.
+Use `/actor act`, `/actor finish` and `/actor play` for NPC performances. `/es record` now controls server recording-session mode with on/off; the old movement subcommands are removed.
 
 ### Allow hits and death
 
-Open **Combat**. **Hittable: ON** allows direct melee damage and knockback; **OFF** blocks melee and sweeps only. Both settings allow falls, projectiles, wither skulls, explosions and environmental damage under normal Minecraft rules. **Immortal: ON** prevents death while retaining ordinary hit feedback and knockback, including hits that would otherwise kill it. EasyScripting removes Citizens' extra spawn-immunity timer so a new NPC can receive its first hit; normal Minecraft combat cooldowns still apply. **Immortal defaults to OFF** for newly created NPCs, so they can die unless you enable it. Both switches can be changed during replay.
+Open **Combat & supplies**. **Hittable: ON** allows direct melee damage and knockback; **OFF** blocks melee and sweeps only. Both settings allow falls, projectiles, wither skulls, explosions and environmental damage under normal Minecraft rules. **Immortal: ON** prevents death while retaining ordinary hit feedback and knockback, including hits that would otherwise kill it. EasyScripting removes Citizens' extra spawn-immunity timer so a new NPC can receive its first hit; normal Minecraft combat cooldowns still apply. **Immortal defaults to OFF** for newly created NPCs, so they can die unless you enable it. Both switches can be changed during replay.
 
 When a replaying NPC is knocked back, the recorded timeline pauses for 12 ticks so normal physics can move it, then blends back to the route over 10 ticks. Hits do not get erased by the next recorded teleport. Further hits restart this recovery interval. Armor, attack cooldowns and other plugins still affect actual damage and knockback. `recording.yml` exposes both timings as integers from 1 to 100. Death ends the replay; it does not resurrect the NPC or drop copied equipment.
 
@@ -291,7 +291,7 @@ Templates are in `messages.yml`, including `fake-death`, `chat-muted` and `chat-
 
 ## 9. Create, edit and import kits
 
-Run `/es kits` or open Studio → Wardrobe → Kits. In 0.1.6, actual operators manage kits; other players see only kits they can claim. The [complete command guide](COMMANDS.md#kits) lists every kit command with examples.
+Run `/kits` or `/es kits`, or open Studio → Wardrobe → Kits. Actual operators manage kits; other players see only kits they can claim. The [complete command guide](COMMANDS.md#kits) lists every kit command with examples.
 
 1. Click **Create a new kit** and enter a unique ID such as `guard_costume`.
 2. Click the kit to open its controls. **Import my inventory** copies your current storage, hotbar, armor and offhand; replacing an existing kit requires confirmation. **Edit kit** opens the 41-slot editor.
@@ -351,6 +351,8 @@ All editable files are under `plugins/EasyScripting/`:
 | File | What you customize |
 | --- | --- |
 | `config.yml` | Limits, default actor type/behavior, explicit security switches |
+| `actor-ai.yml` | Social wandering, group navigation budgets, totem refill and combat reaction chances/timings |
+| `command-help.yml` | Plain-language syntax, descriptions and examples shown after command mistakes |
 | `npc-identities.yml` | Automatic random NPC names and skin accounts |
 | `features.yml` | Enable/disable feature groups |
 | `guis.yml` | Inventory titles, icons, slots, labels, lore and workflow buttons |
@@ -361,7 +363,7 @@ All editable files are under `plugins/EasyScripting/`:
 | `moderation.yml`, `death.yml` | Join/chat/world rules and death behavior |
 | `items.yml`, `potions.yml`, `effects.yml` | Item pools, potion presets and effect settings |
 
-After editing settings, run `/es reload`. Invalid settings produce an error and leave the previous active configuration in use. Missing top-level files are supplied automatically. The documented GUI and new-actor-default migrations create backups; individual actors and custom schema-3 GUI values are preserved after the one-time layout upgrade. Actor and scene YAML definitions edited by hand load on a full restart, not `/es reload`.
+After editing settings, run `/es reload`. Invalid settings produce an error and leave the previous active configuration in use. Missing top-level files are supplied automatically. The documented GUI and new-actor-default migrations create backups; individual actors and custom schema-3 GUI values are preserved after the one-time layout upgrade. Actor/group/scene/kit/recording definitions edited by hand load on a full restart, not `/es reload`. Stop before editing saved definitions. Existing custom comments are retained; shipped explanations are added where comments are missing.
 
 For example, change the randomize button by editing the existing keys under `dynamic` in `guis.yml`:
 
@@ -380,7 +382,7 @@ dynamic:
       lore: ['<gray>Show the ID, name and skin account.']
 ```
 
-Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. The randomize control is on Appearance; the identity summary is on Overview. Version 0.1.7 replaces schema-1/2 GUI layouts after validation and saves the original as `guis-before-v3-<UUID>.yml` in the plugin folder. Reapply custom labels to the new layout; do not merge the old slot arrangement into it. Schema-3 customizations are preserved on reload.
+Merge this into the existing `dynamic` section; do not create duplicate top-level keys or remove the other controls. Slots are zero-based. Keep buttons on the same screen in different slots. The randomize control is on Identity & clothing; the identity summary is on Overview. Version 0.1.7 replaces schema-1/2 GUI layouts after validation and saves the original as `guis-before-v3-<UUID>.yml` in the plugin folder. Reapply custom labels to the new layout; do not merge the old slot arrangement into it. Schema-3 customizations are preserved on reload.
 
 Custom buttons execute as the clicking player and obey the same permissions as commands. Opening a menu does not grant control over another player. See [PERMISSIONS.md](PERMISSIONS.md) before granting staff access and [CONFIGURATION.md](CONFIGURATION.md) for complete YAML rules.
 
@@ -411,6 +413,9 @@ Player `/es player halfheart` now lets a held totem pop normally and keeps prote
 | Randomization reports no names available | Expand the prefix/suffix pools, remove unused actors, or review the identity blacklist |
 | NPC edit reports the actor is in use | Name/skin/mode edits work during replay; stop the owning scene or finish acting for operations still held by a take |
 | Scene commands reject an action | Check its permission, target, arguments and feature switch; command/destructive actions have extra gates |
+| NPC does not wander | Check Wander, the Actors feature, group orders, active scene/replay ownership and a walkable nearby route; an assigned faction follows its orders instead |
+| An old elytra take looks like swimming | Old FALL_FLYING frames are supported; re-record a take that saved only SWIMMING because its flight state cannot be recovered reliably |
+| A kit-save example fails | Use `/es kit save <id>` to capture inventory; `/kits` opens the GUI, and `/kits claim <id>` equips a kit |
 | A GUI edit does not appear | Run `/es reload` and reopen it; check errors for invalid slots or YAML |
 | Changes disappear after a crash | Use a graceful server stop to drain queued saves; active in-memory takes are not crash recovery backups |
 
