@@ -1,10 +1,10 @@
 # Permissions
 
-Permission reference for **EasyScripting 0.1.7**, checked against `plugin.yml`, command registration and the live access policies.
+Permission reference for **EasyScripting 0.1.8**, checked against `plugin.yml`, command registration and the live access policies.
 
 Acting as an NPC and playing its selected recording require both `easyscripting.actor` and `easyscripting.record`. Finish/cancel restore the current performer's own session. Actor GUI sections and Hittable/Immortal toggles use `easyscripting.actor`; all buttons still dispatch permission-checked commands.
 
-Every command requires `easyscripting.use`. Permission checks apply to GUI actions too. Most production nodes default to operators. Kit management/gifting and sending blocked public chat check actual current operator status; granting a permission node cannot bypass these operator rules.
+Every command requires `easyscripting.use`. Permission checks apply to GUI actions too. Most production nodes default to operators. Kit/group management, mass equipped actor creation, bound-tool issue/use, kit gifting and sending blocked public chat check actual current operator status; granting a permission node cannot bypass these operator rules.
 
 | Node | Default | Capability |
 | --- | --- | --- |
@@ -16,7 +16,7 @@ Every command requires `easyscripting.use`. Permission checks apply to GUI actio
 | `easyscripting.record` | op | NPC capture/play/stop/autoplay/take selection and server recording sessions; player take snapshots |
 | `easyscripting.player` | op | Change own player state |
 | `easyscripting.player.others` | op | Change other players |
-| `easyscripting.identity` | op | Set temporary names and skins; use /nickname |
+| `easyscripting.identity` | op | Set temporary names and skins; use `/nickname`; browse/search/release `/deadusers` entries |
 | `easyscripting.kit` | true | Compatibility node; browsing is public and each kit's access policy controls self-claims |
 | `easyscripting.kit.edit` | op | Compatibility node; management, access changes, importing and gifting require actual operator status |
 | `easyscripting.warp` | op | Use permitted warps and spawn |
@@ -50,9 +50,9 @@ Every command requires `easyscripting.use`. Permission checks apply to GUI actio
 
 ## NPC group access
 
-`/es group` requires `easyscripting.use`. Operators create/delete groups, manage membership, assign leaders and change intelligence. A group's assigned real-player leader may view its GUI and issue follow/hold/stop/move/attack/fight orders. Other players cannot order it. One real player leads at most one group. `/actors` opens the actor library and `/kits` the kit library; their controls retain their existing checks.
+`/es group` requires `easyscripting.use`. Current operators create/delete groups, manage membership, assign leaders, change Intelligence, set shared Immortal/kit values, randomize all identities and issue/use bound group actor tools. `/actor pattern` also hard-checks operator status because every created member receives a kit. A group's assigned real-player leader may view its GUI and issue follow/hold/stop/move/attack/fight orders. Other players cannot order it. One real player leads at most one group. `/actors` opens the actor library and `/kits` the kit library; their controls retain their existing checks.
 
-Legacy actor editing/bulk commands remain staff tools under `easyscripting.actor`, including actor group tags. Do not grant actor administration to ordinary group leaders. No new group wildcard or privilege bypass is installed.
+Legacy actor editing/bulk commands remain staff tools under `easyscripting.actor`, including actor group tags. Do not grant actor administration to ordinary group leaders. A tool copied from an operator does not grant its holder use rights: the click checks current operator status again. No new group wildcard or privilege bypass is installed.
 
 ## Additional checks
 
@@ -81,7 +81,7 @@ Changing only an NPC playback mode requires `actor`; selecting a take also requi
 
 Autoplay configuration requires both `easyscripting.actor` and `easyscripting.record`, like manual NPC playback. Runtime autoplay follows the saved actor configuration and feature switches; it does not execute commands or use a logged-out director's permissions. Hittable/Immortal changes require `easyscripting.actor` and are allowed during replay.
 
-`/nickname` requires `identity`; targeting another real player or `/nickname off` additionally requires `player.others`. Resets remain available when the identity feature is disabled. Nicknames cannot target Citizens NPCs.
+`/nickname` requires `identity`; targeting another real player or `/nickname off` additionally requires `player.others`. Resets remain available when the identity feature is disabled. Nicknames cannot target Citizens NPCs. `/deadusers` list/search/remove also uses `identity`; that permission defaults to operators but may be changed through the ordinary editable identity access rule. No separate dead-users permission exists.
 
 ## Kit access
 

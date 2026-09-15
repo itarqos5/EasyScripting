@@ -1,11 +1,11 @@
 # EasyScripting user guide
 
-This guide covers EasyScripting 0.1.7: setting up your cast, acting as an NPC, autoplay, customizing identities, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
+This guide covers EasyScripting 0.1.8: setting up your cast, acting as an NPC, autoplay, public identities, managed groups, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
 
 ## 1. Install and open the studio
 
-1. Stop your Paper/Purpur server. Release 0.1.7 has build/API checks against Paper 1.21.8 and 1.21.11, not a new server test; see [TESTING.md](TESTING.md) for the version-specific evidence and use the Java version required by your server.
-2. Put `build/libs/EasyScripting-0.1.7.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
+1. Stop your Paper/Purpur server. Release 0.1.8 has build/API checks against Paper 1.21.8 and 1.21.11, not a new server test; see [TESTING.md](TESTING.md) for the version-specific evidence and use the Java version required by your server.
+2. Put `build/libs/EasyScripting-0.1.8.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
 3. For human NPCs and skins, also install a Citizens build compatible with your exact Minecraft version. Mob actors work without Citizens.
 4. Start the server. EasyScripting creates its YAML files under `plugins/EasyScripting/`.
 5. Join with operator access or the appropriate [permissions](PERMISSIONS.md), then run `/es`, `/actors` or `/kits`. Use `/es help` for commands you can access, and `/es status` to check loaded actors, scenes and active jobs.
@@ -21,14 +21,14 @@ Stand where you want the NPC and run:
 /actor info guard_1
 ```
 
-The default type is `PLAYER`. Creation automatically chooses a random username and a random skin account from `npc-identities.yml`. For example, the result might have ID `guard_1`, displayed username `RiverFox`, and the skin of `jeb_`. This is an example, not a fixed result. **Do nothing else to keep that appearance.**
+The default type is `PLAYER`. Creation automatically chooses an unused public-provider username and a skin-owner account, with a local fallback from `npc-identities.yml`. For example, the result might have ID `guard_1`, displayed username `river_7`, and the skin of `jeb_`. This is an example, not a fixed result. **Do nothing else to keep that appearance.**
 
 These three values are independent:
 
 | Value | What it controls | Example |
 | --- | --- | --- |
 | Actor ID | Permanent reference used by commands, scene bindings and recordings | `guard_1` |
-| Username/name | The NPC's displayed name | `RiverFox` |
+| Username/name | The NPC's displayed name | `river_7` |
 | Skin owner | Java account whose skin supplies the NPC texture | `jeb_` |
 
 Continue using `guard_1` in commands even after renaming the NPC. IDs use lowercase letters, numbers, `_` or `-`, start with a letter/number and contain at most 48 characters.
@@ -49,11 +49,11 @@ To choose another random name and skin together:
 /actor randomize guard_1
 ```
 
-Name, skin and random identity can be changed while a recorded performance is playing, including continuous autoplay. Citizens may briefly refresh the entity; the replay continues with the current recording and mode. Randomization keeps the actor ID, position, equipment and behavior settings. It excludes names already used by actors or online player account names, as well as blacklisted names. It chooses a different skin owner when another allowed owner is available. Different actors can share a skin; there are more generated names than default skin choices.
+Name, skin and random identity can be changed while a recorded performance is playing, including continuous autoplay. Citizens may briefly refresh the entity; the replay continues with the current recording and mode. Randomization keeps the actor ID, position, equipment and behavior settings. Generated usernames are 5–16 characters, have at least one letter plus at least one digit or underscore, and are unique without regard to case. EasyScripting excludes current actors/nicknames, the blacklist, retired Dead Users, every real account known to have joined the server, and current operators. It chooses a different skin owner when another allowed owner is available. Different actors can share a skin.
 
 The chosen name and skin owner are saved immediately. Skin lookup can take several seconds and needs access to Minecraft's profile services. Once Citizens resolves the skin, EasyScripting also saves its signed texture so subsequent spawns can retain that appearance. Hide/show, respawn and restart do not reroll identities. To deliberately refresh an account's skin later, run `/actor set guard_1 skin <account>` again.
 
-Existing actors keep their previous identity when you upgrade. `/actor copy guard_1 guard_2` copies the current appearance; it does not randomize the copy. Use `/actor randomize guard_2` afterward if you want a different identity. New actors created by `/actor pattern` each receive a generated identity.
+Existing actors keep their previous identity when you upgrade. `/actor copy guard_1 guard_2` copies the actor's settings and equipment, then chooses a fresh generated name and skin when automatic identities are enabled. With automatic identities disabled, the copy's displayed name is its new actor ID. New actors created by `/actor pattern` each receive a generated identity.
 
 Without Citizens, specify a mob:
 
@@ -78,23 +78,28 @@ The studio groups kits and item editing under **Wardrobe**, world/effects under 
 
 Input buttons close the inventory and ask for text in chat. Enter the requested value without repeating the command. Type `cancel` to return without changes; input expires after 60 seconds. After a response, the originating page reopens. The selected actor stays identified by its ID.
 
-### Configure the random name and skin pools
+### Configure generated names and skins
 
-Edit `plugins/EasyScripting/npc-identities.yml`, then run `/es reload`. The bundled file has 24 prefixes × 48 suffixes, giving 1,152 possible names, and six skin accounts. The generator avoids the last eight selected endings whenever another allowed ending is available, so consecutive choices vary beyond just the prefix. Your existing custom pool is preserved on upgrade; expand its suffix list if it only contains one ending. Here is a smaller example for a small cast:
+Edit `plugins/EasyScripting/npc-identities.yml`, then run `/es reload`. By default, EasyScripting asynchronously requests Random User v1.4 usernames and Craftdex Minecraft profile names for skins, caches bounded results, and refreshes them every 30 minutes or when the username pool is low. Creation does not wait for a network response; it uses the readable local pool when public data is unavailable. No Minecraft player identity or client address is placed in a request; the providers still see the server's ordinary network connection.
+
+Here is a smaller fallback example for a small cast:
 
 ```yaml
 schema: 1
 enabled: true
+api-enabled: true
+api-timeout-millis: 4000
+api-refresh-minutes: 30
 name-prefixes: [Amber, River, Silver, Winter]
 name-suffixes: [Fox, Hawk, Otter, Wolf]
 skin-owners: [Notch, jeb_, Dinnerbone, Grumm, MHF_Steve, MHF_Alex]
 ```
 
-A name combines one prefix and one suffix, such as `SilverOtter`. Each list must contain 1–64 unique entries, compared without case. Entries use letters, numbers or underscores; every combined name must fit within 16 characters. Configure enough combinations for your cast: this example has only 16 names. Exhaustion produces an error and leaves existing actors intact.
+A fallback name combines one prefix and suffix with a numeric or underscore-bearing suffix, then lowercases the result, such as `silverfox7` or `river_wolf`. This avoids the old CapitalCapital pattern. Each list must contain 1–64 unique entries, compared without case. Entries use letters, numbers or underscores; the prefix/suffix portion must leave room for the generated suffix so the result stays within 16 characters. Exhaustion produces an error and leaves existing actors intact.
 
 Replace `skin-owners` with real Java account names whose skins you want in your cast. The displayed username is generated separately; it does not need to belong to a real account. Blacklisted skin owners are excluded. If every owner is blocked, creating or randomizing a PLAYER actor reports an error.
 
-Set `enabled: false` to stop automatically assigning identities on creation. New actors then start with their ID as the name. Explicit `/actor randomize <id>` still uses the configured pools. Reloading the file never changes existing actors by itself.
+Set `api-enabled: false` to skip both public pools and use only local fallback values. Set `enabled: false` to stop automatically assigning identities on creation. New actors then start with their ID as the name. Explicit `/actor randomize <id>` still uses the configured pools. Reloading forces a public refresh but never changes an existing actor by itself.
 
 ## 3. Dress and direct the cast
 
@@ -112,17 +117,17 @@ Put the desired costume in your own inventory, armor and hands, then save a kit:
 
 To reposition the actor, stand at the destination and use `/actor here guard_1` for a teleport or `/actor move guard_1 1` for navigation. Hide it with `/actor hide guard_1` and return it with `/actor show guard_1`. Remove it with `/actor delete guard_1`.
 
-For a crowd:
+For an equipped crowd, first create the managed group and use an existing saved kit:
 
 ```text
-/actor pattern crowd line 6 2 PLAYER
-/actor all crowd immortal on
-/actor group crowd kit guard_costume
+/es group create crowd
+/actor pattern crowd square behind 6 guard_costume 2 PLAYER
+/es group immortal crowd on
 /actor group crowd hide
 /actor group crowd show
 ```
 
-Other patterns are `circle`, `grid` and `square`. The default server cap is 200 actors. The pattern names these actors `crowd_1` through `crowd_6` and gives them the `crowd` tag. `/actor list` lists IDs; `/actor info <id>` shows details. Bulk `/actor all` and `/actor group` commands accept a group tag or `*`. Register a combat faction with `/es group create crowd`; this is separate from `/es team` scoreboard teams. See [NPC groups](NPC-GROUPS.md).
+Other patterns are `line`, `circle`, filled `disc` and `grid`; every pattern requires `front` or `behind`, a managed group and a kit. The assigned online leader anchors the pattern, otherwise the creator does. Every X/Z position is moved to its highest safe standing surface, so actors do not copy the creator's Y into a hill or block. The default server cap is 200 actors. The example names them `crowd_1` through `crowd_6` and gives them the `crowd` tag and kit. `/actor list` lists IDs; `/actor info <id>` shows details. Bulk `/actor all` and `/actor group` commands accept a group tag or `*`. Combat groups remain separate from `/es team` scoreboard teams. See [NPC groups](NPC-GROUPS.md).
 
 ### Act as an NPC and save its performance
 
@@ -171,7 +176,7 @@ When a replaying NPC is knocked back, the recorded timeline pauses for 12 ticks 
 /actor set guard_1 immortal off
 ```
 
-When an NPC dies, everyone sees a yellow `<NPC name> left the game` message. It is removed from the actor list and its saved definition is deleted from active storage. The message can be changed in `messages.yml` (`actor-left`) or disabled with `actors.announce-death-leave: false`. Playback stops; show, respawn, autoplay, scene reset and server restart cannot bring it back. This includes scripted NPC death actions. Its selected take is also removed unless another NPC still references it; shared takes are removed with their last NPC. Hiding an NPC does not delete its take. Deleted YAML uses the existing `trash/` retention mechanism, without automatic recovery. To use the same ID again, create a new actor with `/actor create guard_1`. **Reset NPC spawn** / `/actor respawn` only recreates an existing living or hidden NPC. Deaths drop no copied equipment or experience.
+When an NPC dies, everyone sees a yellow `<NPC name> left the game` message. It is removed from the actor list, its saved definition is deleted from active storage and its displayed username is added to `state/dead-users.yml`. The message can be changed in `messages.yml` (`actor-left`) or disabled with `actors.announce-death-leave: false`. Playback stops; show, respawn, autoplay, scene reset and server restart cannot bring it back. This includes scripted NPC death actions. Its selected take is also removed unless another NPC still references it; shared takes are removed with their last NPC. Hiding an NPC does not delete its take. Deleted YAML uses the existing `trash/` retention mechanism, without automatic recovery. To use the same ID again, create a new actor with `/actor create guard_1`; the retired displayed username cannot be generated again until released through `/deadusers`. **Reset NPC spawn** / `/actor respawn` only recreates an existing living or hidden NPC. Deaths drop no copied equipment or experience. Manual `/actor delete` and `/es group delete` do not retire names.
 
 ## 4. Build and play your first scene
 
@@ -259,17 +264,19 @@ To restore a physical set, select corners with `/es region pos1` and `/es region
 ```text
 /nickname Alex
 /nickname Alex off
-/nickname SilverOtter off
+/nickname river_7 off
 /nickname off
 ```
 
-The first command assigns Alex a random readable username from the [Random User API](https://randomuser.me/documentation). The next two examples reset one player using their real account name or current nickname; the last resets every current nickname and cancels pending requests. `/es nickname` is the namespaced equivalent. Targets must be online real players; NPCs are excluded. The command uses `easyscripting.identity`, plus `easyscripting.player.others` when targeting another player or resetting everyone.
+The first command assigns Alex a generated username from the [Random User API](https://randomuser.me/documentation). It must be 5–16 characters with at least one letter plus at least one digit or underscore, and must pass the same actor/dead/blacklist/known-real-account checks as an NPC identity. The next two examples reset one player using their real account name or current nickname; the last resets every current nickname and cancels pending requests. `/es nickname` is the namespaced equivalent. Targets must be online real players; NPCs are excluded. The command uses `easyscripting.identity`, plus `easyscripting.player.others` when targeting another player or resetting everyone.
 
-The nickname appears in the tab list, overhead nametag, normal display-name chat, victim/killer death messages and the leave message. It preserves the current skin. On disconnect the nickname expires; the next join uses the real username. Nicknames are unique without regard to case and cannot take another online player's real name or nickname. The API path also excludes NPC names and the configured identity blacklist. Reset/quit/shutdown invalidate unfinished lookups.
+The nickname appears in the tab list, overhead nametag, normal display-name chat, victim/killer death messages and the leave message. It preserves the current skin. On disconnect the nickname expires; the next join uses the real username. If the player dies while nicknamed, the displayed alias is retired and their real identity is restored one tick later. Reset/quit/shutdown invalidate unfinished lookups.
 
 Your own tab and display-name chat can show the nickname too. A vanilla server cannot replace the account name authenticated by your launcher, so client mods, account screens or third-party plugins that deliberately show account names may still use the real one. No client mod, ProtocolLib or PacketEvents is required for this feature. Other plugins can override chat/scoreboard formatting; EasyScripting preserves suppressed messages.
 
-Configure API enablement, timeout and local fallback in `nicknames.yml`. Failed/unavailable lookups use the varied `npc-identities.yml` name pool by default. No player username, UUID or IP address is placed in the API request; the external service receives the server's normal network connection. For a chosen name instead, use `/es nick set RiverScout`; `/es nick reset` restores your identity. All nicknames are temporary for the connection.
+Configure API enablement, timeout and local fallback in `nicknames.yml`. Failed/unavailable lookups use the varied `npc-identities.yml` fallback pool by default. No player username, UUID or IP address is placed in the API request; the external service receives the server's normal network connection. For a chosen name instead, use `/es nick set RiverScout`; `/es nick reset` restores your identity. All nicknames are temporary for the connection.
+
+Open `/deadusers` to browse retired aliases and NPC names. The GUI shows 21 entries per page and keeps a partial-name search active while paging. Shift-right-click a head to release that name, or run `/deadusers remove <username>`. Releasing makes it eligible for future generation; it does not restore a deleted NPC. Access uses `easyscripting.identity`, which defaults to operators and can be changed through the normal feature permission override.
 
 ## 8. Control production chat
 
@@ -351,9 +358,9 @@ All editable files are under `plugins/EasyScripting/`:
 | File | What you customize |
 | --- | --- |
 | `config.yml` | Limits, default actor type/behavior, explicit security switches |
-| `actor-ai.yml` | Social wandering, group navigation budgets, totem refill and combat reaction chances/timings |
+| `actor-ai.yml` | Social wandering, stable group following/catch-up, navigation budgets, totem refill and combat reaction chances/timings |
 | `command-help.yml` | Plain-language syntax, descriptions and examples shown after command mistakes |
-| `npc-identities.yml` | Automatic random NPC names and skin accounts |
+| `npc-identities.yml` | Public identity providers/cache timing plus automatic and fallback NPC names/skin accounts |
 | `features.yml` | Enable/disable feature groups |
 | `guis.yml` | Inventory titles, icons, slots, labels, lore and workflow buttons |
 | `messages.yml` | Feedback text and optional command sounds |
@@ -361,7 +368,7 @@ All editable files are under `plugins/EasyScripting/`:
 | `nicknames.yml`, `kits.yml` | Username API/fallback and installed kit import providers |
 | `recording.yml` | Production-session behavior and replay knockback/recovery timing |
 | `moderation.yml`, `death.yml` | Join/chat/world rules and death behavior |
-| `items.yml`, `potions.yml`, `effects.yml` | Item pools, potion presets and effect settings |
+| `items.yml`, `potions.yml`, `effects.yml` | Item pools/group actor tool, potion presets and effect settings |
 
 After editing settings, run `/es reload`. Invalid settings produce an error and leave the previous active configuration in use. Missing top-level files are supplied automatically. The documented GUI and new-actor-default migrations create backups; individual actors and custom schema-3 GUI values are preserved after the one-time layout upgrade. Actor/group/scene/kit/recording definitions edited by hand load on a full restart, not `/es reload`. Stop before editing saved definitions. Existing custom comments are retained; shipped explanations are added where comments are missing.
 
@@ -396,7 +403,7 @@ Edit `broadcast`, `broadcast-title`, `broadcast-subtitle`, `chat-muted` and `cha
 
 Open `/actors` for the NPC library and `/kits` for kits. An NPC overview has four cards: **Identity & clothing**, **Movement**, **Record & replay**, and **Combat & supplies**. Back returns to the overview. Studio home has **Record session**, with explicit ON/OFF buttons for the MOTD/join lock; saved NPC takes stay in Record & replay.
 
-For a faction, start with `/es group create red`, `/es group add red guard_1`, then `/es group leader red Alex`. Alex can order their group; operators manage membership and intelligence. Each NPC keeps individual equipment and health. See the [step-by-step NPC group and combat guide](NPC-GROUPS.md) for 100-member formations, targeting, real supplies and limits.
+For a faction, start with `/es group create red`, `/es group add red guard_1`, then `/es group leader red Alex`. Alex can order their group; operators manage membership, Intelligence, shared Immortal/kit settings and identities. The compact trailing formation follows the leader with normal paths and a sprint-like catch-up pace only when far behind. Each NPC keeps individual equipment and health. The leader can hit their own actors; member actors cannot hit their leader or one another. See the [step-by-step NPC group and combat guide](NPC-GROUPS.md) for mass grounded formations, bound tools, targeting, real supplies and limits.
 
 NPCs automatically offhand carried totems and refill after a pop (default one tick, about 50 ms). Aggressive/intelligent NPCs can use carried beneficial splash potions, imperfect melee timing, jumps and delayed shields against overhead maces. These reactions yield during scenes and performances. Configure every timing/chance in the commented `actor-ai.yml`.
 
@@ -410,7 +417,10 @@ Player `/es player halfheart` now lets a held totem pop normally and keeps prote
 | NPC initially has a default skin | Allow several seconds for profile lookup; check the skin account spelling, outbound connectivity and Citizens log messages |
 | A skin account changed its skin but the NPC did not | Cached appearances are intentional; repeat `/actor set <id> skin <account>` to refresh |
 | Renamed NPC cannot be found in a command | Use its original ID, shown by `/actor list` and `/actor info <id>` |
-| Randomization reports no names available | Expand the prefix/suffix pools, remove unused actors, or review the identity blacklist |
+| Randomization reports no names available | Check public-provider connectivity, expand fallback pools, release an intended name through `/deadusers`, or review the blacklist/known-real-name exclusions |
+| A pattern says a group or kit is missing | Create `/es group create <id>` and save/import the named kit first; every mass-created actor must have a kit |
+| A bound group tool no longer works | The saved group or kit may have been deleted, the target column may be unsafe/unloaded, or the holder may no longer be an operator |
+| Followers cross, circle or lag behind | Confirm the group is on Follow, leader is available, terrain is pathable and `actor-ai.yml` follow/path-budget values are valid; this release never teleports lagging members |
 | NPC edit reports the actor is in use | Name/skin/mode edits work during replay; stop the owning scene or finish acting for operations still held by a take |
 | Scene commands reject an action | Check its permission, target, arguments and feature switch; command/destructive actions have extra gates |
 | NPC does not wander | Check Wander, the Actors feature, group orders, active scene/replay ownership and a walkable nearby route; an assigned faction follows its orders instead |

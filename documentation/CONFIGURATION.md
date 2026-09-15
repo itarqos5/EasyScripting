@@ -1,6 +1,6 @@
 # Configuration and storage
 
-Current schema/reference: **EasyScripting 0.1.7**. See [the shipped YAML files](../src/main/resources/) for the authoritative defaults and inline explanations.
+Current schema/reference: **EasyScripting 0.1.8**. See [the shipped YAML files](../src/main/resources/) for the authoritative defaults and inline explanations.
 
 Files are generated under `plugins/EasyScripting/`. Keep your existing files when updating. Missing top-level files are copied from the JAR. Existing values are preserved except for the documented, backed-up GUI/default migrations below; exact old shipped message/help text is updated in memory. Reload uses `/es reload`; definitions edited outside the plugin load during a server restart. Invalid YAML is preserved and its path is logged. Shipped explanations are added to uncommented existing keys on reload; configured values and your own comments stay intact. The asynchronous YAML writer preserves headers, nested comments and inline comments.
 
@@ -8,10 +8,10 @@ Files are generated under `plugins/EasyScripting/`. Keep your existing files whe
 
 | File | Settings |
 | --- | --- |
-| actor-ai.yml | Commented and validated movement, social wandering, group budgets, totem refill and combat reaction settings |
+| actor-ai.yml | Commented and validated movement, social wandering, stable following/catch-up, group budgets, totem refill and combat reaction settings |
 | command-help.yml | Command syntax, simple descriptions and examples used for contextual error feedback |
 | config.yml | Limits, security gates, actor backend/defaults, optional item autoclear |
-| npc-identities.yml | Automatic NPC identities, username prefixes/suffixes and Java account skin pool |
+| npc-identities.yml | Public-provider/cache timing, automatic NPC identities, local username fragments and fallback Java account skin pool |
 | nicknames.yml | Username API enablement, timeout and local fallback; connection-only nicknames preserve skins |
 | kits.yml | Enabled kit import providers and maximum provider list size |
 | features.yml | Boolean feature groups: actors, scenes, recording, players, identity, kits, warps, items, inventory, locks, death, chat, world, regions, teams, villagers, effects, voice |
@@ -20,7 +20,7 @@ Files are generated under `plugins/EasyScripting/`. Keep your existing files whe
 | permissions.yml | Feature access overrides; see PERMISSIONS.md |
 | moderation.yml | Join lock, whitelist, locked worlds, dimension whitelists, blocked commands/phrases, signs and global build/break/PvP |
 | recording.yml | Session chat policy, MOTD, optional voice mute and replay knockback/recovery timing |
-| items.yml | Head display name, random-fill material pool |
+| items.yml | Head display name, random-fill material pool, and persistent bound group actor tool appearance/type/cooldown |
 | potions.yml | Named presets; each effect has ticks and amplifier |
 | effects.yml | Projectile count/lifetime, orbital height, railgun range/damage, wolf limit and bossbar appearance |
 | death.yml | Default mode, radius, spectator permission, kick message and keep-inventory-respects-vanishing |
@@ -64,13 +64,21 @@ pvp: true
 
 Names are compared without case for whitelists. Chat/sign filtering uses literal, case-insensitive substrings, not regex. Command blocking normalizes the command root and namespace; it is not a replacement for a server permission system. `/es chat block [on|off]` uses the current operator status on each message. The stored `chat-muted` boolean retains its original internal key. `easyscripting.chat.bypass` only affects recording-session suppression, not public blocking.
 
-### Random NPC identities
+### Generated identities and public providers
 
-`npc-identities.yml` uses `schema: 1`, a boolean `enabled`, and three lists: `name-prefixes`, `name-suffixes`, `skin-owners`. Each list must have 1..64 unique entries (case-insensitive), using only letters, digits and underscores. Combined prefix/suffix usernames must be at most 16 characters. Skin owners must be real Java account names, at most 16 characters; actual profile availability is resolved by Citizens after creation. The bundled 24 × 48 name pool provides 1,152 choices and six skin accounts. The generator prefers endings not used in its last eight selections. If a custom pool has no alternative ending, it falls back to any unused allowed name. Existing pool files are preserved; add the new suffixes yourself if desired.
+`npc-identities.yml` uses `schema: 1`, `enabled`, `api-enabled`, `api-timeout-millis` (500–10000), `api-refresh-minutes` (1–1440), and three fallback lists: `name-prefixes`, `name-suffixes`, `skin-owners`. Each list must have 1..64 unique entries (case-insensitive), using only letters, digits and underscores. A fallback prefix plus suffix must leave room for the generated digit/underscore suffix. Skin owners must be real Java account names, at most 16 characters; actual profile availability is resolved by Citizens after creation.
 
-With `enabled: true`, new actors get a random displayed name; PLAYER actors also get a random skin owner. Generated names exclude existing actor names, online player account names, the requested actor ID and the identity blacklist. Skin accounts also respect the blacklist. Skin owners may repeat across actors. Pool exhaustion is a bounded error. `/actor randomize <id>` selects another name and, where possible, another skin owner even if automatic creation is disabled.
+With `api-enabled: true`, a two-thread bounded client requests up to 256 Random User usernames (262,144-byte response limit) and a rotating set of Craftdex Minecraft profile names for skins (131,072-byte response limit). Calls use configured connect/read timeouts, run off the server thread and populate caches of at most 512 usernames and 128 skin owners. The cache refreshes after `api-refresh-minutes` or sooner when its username pool falls below 64. A provider failure does not block actor creation; local prefix/suffix candidates and the configured fallback skin owners remain available. No Minecraft player identity or client address is placed in a provider request; the providers still see the server's ordinary network connection.
 
-The chosen identity belongs to the actor definition; reloading settings or restarting does not reroll it. Existing actors and copies keep their appearance. New pattern members are randomized. Once Citizens resolves a skin, its signed texture is cached in the actor file. `/actor set <id> skin <account>` clears the previous cache and requests a refresh without changing the displayed name. See [the user guide](USERGUIDE.md#configure-the-random-name-and-skin-pools) for a complete example.
+Every automatically generated actor or `/nickname` username must be 5–16 Minecraft username characters, include at least one letter, and include at least one digit or underscore. Selection is case-insensitive and excludes current actor/nickname names, the identity blacklist, every real account known to have joined the server, current operators, and every entry in `state/dead-users.yml`. The requested actor ID is also excluded. Local fallback output is lower-case and always carries the required digit or underscore instead of using the old CapitalCapital fragment pattern. Skin accounts respect the blacklist but may repeat across actors. Pool exhaustion is a bounded error. `/actor randomize <id>` selects another name and, where possible, another skin owner even if automatic creation is disabled.
+
+The chosen identity belongs to the actor definition; reloading settings or restarting does not reroll it. Existing saved actors keep their appearance. New copies, pattern members and tool members receive fresh generated identities when automatic identities are enabled; a copy uses its new actor ID as its name when they are disabled. Once Citizens resolves a skin, its signed texture is cached in the actor file. `/actor set <id> skin <account>` clears the previous cache and requests a refresh without changing the displayed name. A natural actor or nicknamed-player death retires the generated display name; manual actor/group deletion does not. See [the user guide](USERGUIDE.md#configure-generated-names-and-skins) for a complete example.
+
+### Bound group actor tool
+
+`items.yml → group-actor-tool` defines the tool's Bukkit `material`, default living `actor-type`, `cooldown-ticks` (1–100), MiniMessage `name` and MiniMessage `lore` (up to 20 lines). The name/lore accept `{group}`, `{kit}` and `{type}`. Issued items also store those values in persistent item data, so copies and restarts retain their binding. Deleting the referenced group or kit makes the stale tool fail safely.
+
+Only current operators may issue or use this tool. A main-hand right-click on a block creates one actor in the bound group with the bound kit, using the clicked X/Z column's highest motion-blocking safe surface and three clear standing blocks. IDs use `<group>-actor-<number>` and a monotonic counter stored in the group definition; copying a tool does not duplicate the counter.
 
 ## Broadcast titles and chat announcements
 
@@ -100,11 +108,13 @@ Titles accept `{name}` and `{page}`. `entries.<menu>` configures create labels, 
 
 Changing a YAML button cannot grant permissions or cause it to execute as console. Chat input is bound to the initiating player's UUID, expires in 60 seconds and is never treated as an arbitrary root command.
 
-Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. The overview uses four `dynamic.controls.actor-section-*` cards with Back/Home navigation. The old top-row tabs are removed. Acting controls include `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording`, `actor-autoplay` and `actor-mode-stop/repeat/reverse`. Identity & clothing includes `actor-tablist`; internal keys still use `actor-appearance`. Combat controls are `actor-health`, `actor-hittable`, `actor-immortal`, `actor-combat-respawn`, `actor-aggressive`, `actor-combat-kit` and `actor-combat-group`. Group controls use `menus.group-details` and `dynamic.controls.group-*`. The home Record session page uses `menus.session`; `{session}` expands to ON or OFF. Placeholders include `{id}`, `{name}`, `{skin}`, `{mode}`, `{recording}`, `{acting}`, `{autoplay}`, `{health}`, `{status}`; toggle labels use `{state}`.
+Actor screens use `menus.actor`, `menus.actor-appearance`, `menus.actor-movement`, `menus.actor-acting` and `menus.actor-combat`. The overview uses four `dynamic.controls.actor-section-*` cards with Back/Home navigation. The old top-row tabs are removed. Acting controls include `actor-act`, `actor-finish`, `actor-cancel`, `actor-play`, `actor-stop`, `actor-recording`, `actor-autoplay` and `actor-mode-stop/repeat/reverse`. Identity & clothing includes `actor-tablist`; internal keys still use `actor-appearance`. Combat controls are `actor-health`, `actor-hittable`, `actor-immortal`, `actor-combat-respawn`, `actor-aggressive`, `actor-combat-kit` and `actor-combat-group`.
+
+Group controls use `menus.group-details` and `dynamic.controls.group-*`. New controls are `group-deploy`, `group-shared-immortal`, `group-shared-kit`, `group-shared-identities` and `group-tool`; the delete confirmation states that every member will be permanently removed. The `dead-users` menu uses content slots for saved heads plus `dead-users-search` in slot 47 and `dead-users-clear` in slot 52. Its pagination retains the active query and shift-right-click releases an entry. The home Record session page uses `menus.session`; `{session}` expands to ON or OFF. Placeholders include `{id}`, `{name}`, `{skin}`, `{mode}`, `{recording}`, `{acting}`, `{autoplay}`, `{health}`, `{status}`, `{shared-immortal}` and `{shared-kit}`; toggle labels use `{state}`.
 
 ### NPC AI tuning
 
-See the fully commented `actor-ai.yml` and [NPC guide](NPC-GROUPS.md). `movement` controls eye tracking, social radius, wander/home radius, walking speed and wander cadence. `groups` controls enablement, group/target limits, shared path budget, repathing, formation spacing, following/chasing speed, engagement/reach and attack/knockback timing. `combat` controls carried-totem handling, reaction delays, accuracy, attack jitter, jumps, beneficial potion bursts and delayed shield use.
+See the fully commented `actor-ai.yml` and [NPC guide](NPC-GROUPS.md). `movement` controls eye tracking, social radius, wander/home radius, walking speed and wander cadence. `groups` controls enablement, group/target limits, shared path budget, general/follow repathing, formation goal change/arrival distance, row spacing, normal follow speed, catch-up distance/speed, intermediate waypoint distance, chase speed, engagement/reach and attack/knockback timing. `combat` controls carried-totem handling, reaction delays, accuracy, attack jitter, jumps, beneficial potion bursts and delayed shield use.
 
 Times are whole server ticks (20 per second at normal TPS), speed values are native navigation multipliers, distances are blocks and chances range from 0 to 1. Every setting is validated with the bounds documented beside it. `combat.totem-refill-ticks: 1` is the minimum supported refill delay. `groups.enabled: false` disables faction simulation and alliance protection; standalone aggression still works. `features.actors: false` stops both. Neither setting pools NPC resources.
 
@@ -116,7 +126,7 @@ Times are whole server ticks (20 per second at normal TPS), speed values are nat
 | --- | --- |
 | scenes/ | Schema-1 timelines |
 | actors/ | Commented actor definitions with transform, identity, group, aggressive state, equipment, 36 personal backpack slots, held slot, recording and playback options |
-| groups/ | Commented schema-1 faction definitions: real-player leader UUID, intelligence and follow/hold order; active wars and targets do not persist |
+| groups/ | Commented schema-1 faction definitions: real-player leader UUID, intelligence, follow/hold order, optional shared Immortal/kit values and `next-actor-index` (1..2147483646); active wars and targets do not persist |
 | loadouts/ | Saved 41-slot kits |
 | kit-exports/ | Portable EasyScripting schema-1 kit YAML; explicit import/export |
 | recordings/ | Schema-3 frame lists with transforms, hands, armor, pose, explicit gliding, animation/fire cues and movement state; legacy schema-1/2 files remain readable |
@@ -126,7 +136,7 @@ Times are whole server ticks (20 per second at normal TPS), speed values are nat
 | pending/ | Deferred restoration for offline/dead players and recovery checkpoints for temporary acting, including original profile properties |
 | rollback/ | Last ten inventory snapshots per player, captured at death/logout or manually |
 | positions/ | Last observed logout position and player name |
-| state/ | Player flags, identities, deaths, teams and locks |
+| state/ | Player flags, identities, deaths, teams, locks and `dead-users.yml` retired identity records |
 | trash/ | Soft-deleted definitions/snapshots; server administrators manage retention |
 
 Writes use an atomic same-directory replacement where supported, with an ordinary replacement fallback. Bukkit item/vector objects are detached on the server thread; YAML encoding and disk writes run on the writer. Normal disable drains writes. Large region capture/restore is incremental; a region file is committed only after capture completes. Cancelling a restore leaves already applied blocks in place.
@@ -185,7 +195,7 @@ NPC performances are created with `/actor act` and `/actor finish`; `/es record`
 
 ## Nicknames and kit imports
 
-`nicknames.yml`: `schema: 1`, `api-enabled: true`, `api-timeout-millis: 4000` (integer 500–10000), `local-fallback: true`. The fixed HTTPS Random User endpoint generates names; no Minecraft player data is sent in the request. Its response is bounded to 16 KiB, eight candidates and two worker threads with a bounded queue. Disable the API to use the local NPC prefix/suffix pool only. Skin properties are preserved. Nicknames expire on disconnect; stale saved `state/identities.yml` active aliases are cleared at startup.
+`nicknames.yml`: `schema: 1`, `api-enabled: true`, `api-timeout-millis: 4000` (integer 500–10000), `local-fallback: true`. It reuses the bounded Random User client and the same 5–16-character generated-name rules described above; no Minecraft player data is sent in the request. Disable its API flag to use the local NPC prefix/suffix pool only. Skin properties are preserved. Nicknames expire on disconnect; stale saved `state/identities.yml` active aliases are cleared at startup. If a nicknamed real player dies, the nickname is retired in `state/dead-users.yml` and the online player is restored to their real identity on the following tick.
 
 `kits.yml`: `schema: 1`, boolean `providers.PlayerKits2`, `providers.PlayerKits`, `providers.Essentials`, `providers.CMI` (all true), and `max-provider-kits: 1000` (integer 1–10000). Imports require the provider installed and enabled. Only items are copied; actions, costs, permissions and cooldowns are excluded. Supported public API adapters live in the EasyScripting JAR, without redistributing another plugin. Unknown formats can be captured through your inventory. See [kit import usage](USERGUIDE.md#9-create-edit-and-import-kits).
 

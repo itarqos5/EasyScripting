@@ -1,6 +1,6 @@
 # Java integration API
 
-This describes the supported facade in **EasyScripting 0.1.7**. Compile against that release's plugin JAR; the sources JAR is for inspection.
+This describes the supported facade in **EasyScripting 0.1.8**. Compile against that release's plugin JAR; the sources JAR is for inspection.
 
 The public API is in `dev.easyscripting.api`. Declare `depend: [EasyScripting]` in your plugin metadata, or `softdepend` and explicitly handle absence. Compile against the EasyScripting JAR; do not shade its classes into your plugin.
 
@@ -47,13 +47,13 @@ Call every method on the active server thread. The facade rejects asynchronous a
 
 `Actor` exposes `id()`, `group()` and `Optional<LivingEntity> entity()`. `group()` is the saved actor tag; it represents a combat faction only when that ID is registered in the group service. Do not retain an entity handle across ticks: respawn and name/skin refresh may replace it. Entity changes must follow Paper's thread rules. Prefer scene actions for coordinated playback so resource conflicts and restoration are managed.
 
-Since 0.1.4, an uncancelled NPC death deletes its active actor definition. Its ID immediately disappears from `actorIds()`, an already retained actor view returns an empty `entity()`, and scene restoration cannot respawn it. A cancelled Paper death event leaves the actor registered. Death deletion is independent of whether the damage came from gameplay or a scripted kill.
+Since 0.1.4, an uncancelled NPC death deletes its active actor definition. Its ID immediately disappears from `actorIds()`, an already retained actor view returns an empty `entity()`, and scene restoration cannot respawn it. A cancelled Paper death event leaves the actor registered. Death deletion is independent of whether the damage came from gameplay or a scripted kill. Since 0.1.8, natural actor death also retires its displayed username in `state/dead-users.yml`; an explicit `removeActor` or group deletion does not.
 
-The actor ID remains stable independently of its generated/displayed name or skin. Since 0.1.1, creation follows `npc-identities.yml`: automatic random names and PLAYER skin owners are enabled by default. Skin resolution may complete after `createActor` returns. Existing definitions retain their saved identity across restarts.
+The actor ID remains stable independently of its generated/displayed name or skin. Creation follows `npc-identities.yml`: automatic random names and PLAYER skin owners are enabled by default. In 0.1.8 generated names are 5–16 Minecraft username characters, include at least one letter plus at least one digit or underscore, and exclude current actor/nickname names, blacklisted/retired names, current operators, and every real account remembered as having joined the server. Public username and skin-owner pools refresh asynchronously; a readable local fallback is used without blocking actor creation. Skin resolution may complete after `createActor` returns. Existing definitions retain their saved identity across restarts.
 
 ## Scope and ownership
 
-The facade has no public group, kit, nickname, recording-session or replay-controller methods. Those workflows are exposed through the documented commands/GUI; the internal services and mutable definitions are not stable integration APIs. The integrating plugin must authorize its own create/remove/save operations: those methods have no sender whose permissions could be checked. Only `play` receives a director and checks that director's permissions.
+The facade has no public group, kit, nickname, dead-user-registry, recording-session or replay-controller methods. Those workflows are exposed through the documented commands/GUI; the internal services and mutable definitions are not stable integration APIs. The integrating plugin must authorize its own create/remove/save operations: those methods have no sender whose permissions could be checked. Only `play` receives a director and checks that director's permissions.
 
 Scene and replay reservations prevent competing controllers. Group AI and supply reactions yield to reserved actors, then may resume after release; callers that manipulate entities directly must coordinate that themselves. Defaults still apply to API-created actors: randomized identity when enabled, Immortal OFF, Hittable ON, and no implicit managed faction. A deleted actor ID may be reused for a new actor; reacquire the view instead of reusing a stale reference.
 

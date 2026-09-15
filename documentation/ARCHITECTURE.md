@@ -1,12 +1,12 @@
 # EasyScripting architecture
 
-Current implementation: **0.1.7**. This is the architecture of the shipped code. Version history is in [CHANGELOG.md](CHANGELOG.md); release-specific implementation decisions are in [IMPLEMENTATION-0.1.7.md](IMPLEMENTATION-0.1.7.md).
+Current implementation: **0.1.8**. This is the architecture of the shipped code. Version history is in [CHANGELOG.md](CHANGELOG.md); release-specific implementation decisions are in [IMPLEMENTATION-0.1.8.md](IMPLEMENTATION-0.1.8.md).
 
 ## Build and supported execution model
 
-One Gradle 9.3.1 project builds `EasyScripting-0.1.7.jar` and its sources companion. The JDK 25 toolchain emits Java 21 bytecode. The default compile API is Paper 1.21.8; `-PpaperVersion=1.21.11-R0.1-SNAPSHOT` selects the additional compatibility gate. `plugin.yml` uses Gradle version expansion and declares the minimum API as 1.21.8. Adventure is provided by the server.
+One Gradle 9.3.1 project builds `EasyScripting-0.1.8.jar` and its sources companion. The JDK 25 toolchain emits Java 21 bytecode. The default compile API is Paper 1.21.8; `-PpaperVersion=1.21.11-R0.1-SNAPSHOT` selects the additional compatibility gate. `plugin.yml` uses Gradle version expansion and declares the minimum API as 1.21.8. Adventure is provided by the server.
 
-The project targets Paper/Purpur, with Paper 26.2 as its original primary target. Release 0.1.7 has unit/build/API validation against 1.21.8 and 1.21.11 only. Historical 26.x and runtime evidence is separated in [TESTING.md](TESTING.md). There is no Folia or Spigot support claim, NMS adapter, custom server protocol implementation or shaded Paper/Citizens dependency.
+The project targets Paper/Purpur, with Paper 26.2 as its original primary target. Release 0.1.8 has unit/build/API validation against 1.21.8 and 1.21.11 only. Historical 26.x and runtime evidence is separated in [TESTING.md](TESTING.md). There is no Folia or Spigot support claim, NMS adapter, custom server protocol implementation or shaded Paper/Citizens dependency.
 
 `src/smoke` is a separate source set. Its optional `smokeJar` is a test companion, never part of the deployable plugin. The production JAR bundles configuration and integration adapter code; optional plugins remain server installations.
 
@@ -17,10 +17,10 @@ The project targets Paper/Purpur, with Paper 26.2 as its original primary target
 | `EasyScriptingPlugin` | Constructor wiring, configuration load, Bukkit registration, service publication and reverse-order shutdown |
 | `core` | TickEngine job ownership, timeline cursor, identifiers, bounded values and eye-origin facing |
 | `config` / `storage` | Validated settings, feature/access policies, messages, GUI migration and detached asynchronous YAML writes |
-| `actors` | Actor definitions/entities, resource reservations, social wandering, group allocation/orders and carried-item combat reactions |
+| `actors` | Actor definitions/entities, resource reservations, social wandering, stable group formations/orders, bound group tools and carried-item combat reactions |
 | `integration` | Optional Citizens and voice adapters, fixed public kit-provider adapters and bounded import jobs |
 | `recording` | Performer capture/restore, frame playback, mode cursor, gliding state, autoplay, knockback recovery and cameras |
-| `scenes` / `players` | Timelines/actions, entity/world reservations, snapshots, player flags, death policies, identities and temporary nicknames |
+| `scenes` / `players` | Timelines/actions, entity/world reservations, snapshots, player flags, death policies, public identity pools, temporary nicknames and dead-name retirement |
 | `items` / `world` / `utilities` / `effects` | Kits, item tools, warps, region jobs, locks, server sessions/chat, scoreboard teams, villagers and bounded effects |
 | `commands` / `gui` | Command authorization/feedback, contextual help, aliases, inventory holders, editors, pickers and confirmation/input flows |
 | `api` | Main-thread facade, immutable scene definitions and synchronous scene lifecycle events |
@@ -31,7 +31,7 @@ Enable constructs owned services, loads validated configuration and saved defini
 
 Every game-world, NPC, inventory, GUI and provider API operation runs on the server thread. TickEngine supplies one shared scheduled pulse and runs only while jobs exist. Timelines preserve equal-tick ordering and fail a take if its action budget is exceeded instead of silently shifting action times.
 
-Nickname HTTP work runs on a bounded executor; completion checks connection/request validity before applying state on the server thread. Async chat/voice paths read appropriate cached or concurrent state. Public chat blocking uses the synchronous chat event to check current operator status. It cannot rely on stale permissions after de-op.
+Public username/skin-owner and nickname HTTP work runs on a bounded executor; provider results are size-bounded and moved into server-thread caches before use. Failed or slow refreshes leave local fallback identity generation available. Async chat/voice paths read appropriate cached or concurrent state. Public chat blocking uses the synchronous chat event to check current operator status. It cannot rely on stale permissions after de-op.
 
 Disable first marks shutdown and makes TickEngine reject new jobs, then unregisters the public service and closes owned resources in reverse order. Services stop producers, release reservations, restore temporary state where possible and remove owned entities. Cleanup continues if one service fails. The YAML writer drains near the end; remaining Bukkit tasks and listeners are cancelled/unregistered. This prevents actor saves or autoplay restoration from registering tasks after the plugin is disabled.
 
@@ -39,17 +39,21 @@ Disable first marks shutdown and makes TickEngine reject new jobs, then unregist
 
 Actor IDs are stable keys, independent of names and skins. `ActorService` owns definitions, live entity bindings, visibility, leases and reference-counted chunk tickets. Mob actors use Paper navigation; PLAYER actors use Citizens. NPC defaults are mortal, hittable and autoplay enabled. Cached signed skin textures persist without rerolling identity on restart.
 
+`IdentityProvider` asynchronously refreshes bounded public username and skin-owner pools and remembers real account names observed through Paper's offline-player/operator indexes plus new joins. Generated names must use 5–16 Minecraft username characters, include at least one letter plus at least one digit or underscore, and are compared case-insensitively. Selection rejects current actor/nickname names, blacklists, dead identities, every real account known to have joined, and current operators. `DeadUserRegistry` stores natural actor and nicknamed-player deaths case-insensitively in `state/dead-users.yml`; its GUI displays cached profile data without making a profile lookup for every row. Manual actor/group deletion does not retire a name.
+
 Citizens navigation sets default speed before `setTarget` clones the parameters. During walking, its look override tracks player eyes without fighting the path's body rotation. Idle looking uses the rotation trait; mob facing also starts at eye height. Wander destinations are sampled on nearby loaded terrain around a visible player, another nearby actor near home, or a fixed home fallback. A blocked path is retried; it is not resolved by teleporting through terrain. Home is set when the actor is constructed/loaded and resets on explicit teleport or enabling Wander.
 
 Identity refreshes can replace a Citizens entity. The adapter snapshots runtime state and equipment, rebinds the actor, and restores current presentation. Replay pauses up to 100 ticks for that replacement; stop cleanup can wait for the replacement entity. API callers must reacquire `Actor.entity()` rather than retain entity references across ticks.
 
 ## Combat groups and supplies
 
-`ActorDefinition.group` is membership authority. A matching `groups/<id>.yml` registers a managed faction with a real-player leader UUID, Intelligence and Follow/Hold order. `default` remains unassigned. Pattern tags, managed factions and scoreboard teams are separate concepts. A player can lead one faction; each NPC keeps its own equipment, backpack and entity stats.
+`ActorDefinition.group` is membership authority. A matching `groups/<id>.yml` registers a managed faction with a real-player leader UUID, Intelligence, Follow/Hold order, optional shared Immortal/kit settings and a monotonic actor-tool counter. `default` remains unassigned. Pattern tags, managed factions and scoreboard teams are separate concepts. A player can lead one faction; each NPC keeps its own equipment, backpack and entity stats.
 
-`ActorGroupService` owns Follow/Hold/Move orders, temporary targets and enemy factions. `GroupTactics` allocates members across eligible targets with distance and previous assignments as tie-breakers, and builds spread formation positions. Decisions are staggered; path creation has a shared per-tick budget. Out-of-range/dead targets are dropped, an unavailable leader pauses activity, and battles/Move destinations do not persist across restart.
+`ActorGroupService` owns Follow/Hold/Move orders, temporary targets and enemy factions. `GroupTactics` allocates members across eligible targets with distance and previous assignments as tie-breakers. Follow computes compact trailing rows from a smoothed movement heading; turning the leader's head while stopped does not reorder the formation. Normal movement uses native paths at walking pace, distant actors use a sprint-like catch-up pace and intermediate waypoints avoid teleports. Decisions are staggered; path creation has a shared per-tick budget. Out-of-range/dead targets are dropped, an unavailable leader pauses activity, and battles/Move destinations do not persist across restart.
 
-Friendly damage/knockback is filtered for members and leaders, including supported projectile/explosion owners and harmful allied splash/cloud effects. Intelligence controls group attacks and reactions; an ungrouped actor can opt into standalone aggression. Idle aggressive actors may still wander. Native `LivingEntity.attack` uses individual equipment/attributes and normal damage handling; no winner or shared resource total is calculated.
+Friendly filtering is directional: an actor cannot damage another member of its managed group or that group's real leader, including supported projectile owners and harmful allied splash/cloud effects. The real leader is not treated as a member source and may hit their own NPCs. Intelligence controls group attacks and reactions; an ungrouped actor can opt into standalone aggression. Idle aggressive actors may still wander. Native `LivingEntity.attack` uses individual equipment/attributes and normal damage handling; no winner or shared resource total is calculated.
+
+Mass pattern creation requires an existing managed group and kit, preflights every candidate, and projects filled disc/square or legacy line/circle/grid positions in front of or behind the online leader (otherwise the creator). Each X/Z column resolves to the highest motion-blocking safe surface with three clear blocks. `GroupActorTool` stores group, kit and type in item PDC; its monotonic IDs survive copies and restarts. Shared group operations update current members and the defaults applied to later additions. Group deletion removes every member actor before removing the definition.
 
 `ActorCombatService` coordinates one-tick-or-longer carried-totem refill, up to three actual beneficial splash projectiles, accuracy/cooldown jitter, delayed jumps and probabilistic shields against overhead mace threats. `ActorSupplies` conserves stacks and the item displaced from offhand. Player NPCs use live storage; mobs use their saved 36-slot reserve backpack. The shield call uses Paper's experimental `startUsingItem` API and remains a live compatibility gate.
 
@@ -67,11 +71,11 @@ Server recording sessions are owned by `ModerationService`: `/es record on|off` 
 
 ## Commands, menus and access
 
-`CommandRouter` owns `/es` (aliases `/easyscripting`, `/script`), `/actor`, `/actors`, `/scene`, `/kits` and `/nickname`. Bare `/actors` opens the NPC library; `/kits` routes to plural `/es kits`. Singular `/es kit` remains the create/save/edit/apply/delete command family. Every route checks general access and its feature policy. A successful operation that did not reply receives fallback feedback; errors get documented syntax, descriptions and examples from `command-help.yml`.
+`CommandRouter` owns `/es` (aliases `/easyscripting`, `/script`), `/actor`, `/actors`, `/scene`, `/kits`, `/nickname` and `/deadusers`. Bare `/actors` opens the NPC library; `/kits` routes to plural `/es kits`; `/deadusers` routes to the retired-name GUI and its search/remove operations. Singular `/es kit` remains the create/save/edit/apply/delete command family. Every route checks general access and its feature policy. A successful operation that did not reply receives fallback feedback; errors get documented syntax, descriptions and examples from `command-help.yml`.
 
 Actual operator checks guard kit management/gifting, faction management and speaking while public chat is blocked. Group leaders can order only their assigned group with general use access. Legacy actor editing remains a staff capability. Kit self-claims follow operators/everyone/one UUID plus operators policy. Nicknames and connection changes cannot transfer UUID-based access.
 
-`MenuService` binds actions to its own inventory holders, rejects unintended transfers and rechecks authorization on clicks. NPC overview cards open Identity & clothing, Movement, Record & replay and Combat & supplies. Studio Record session opens server-session ON/OFF. Editors use detached drafts with explicit Save; input belongs to the initiating UUID and expires after 60 seconds. Old GUI schemas are backed up before the full schema-3 layout is installed.
+`MenuService` binds actions to its own inventory holders, rejects unintended transfers and rechecks authorization on clicks. NPC overview cards open Identity & clothing, Movement, Record & replay and Combat & supplies. Group pages expose formation deployment, shared Immortal/kit/identity actions and bound-tool creation. The Dead Users page preserves its search while paging and uses shift-right-click for explicit release. Studio Record session opens server-session ON/OFF. Editors use detached drafts with explicit Save; input belongs to the initiating UUID and expires after 60 seconds. Old GUI schemas are backed up before the full schema-3 layout is installed.
 
 ## Persistence and bounded operations
 

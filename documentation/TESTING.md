@@ -1,6 +1,39 @@
 # Testing and acceptance
 
-Current release: **0.1.7**, commit `1ea6d202e249a3aba726d58d61e7f0966027060f`. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence. The Markdown follow-up checks documentation without rebuilding or replacing the released JAR.
+Current release: **0.1.8**, implementation commit `b943d64e92b39bc668ee548c011ba989c483bbdc`. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence.
+
+## 0.1.8 validation
+
+**160 unit tests pass.** New coverage includes generated-name length/letter/digit-or-underscore rules, bounded public-provider parsing, case-insensitive dead-user persistence/search/release, group shared settings/counter persistence, compact trailing formations, stable movement headings, directional friendly protection, filled disc/square layouts, per-column uniqueness, copy identity allocation and hidden nickname reservation. Existing scheduler, storage, command, GUI, recording, kit, combat and API suites also pass. Bukkit item/entity fixtures do not emulate a running server.
+
+Production and smoke compilation pass against Paper 1.21.8; production compilation also passes against Paper 1.21.11. The baseline distributable emits Java 21 bytecode. Existing chat/login and newer-API passenger-retaining teleport deprecations remain. This evidence checks code and contracts; it does not prove native path appearance, Citizens rendering, provider uptime or production-scale performance.
+
+Artifact: `build/libs/EasyScripting-0.1.8.jar`; source companion: `build/libs/EasyScripting-0.1.8-sources.jar`; SHA-256: `401043CA19B4B37C61586AA5376A9AABD15790142FA5629930C10B8C21189D07`. The JAR includes `actor-ai.yml`, `command-help.yml`, `items.yml`, `npc-identities.yml` and GUI schema 3. No Minecraft server or client was started for 0.1.8. Previous runtime results below apply only to their stated versions.
+
+Live acceptance still required:
+
+* Follow a moving/stopping/turning leader over level ground, stairs, slopes and obstacles with small and large groups. Verify compact rows remain behind movement direction, head turns while stopped do not rotate/cross the formation, ordinary pace looks player-like, sprint catch-up happens only when behind, distant members use paths without teleporting, and path budgets remain stable.
+* Hit same-group NPCs as the real leader and confirm normal damage/knockback. Repeat attacks from a member NPC and a player acting as one, using melee, arrows, TNT/fangs, harmful splash and lingering clouds: teammates/leader must be protected while helpful effects and enemy damage work.
+* Run every pattern shape in front of and behind both an assigned leader and creator fallback across uneven safe terrain. Confirm kit/group assignment, highest-safe-surface placement, full preflight and rollback, and clear errors for unloaded/duplicate/unsafe/out-of-border columns.
+* Issue/copy/restart with a bound group actor tool. Verify monotonic `<group>-actor-N` IDs, kit/type/shared-Immortal application, cooldown, main-hand-only use, current-op enforcement, safe terrain and stale group/kit errors. Exercise shared Immortal/kit/identity GUI controls and confirm group deletion removes every member without retiring its name.
+* Generate enough actors/nicknames to exercise public and fallback names. Verify 5–16 characters, at least one letter plus a digit/underscore, case-insensitive uniqueness, and exclusion of joined accounts, current operators, blacklisted names and Dead Users. Test provider timeout/offline startup and `/es reload` refresh without blocking actor creation.
+* Kill mortal actors and nicknamed players, restart, browse/search/page the head GUI, and release with shift-right and `/deadusers remove`. Confirm natural deaths retire the exact displayed name, nicknamed players reset, released names become eligible, and manual actor/group deletion creates no retired entry.
+
+## Reproducing the current build checks
+
+With JDK 25, from the repository root on Windows:
+
+```powershell
+.\gradlew.bat build compileSmokeJava
+.\gradlew.bat compileJava -PpaperVersion=1.21.11-R0.1-SNAPSHOT
+.\gradlew.bat build compileSmokeJava
+```
+
+The final command rebuilds the distributable against the baseline 1.21.8 API after the compatibility compile. Use `./gradlew` on Linux/macOS. These commands do not start a Minecraft server. The HTML unit report is `build/reports/tests/test/index.html`; JUnit XML is under `build/test-results/test/`.
+
+The released plugin is [EasyScripting-0.1.8.jar](https://github.com/itarqos5/EasyScripting/releases/download/v0.1.8/EasyScripting-0.1.8.jar), SHA-256 `401043CA19B4B37C61586AA5376A9AABD15790142FA5629930C10B8C21189D07`. It contains the production descriptor and YAML resources, Java class major 65, and no smoke/Paper/Citizens classes. Sources are a separate release asset.
+
+Current documentation checks cover all 13 Markdown files, local links/anchors, all 32 registered command groups, the public facade methods, permission declarations and configuration filenames. Old GUI/recording commands are retained only where explicitly describing history or migration.
 
 ## 0.1.7 validation
 
@@ -19,7 +52,7 @@ Live acceptance still required:
 * Record a complete elytra flight and landing, finish with autoplay, inspect from another client in STOP/REPEAT/REVERSE modes, change skin during flight, take knockback, and stop midair. Confirm flight renders as elytra, swimming stays swimming, and stopping/restoration clears replay flight state. Old FALL_FLYING frames are supported; an old ambiguous swimming-only take must be recorded again.
 * Browse `/actors`, `/kits`, NPC/group pages and Record session ON/OFF. Check selected highlights, de-op while a GUI is open, invalid syntax feedback, upgrade backups and preserved custom comments after reload/restart.
 
-## Reproducing the current build checks
+## Reproducing the 0.1.7 build checks
 
 With JDK 25, from the repository root on Windows:
 
@@ -33,7 +66,7 @@ The final command rebuilds the distributable against the baseline 1.21.8 API aft
 
 The released plugin is [EasyScripting-0.1.7.jar](https://github.com/itarqos5/EasyScripting/releases/download/v0.1.7/EasyScripting-0.1.7.jar), SHA-256 `69f5af04262b1e3111d3eab609d655880ae027ae31bf5adf9040ec8c6aeeb434`. It contains the production descriptor and YAML resources, Java class major 65, and no smoke/Paper/Citizens classes. Sources are a separate release asset. No new runtime evidence is implied by a documentation-only commit.
 
-Current documentation checks cover all 12 Markdown files, local links/anchors, all 31 registered command groups, the public facade methods, permission declarations and configuration filenames. Old GUI/recording commands are retained only where explicitly describing history or migration.
+The 0.1.7 documentation checks covered all 12 Markdown files, local links/anchors, all 31 registered command groups, the public facade methods, permission declarations and configuration filenames. Old GUI/recording commands were retained only where explicitly describing history or migration.
 
 ## 0.1.6 validation
 
@@ -114,7 +147,7 @@ Paper emitted Windows performance-counter/OSHI warnings unrelated to the plugin.
 ./gradlew smokeJar
 ```
 
-The commands, artifacts and counts in this historical section describe the named earlier versions. Use the current build instructions above for 0.1.7; do not infer a fresh live test from these results.
+The commands, artifacts and counts in this historical section describe the named earlier versions. Use the current build instructions above for 0.1.8; do not infer a fresh live test from these results.
 
 All 44 pure tests passed on 0.1.2. The original 24 cover timeline ordering, state transitions, cancellation inside an action, execution budgets, argument/identifier validation, malformed scene lists, round trips, repeat/append semantics, detached YAML, atomic writes and GUI layout rejection. Nine identity tests added in 0.1.1 cover 200 unique generated names, occupied names, blacklist filtering, alternate skins, mob behavior, bounded pool exhaustion and malformed YAML choices. Eleven checks added in 0.1.2 cover varied name endings, bounded tiny-pool fallback, all playback endpoint sequences (including single-frame and legacy reverse behavior), invalid playback inputs, and inheriting missing actor GUI controls while preserving custom entries. The unit test report is `build/reports/tests/test/index.html`.
 
@@ -159,15 +192,17 @@ The acting fixture drives a known airborne/grounded path with server teleports. 
 
 ## Manual behavioral acceptance
 
-Each row defines setup, equivalent action, pass condition and reset procedure. Use the same starting state when comparing with a legitimately obtained reference installation. Do not compare source code. These rows are current 0.1.7 acceptance procedures, not claims that all have been run. A future server run must use updated fixtures and the exact deployment stack.
+Each row defines setup, equivalent action, pass condition and reset procedure. Use the same starting state when comparing with a legitimately obtained reference installation. Do not compare source code. These rows are current 0.1.8 acceptance procedures, not claims that all have been run. A future server run must use updated fixtures and the exact deployment stack.
 
 | Feature | Setup | Action | Expected result / pass condition | Reset |
 | --- | --- | --- | --- | --- |
 | Actor creation | Loaded empty area; Citizens for PLAYER | Create mob/player, copy it, restart | Exactly one entity per visible actor; saved equipment/name/location retained; optional dependency absence has a clear error | Delete actors; verify chunk tickets released |
 | Actor direction | Guard and performer within 3 blocks | Move, look, sneak, sprint, jump, swing | One intended movement/animation; no ambient AI fighting scene directions | Stop/reset scene |
 | Actor damage | Give target 20 health, immortal on | Attack for 2, then lethal damage; set hittable off | Nonlethal hit once; lethal prevention distinct from complete hit cancellation | Restore health and flags |
-| Actor death | Mortal actor, scene death action and destructive grant | Play with auto-restore on | Actor dies, announces leaving and is permanently deleted; reset/restart cannot recreate it | Delete fixture scene |
-| Pattern tags/bulk operations | Empty loaded area, cap sufficient | Create each shape with 12 actors; hide/show group | Deterministic count/layout; group operations affect only members | Delete group members |
+| Actor death | Mortal actor, scene death action and destructive grant | Play with auto-restore on | Actor dies, announces leaving, retires displayed name and is permanently deleted; reset/restart cannot recreate it | Release dead name; delete fixture scene |
+| Grounded mass patterns | Existing groups/kits, assigned leader plus creator fallback, uneven loaded terrain | Create all five shapes front/behind with 12 actors; force one invalid column | Filled compact layout, group/kit assignment and highest safe Y; invalid preflight makes none; creation failure rolls back batch | Delete fixture group (all members) |
+| Group following | 20 members and real leader on pathable mixed terrain | Walk/sprint/stop/look/turn; let members fall far behind | Stable trailing rows, normal walk and bounded catch-up, head turns do not cross formation, no teleports | Hold and delete fixtures |
+| Group shared/tool | Group, two kits, copied actor tools, restart | Apply shared Immortal/kit/identity; use both tools; delete group | Current/later members receive settings, one monotonic ID stream, safe surfaces, stale tool fails, deletion removes every member | Release any natural-death names; remove tools/kits |
 | Scene ordering | Two same-tick health actions, later swing | Play, pause, resume, stop | Stable order, no progress while paused, cancellation prevents later actions | Reset/delete fixture |
 | Scene conflict | Two scenes share actor or world | Play both | Second start rejected before mutations | Stop first |
 | Scene edits | Two scenes with different aliases | Append and repeat bounded range | Source targets resolve correctly; no unbounded task creation; excessive size rejected | Remove fixture scenes |
@@ -176,7 +211,7 @@ Each row defines setup, equivalent action, pass condition and reset procedure. U
 | World unload | Actor/scene in disposable secondary world | Request unload during take | Dependent scene stops; owned entities/jobs cleaned; no subsequent access to unloaded world | Reload world and respawn actors |
 | Movement recording | Player wears costume, holds two items | Use actor act/finish for route/swing/boat; replay reverse/repeat | Recorded transforms/hand cues repeat; stop removes the owned boat, restores gravity and keeps current actor position/equipment | Stop playback; delete the fixture actor so its unshared take is removed |
 | Acting and playback | PLAYER actor and two graphical clients, performer with saved costume/profile | Act, walk/jump/sneak/swing/change armor; finish; play each mode | Observer sees NPC identity during acting and restored identity afterward; STOP holds endpoint, REPEAT resets to start, REVERSE alternates direction; equipment and cues match | Stop playback; delete the fixture actor and its unshared take |
-| Combat factions | Two mortal hittable factions, two real leaders, finite kits | Follow/hold/move, hit multiple enemies and fight factions; disconnect leader | Correct authorization, split targeting, friendly-fire filtering and independent damage/deaths; no scripted winner | Hold, delete fixture actors/groups |
+| Combat factions | Two mortal hittable factions, two real leaders, finite kits | Follow/hold/move, hit multiple enemies and fight factions; leader/member attack own side; disconnect leader | Correct authorization, split targeting, leader can hurt own NPCs, members cannot hurt leader/teammates, independent damage/deaths; no scripted winner | Hold, delete fixture groups |
 | NPC supplies | Mortal NPC with extra totems, beneficial splash potions and shield | Pop held totem; trigger retaliation and overhead mace threat | Consumed stacks stay consumed, spare refill respects delay, potion throws are separate and shield reaction is fallible | Remove fixtures; restore AI tuning |
 | Elytra replay | Two clients, NPC costume with elytra | Record flight/landing, finish, replay modes, refresh identity and stop midair | Actual flight animation, old flight-frame support, swimming preserved and flight state released on stop | Stop and delete fixture actor/take |
 | Camera | Two clients; spectator path | Move camera for 80 ticks | Viewer follows smooth interpolation; other clients do not gain a player body; stop restores state | Camera stop |
@@ -184,7 +219,8 @@ Each row defines setup, equivalent action, pass condition and reset procedure. U
 | Pagination/confirmation | More entries than content slots | Next/back, shift-right delete, cancel then confirm | Page bounds correct; cancel preserves definition; confirm removes only selected entry | Delete fixtures |
 | Feature controls | Authorized admin plus ordinary player | Toggle feature, restart, click as unauthorized player | State persists; unauthorized user cannot toggle or invoke restricted action | Enable original groups |
 | Permission overrides | Explicit custom grant and denied control user | Override scene.play/warp; test console-command without extra grant | Custom node respected; sensitive privilege cannot be made public through GUI | Restore permissions.yml |
-| Nicknames/skins | Two clients with distinct identities | Set/random/reset names, lookup skin, blacklist a name | No name collision; blacklist purges affected actors/nicknames; failed lookup leaves usable state | Nick reset; remove test blacklist |
+| Nicknames/skins | Joined/op account history, two clients, public provider and forced fallback | Generate actor/nickname identities, lookup skin, blacklist a name | Names obey 5–16/letter/digit-or-underscore rule; joined/op/dead/current/blocked names excluded; provider failure leaves usable fallback | Nick reset; remove test blacklist |
+| Dead usernames | Natural actor death, nicknamed-player death and manual/group deletion | Restart; list/search/page; shift-right and command remove | Only natural deaths retire exact displayed names; heads/details persist; search keeps paging; release permits reuse | Release fixtures |
 | Warps/spawn | Two warps with different nodes | Tab/list as denied player; teleport; enable optional spawn routing | Hidden unauthorized anchors; correct position; bypass excludes operators from automatic routing | Delete fixture warps and restore spawn switches |
 | Inventory rollback | Distinct before/after inventory | Save, clear, restore exact snapshot ID | Correct owner's contents restored; viewer cannot take inspection items | Clear fixture items |
 | Player flags | Survival performer and observer | Freeze, halfheart, hunger, keepinv, build/break/PvP, armor/pickup locks | Each enabled restriction applies; disabling restores ordinary behavior; starvation cannot kill with halfheart | Turn flags off |

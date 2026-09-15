@@ -1,6 +1,18 @@
 # Changelog
 
-Latest plugin release: **[0.1.7](https://github.com/itarqos5/EasyScripting/releases/tag/v0.1.7)**. Entries below describe each version at its release; later entries supersede changed behavior.
+Latest plugin release: **[0.1.8](https://github.com/itarqos5/EasyScripting/releases/tag/v0.1.8)**. Entries below describe each version at its release; later entries supersede changed behavior.
+
+## 0.1.8 — 2026-09-15
+
+* Rebuilt group following around compact trailing rows, a stable movement heading and normal native pathing. Members walk at a normal pace, use a sprint-like catch-up pace only when far behind and use intermediate waypoints instead of teleporting.
+* Made group protection directional: NPC members cannot hurt their own leader or teammates through melee, projectiles, splash potions or lingering clouds; the real leader can hit their own NPCs.
+* Changed `/actor pattern` to require an existing managed group and saved kit. It can deploy filled discs or squares, or line/circle/grid layouts, in front of or behind the assigned leader (falling back to the creator), with every X/Z column placed on its highest safe surface.
+* Added persistent group actor tools. `/es group tool <group> <kit> [type]` binds the chosen group, kit and type to an item; right-clicking creates grounded, equipped members with monotonic IDs such as `red-actor-1`.
+* Added shared group Immortal, kit and identity controls in commands and GUI. Values for Immortal and kit persist for later members. Deleting a group now permanently deletes all of its NPCs.
+* Added asynchronously cached public username and skin-owner pools with lower-case local fallback. Generated actor names and `/nickname` aliases use 5–16 Minecraft username characters, include at least one letter plus at least one number or underscore, avoid the old CapitalCapital fallback pattern, and exclude current actor/nickname names, the blacklist, current operators, all real accounts remembered as joining the server, and retired names. Actor copies now receive a fresh generated identity instead of duplicating the source username.
+* Added `state/dead-users.yml` plus `/deadusers` list/search/remove and a paginated head GUI. Natural actor deaths and nicknamed-player deaths retire the displayed username until an authorized identity user explicitly releases it; manual actor/group deletion does not retire names.
+* Updated all GUI/configuration comments, contextual command help and documentation for the new group and identity lifecycle.
+* Validation: **160 unit tests**, production/smoke compilation, additional Paper 1.21.11 compilation, documentation links and artifact inspection. No Minecraft server or client was started for this release.
 
 ## Documentation follow-up — 2026-09-15
 

@@ -1,12 +1,12 @@
 # EasyScripting behavioral parity
 
-Feature inventory for **0.1.7**, reviewed against the current implementation. The public-reference evidence below was collected on 2026-09-13; it is not a new inspection of the reference product.
+Feature inventory for **0.1.8**, reviewed against the current implementation. The public-reference evidence below was collected on 2026-09-13; it is not a new inspection of the reference product.
 
 Independent clean-room implementation based on public descriptions, both listing/gallery images and public updates. No original plugin binary, source, private assets, licensing or DRM was accessed. Branding, source and configuration are independent.
 
-## 0.1.7 additions
+## 0.1.8 additions
 
-Social navigation, leader-controlled combat groups and resource-based combat reactions are implemented as a prototype, with unit-tested facing, allocation, persistence, supplies and settings. The redesigned YAML menus and command catalogue pass structural checks. Half-heart/totem and elytra replay fixes have focused regression coverage. Visual navigation, Citizens combat/shield behavior and large-group performance still require a live server/client acceptance pass; no new reference-parity or runtime-verification claim is made. See [NPC-GROUPS.md](NPC-GROUPS.md) and [TESTING.md](TESTING.md).
+Group followers now use stable trailing rows, normal native path speeds, bounded catch-up and no teleport recovery. Directional friendly protection lets a real leader hit their own NPCs while members remain unable to hurt the leader or one another. Kit-required mass formations, persistent bound creation tools, shared group settings, public identity pools and a persistent dead-name registry are implemented. Automated logic and structural checks cover the new code; visual navigation, Citizens combat/tool behavior, provider availability and large-group performance still require live server/client acceptance. See [NPC-GROUPS.md](NPC-GROUPS.md) and [TESTING.md](TESTING.md).
 
 ## Evidence inspected 2026-09-13
 
@@ -15,7 +15,7 @@ Social navigation, leader-controlled combat groups and resource-based combat rea
 * [Public updates](https://builtbybit.com/resources/scriptedessentials-full-release.75101/updates): combat, identity, kit, restriction and production workflow clarifications.
 * Platform sources: [Paper project setup](https://docs.papermc.io/paper/dev/project-setup/), [Java requirements](https://docs.papermc.io/paper/getting-started/), [BlockData snapshots](https://jd.papermc.io/paper/1.21.8/org/bukkit/block/data/BlockData.html#createBlockState()).
 
-IMPLEMENTED means working code exists. VERIFIED (historical) identifies the specific behavior exercised in earlier recorded tests; it does not mean the whole 0.1.7 implementation was retested in-game. PARTIAL identifies a known difference, NOT STARTED an absent behavior, and UNKNOWN insufficient public detail for equivalence. REMOVED identifies a deliberately retired command surface. Confidence describes the observed requirement, not code quality. Verification is against the behavior specification, not a running reference binary.
+IMPLEMENTED means working code exists. VERIFIED (historical) identifies the specific behavior exercised in earlier recorded tests; it does not mean the whole 0.1.8 implementation was retested in-game. PARTIAL identifies a known difference, NOT STARTED an absent behavior, and UNKNOWN insufficient public detail for equivalence. REMOVED identifies a deliberately retired command surface. Confidence describes the observed requirement, not code quality. Verification is against the behavior specification, not a running reference binary.
 
 Commands follow /es unless shown otherwise. Permission suffixes follow easyscripting. UI names refer to guis.yml inventory menus. Features are permission-gated and grouped under 18 feature switches, not one switch for every command.
 
@@ -27,8 +27,8 @@ Commands follow /es unless shown otherwise. Permission suffixes follow easyscrip
 | Reload validation | Invalid GUI rejected; live settings and bad source file preserved | reload | admin | Command | guis.yml, config.yml | VERIFIED (historical) | HIGH |
 | Permission editor | Custom feature node/public access; sensitive nodes excluded | permissions | admin | Permissions | permissions.yml | IMPLEMENTED | HIGH |
 | Actor creation | Mob and Citizens PLAYER backends; 100-actor fixture | /actor create/list/delete | actor | Actors | actors/, config.yml | VERIFIED (historical) | HIGH |
-| Random NPC identities | Generated username and random account skin on creation; independent manual edits, reroll, stable ID and cached signed texture | /actor create/info/randomize/set | actor | Actor editor | npc-identities.yml, actors/, guis.yml | VERIFIED (historical) | HIGH |
-| Varied generated endings | Expanded suffix pool; avoids the last eight endings when alternatives remain | /actor create/randomize | actor | Identity & clothing | npc-identities.yml | VERIFIED (historical) | HIGH |
+| Random NPC identities | Async public username/skin-owner pools with local fallback; 5–16 characters, letter plus digit/underscore, excludes current actors/nicknames, blacklist, joined accounts, current operators and dead names; stable ID and cached signed texture | /actor create/info/randomize/set | actor | Identity & clothing | npc-identities.yml, actors/, guis.yml | IMPLEMENTED | HIGH |
+| Dead username registry | Natural actor and nicknamed-player deaths retire the displayed name; searchable/paginated heads and explicit release; manual deletion is not retirement | /deadusers list/search/remove | identity | Dead Users | state/dead-users.yml, guis.yml | IMPLEMENTED | HIGH |
 | Acting as an NPC | Temporarily adopts actor position, player-model identity and costume; save/cancel restores performer; checkpoint for disconnect/respawn recovery | /actor act/finish/cancel | actor, record | Record & replay | recordings/, pending/ | VERIFIED (historical) | HIGH |
 | Actor playback modes | Saved recording selection; once and hold, repeat from start, continuous forward/backward reversal; actor commands remain, old movement /es record subcommands were removed | /actor recording/mode/play/stop | actor, record | Record & replay | actors/, recordings/ | VERIFIED (historical) | HIGH |
 | Actor combat controls (0.1.5) | Melee-only Hittable, immortal hit/knockback with no death, mortal creation default and named leave announcement on permanent deletion | /actor set/respawn | actor | Combat & supplies | actors/, guis.yml | IMPLEMENTED | HIGH |
@@ -36,20 +36,21 @@ Commands follow /es unless shown otherwise. Permission suffixes follow easyscrip
 | Melee-protected acting (0.1.4) | Direct melee blocked; falls/projectiles/explosions allowed; prior player state restored afterward | /actor act/finish/cancel | actor, record | Record & replay | pending/ | IMPLEMENTED | HIGH |
 | Replay combat (0.1.3) | Native knockback pause and route recovery; received damage survives reset; death ends playback | /actor play/stop | actor, record | Combat & supplies | recording.yml | IMPLEMENTED | HIGH |
 | Studio redesign (0.1.7) | Four actor overview cards, group/supply controls, pickers, selected states, Record session ON/OFF and backed-up schema-3 migration | /es; /actors; /kits | use plus action nodes | All | guis.yml | IMPLEMENTED | HIGH |
-| Actor appearance | Copy equipment/name, account-name skin, visibility, pose and glow | /actor copy/set/kit | actor, actual operator for kits | Actor editor | actors/ | IMPLEMENTED | HIGH |
+| Actor appearance | Copy settings/equipment with a fresh automatic identity, account-name skin, visibility, pose and glow | /actor copy/set/kit | actor, actual operator for kits | Actor editor | actors/ | IMPLEMENTED | HIGH |
 | Actor movement | Navigate, face, rotate, sprint/sneak, jump, swing | /actor move; /scene add | actor, player, effects | Actor, timeline | actors/, scenes/ | IMPLEMENTED | HIGH |
-| Pattern tags and bulk operations | Line/circle/grid/square; group settings, hide/show/respawn/jump/kit; default cap 200 | /actor pattern/all/group | actor, actual operator for kits | Actors, command | actors/, config.yml | IMPLEMENTED | HIGH |
+| Grounded mass formations | Existing group + required kit; line/circle/filled disc/grid/filled square in front/behind; per-column highest safe surface, full preflight and rollback; default cap 200 | /actor pattern/all/group | actor, actual operator for kits | Group deploy, command | actors/, groups/, config.yml | IMPLEMENTED | HIGH |
+| Bound group actor tool | Persistent PDC group/kit/type binding, highest-safe-surface placement and monotonic `<group>-actor-N` IDs | group tool | current operator | NPC groups | items.yml, groups/ | IMPLEMENTED | HIGH |
 | Actor combat | Face/swing/damage once within 6 blocks; immortal and unhittable differ | /actor attack/set | actor, player.others | Actor editor | actors/ | IMPLEMENTED | HIGH |
 | Scripted actor death (0.1.4) | Explicit permission; dead actor is permanently deleted and cannot be reset | /scene add … death | scene.edit, destructive | Timeline | scenes/ | IMPLEMENTED | HIGH |
 | Wander/look (0.1.7) | Short grounded social paths, home fallback and eye-height tracking while walking; live terrain acceptance pending | /actor move/set | actor | Movement | actor-ai.yml, actors/ | IMPLEMENTED | HIGH |
-| Combat factions (0.1.7) | Real-player leader, individual stats/supplies, follow/hold/move orders, friendly-fire protection, balanced enemies and native battles; prototype | group | use; assigned leader for orders; actual operator manages | NPC groups | groups/, actors/, actor-ai.yml | IMPLEMENTED | HIGH |
+| Combat factions (0.1.8) | Real-player leader, individual stats/supplies, stable trailing paths, directional member-to-leader/team protection, shared Immortal/kit/identity controls, balanced enemies and native battles; prototype | group | use; assigned leader for orders; actual operator manages | NPC groups | groups/, actors/, actor-ai.yml | IMPLEMENTED | HIGH |
 | Combat supplies (0.1.7) | Standalone aggression, conserved carried-totem refill, beneficial potion throws, imperfect melee/jumps and delayed shields; live effects unverified | /actor set … aggressive; kits claim … actor:id | actor; actual operator gifts kits | Combat & supplies | actor-ai.yml, actors/ | IMPLEMENTED | HIGH |
 | Elytra performances (0.1.7) | Actual gliding stored/applied; old FALL_FLYING frames infer flight, ambiguous swimming-only takes need re-recording | /actor act/finish/play | actor, record | Record & replay | recordings/ schema 3 | IMPLEMENTED | HIGH |
 | Advanced navigation | Explicit portal traversal, nearest-shore swimming and comprehensive hazard avoidance absent | — | — | — | — | NOT STARTED | HIGH |
 | Movement recording | NPC acting captures transforms/equipment/animations; three replay modes | /actor act/finish/play/mode | actor, record | Record & replay | recordings/ | IMPLEMENTED | HIGH |
 | Legacy synchronized command surface | Removed in 0.1.6 at user request; NPC acting remains available | — | — | — | recordings/ | REMOVED | HIGH |
 | Boat playback | Owned boat, passenger movement and cleanup | /actor play | actor, record | Record & replay | recordings/ | IMPLEMENTED | HIGH |
-| Nicknames (0.1.5) | API-generated online real-player aliases, tab/nametag/death/quit display, reset one/all, expire on disconnect; skin preserved | /nickname; nick | identity, player.others | Command | nicknames.yml, state/identities.yml | IMPLEMENTED | HIGH |
+| Nicknames (0.1.8) | Public-provider online real-player aliases under the same generated-name/reservation rules, tab/nametag/death/quit display, reset one/all, expire on disconnect and retire on death; skin preserved | /nickname; nick | identity, player.others | Command | nicknames.yml, state/identities.yml, state/dead-users.yml | IMPLEMENTED | HIGH |
 | Identity blacklist | Blocks names/skins and purges matching actors/nicknames | nick blacklist | identity, admin | Command | state/identities.yml | IMPLEMENTED | HIGH |
 | Player skins | Asynchronous account lookup or direct texture URL; auto/slim/classic model | skin | identity | Command | state/identities.yml | IMPLEMENTED | HIGH |
 | PNG/NameMC | Upload/conversion provider and NameMC page resolver absent | — | — | — | — | NOT STARTED | HIGH |
@@ -103,9 +104,8 @@ Commands follow /es unless shown otherwise. Permission suffixes follow easyscrip
 
 ## Behavioral acceptance and assumptions
 
-[TESTING.md](TESTING.md) specifies setup, equivalent action, pass condition and reset for the major capabilities. Pass conditions concern visible behavior and resulting state, not source resemblance. IMPLEMENTED rows still need their multiplayer/visual acceptance checks. Historical verification remains tied to the exact version and scope recorded there. The current release has 138 passing unit tests plus build/API/artifact checks, with no new server/client run.
+[TESTING.md](TESTING.md) specifies setup, equivalent action, pass condition and reset for the major capabilities. Pass conditions concern visible behavior and resulting state, not source resemblance. IMPLEMENTED rows still need their multiplayer/visual acceptance checks. Historical verification remains tied to the exact version and scope recorded there. The current release has **160 passing unit tests** plus build/API/artifact checks, with no new server/client run.
 
 Undocumented defaults are independently selected and configurable. PLAYER actors use Citizens; mob actors work without it. External skin upload services are not silently introduced. Vanilla clients render ordinary server entities, inventory menus, text and supported effects. Voice transport needs the Simple Voice Chat client mod. Server-side camera movement cannot control arbitrary shaders or guarantee smooth interpolation at low tick rates.
 
 Known differences remain explicit: advanced navigation, image-based skin conversion, per-viewer teams, silent container effects, unknown import/chunk-ban semantics, specialized block entities and fine-grained feature switches. The current build and logic checks do not establish full reference parity, live visual behavior or production-scale performance. Those limits remain explicit in the release testing record.
-

@@ -1,10 +1,10 @@
 # Every EasyScripting command, explained simply
 
-This is the command guide for **EasyScripting 0.1.7**. Use `/es status` to see your installed version. Incomplete or invalid commands now show their expected syntax, explanation and an example in chat.
+This is the command guide for **EasyScripting 0.1.8**. Use `/es status` to see your installed version. Incomplete or invalid commands show their expected syntax, explanation and an example in chat.
 
 Every successful command sends feedback, including commands that previously finished silently.
 
-Reviewed against release 0.1.7: 31 registered command groups plus `/es help`, and 33 scene action types.
+Reviewed against release 0.1.8: 32 registered command groups plus `/es help`, and 33 scene action types.
 
 Each section lists the exact syntax, what it does and an example. Replace example names such as `Alex`, `guard`, `starter` and `opening` with names on your server.
 
@@ -15,7 +15,7 @@ Each section lists the exact syntax, what it does and an example. Replace exampl
 - `on|off` means choose **one**: `on` or `off`.
 - `/es`, `/easyscripting` and `/script` are the same command.
 - `/actor ...` is short for `/es actor ...`; `/scene ...` is short for `/es scene ...`; `/nickname ...` is short for `/es nickname ...`.
-- `/actors` opens the NPC library; `/actors ...` with arguments also accepts the `/actor ...` subcommands. `/kits ...` is short for `/es kits ...`. There is no EasyScripting `/kit`, `/act` or `/finish` root command.
+- `/actors` opens the NPC library; `/actors ...` with arguments also accepts the `/actor ...` subcommands. `/kits ...` is short for `/es kits ...`; `/deadusers ...` is short for `/es deadusers ...`. There is no EasyScripting `/kit`, `/act` or `/finish` root command.
 - Use lowercase command words. IDs such as `guard_1` use lowercase letters, numbers, underscores or hyphens, start with a letter/number, and contain at most 48 characters. Team IDs contain at most 12.
 - A **player name** identifies a real player; an **actor ID** identifies your saved NPC. Renaming an NPC does not change its ID.
 - Most time values use **ticks**: 20 ticks = about 1 second at normal server speed. 100 ticks = about 5 seconds.
@@ -28,7 +28,7 @@ Each section lists the exact syntax, what it does and an example. Replace exampl
 
 ## Find a command
 
-[Studio and settings](#studio-and-settings) · [NPCs](#actors-and-npcs) · [Acting and playback](#acting-and-playback) · [NPC groups](#npc-groups-and-combat) · [Scenes](#scenes) · [Scene actions](#action-types) · [Recording sessions](#recording-sessions) · [Camera](#camera) · [Player controls](#player-controls) · [Takes](#takes-and-snapshots) · [Kits](#kits) · [Nicknames and skins](#nicknames-and-skins) · [Inventory](#inventory) · [Items and tools](#items-and-tools) · [Warps and spawn](#warps-and-spawn) · [World](#world-controls) · [Regions](#regions) · [Locks](#container-and-item-frame-locks) · [Effects](#effects) · [Chat](#chat) · [Server rules](#server-rules) · [Death behavior](#death-behavior) · [Teams](#teams) · [Villagers](#villagers) · [Voice](#voice-chat)
+[Studio and settings](#studio-and-settings) · [NPCs](#actors-and-npcs) · [Acting and playback](#acting-and-playback) · [NPC groups](#npc-groups-and-combat) · [Scenes](#scenes) · [Scene actions](#action-types) · [Recording sessions](#recording-sessions) · [Camera](#camera) · [Player controls](#player-controls) · [Takes](#takes-and-snapshots) · [Kits](#kits) · [Nicknames and skins](#nicknames-and-skins) · [Dead usernames](#dead-usernames) · [Inventory](#inventory) · [Items and tools](#items-and-tools) · [Warps and spawn](#warps-and-spawn) · [World](#world-controls) · [Regions](#regions) · [Locks](#container-and-item-frame-locks) · [Effects](#effects) · [Chat](#chat) · [Server rules](#server-rules) · [Death behavior](#death-behavior) · [Teams](#teams) · [Villagers](#villagers) · [Voice](#voice-chat)
 
 ## Studio and settings
 
@@ -39,6 +39,7 @@ Access: `use` for opening the studio, help and status; `admin` for features, per
 | `/es` | Open the main studio GUI. | `/es` |
 | `/actors` | Open the NPC library directly. | `/actors` |
 | `/kits` | Open the kit library directly. All `/es kits` subcommands also work after `/kits`. | `/kits` |
+| `/deadusers` | Open the retired-username library directly. All `/es deadusers` subcommands also work after `/deadusers`. | `/deadusers` |
 | `/es help` | Show command groups you have permission to use. Use this guide for their individual options. | `/es help` |
 | `/es menu [name]` | Open the main menu or a named page. | `/es menu actors` |
 | `/es status` | Show plugin version, loaded scene/NPC counts, active jobs and voice availability. | `/es status` |
@@ -47,7 +48,7 @@ Access: `use` for opening the studio, help and status; `admin` for features, per
 | `/es permissions <feature> <everyone\|permission.node>` | Change which permission is needed for an editable feature. | `/es permissions warp everyone` |
 | `/es reload` | Validate and reload configuration/GUI YAML; close open studio menus. Invalid configuration keeps the previous settings. | `/es reload` |
 
-Menu names: `main`, `scenes`, `actors`, `groups`, `players`, `kits`, `warps`, `session`, `recording`, `features`, `item`, `teams`, `production`, `world`, `effects`, `permissions`, `villagers`. Category pages also include `wardrobe`, `stage`, `organization` and `settings`.
+Menu names: `main`, `scenes`, `actors`, `groups`, `dead-users`, `players`, `kits`, `warps`, `session`, `recording`, `features`, `item`, `teams`, `production`, `world`, `effects`, `permissions`, `villagers`. Category pages also include `wardrobe`, `stage`, `organization` and `settings`.
 
 Feature switches: `actors`, `scenes`, `recording`, `players`, `identity`, `kits`, `warps`, `items`, `inventory`, `locks`, `death`, `chat`, `world`, `regions`, `teams`, `villagers`, `effects`, `voice`.
 
@@ -64,28 +65,28 @@ Access: `actor`. A `PLAYER` NPC requires **Citizens** installed for your server 
 | Command | What it does | Example |
 | --- | --- | --- |
 | `/es actor` or `/es actor list` | List saved actor IDs. | `/actor list` |
-| `/es actor create <id> [type]` | Create an NPC at your location. Default type is PLAYER; a random name and skin are chosen automatically. | `/actor create guard` |
+| `/es actor create <id> [type]` | Create an NPC at your location. Default type is PLAYER; a unique generated username and skin are chosen automatically. | `/actor create guard` |
 | `/es actor info <id>` | Show its name, skin owner, entity type, selected recording, mode, autoplay and combat settings. | `/actor info guard` |
 | `/es actor gui <id> [section]` | Open its GUI. Sections: overview, appearance, movement, acting, combat. | `/actor gui guard combat` |
 | `/es actor randomize <id>` | Choose another name and PLAYER skin; retain the same ID and equipment. Works during replay. | `/actor randomize guard` |
 | `/es actor set <id> <setting> <value>` | Change one setting; see the complete list below. | `/actor set guard name RiverScout` |
 | `/es actor here <id>` | Teleport the actor to you. | `/actor here guard` |
 | `/es actor move <id> [speed]` | Make it navigate to where you are standing. Speed 0.1–5; default 1. | `/actor move guard 1.2` |
-| `/es actor copy <source> <new-id>` | Create a copy at your location, retaining appearance and equipment. | `/actor copy guard guard_copy` |
+| `/es actor copy <source> <new-id>` | Copy settings and equipment at your location. Automatic identities give the copy a fresh generated name/skin; when disabled, its displayed name is the new ID. | `/actor copy guard guard_copy` |
 | `/es actor hide <id>` | Remove its visible entity while keeping the saved actor. | `/actor hide guard` |
 | `/es actor show <id>` | Show a hidden actor again; autoplay may start. | `/actor show guard` |
 | `/es actor respawn <id>` | Recreate an existing actor at its saved spawn. It cannot restore an actor deleted by death. | `/actor respawn guard` |
 | `/es actor delete <id>` | Remove the actor and its active saved definition. | `/actor delete guard_copy` |
 | `/es actor attack <id> <online-player> [damage]` | Face the player, swing and deal damage once. Must be within 6 blocks; damage defaults to 1, range 0–1000. | `/actor attack guard Alex 2` |
 | `/es actor kit <id> <kit>` | Give it the saved kit and save its equipment. Actual operators only; stop an active replay first. | `/actor kit guard starter` |
-| `/es actor pattern <prefix> <line\|circle\|grid\|square> <count> [spacing] [type]` | Create a group of 1–200 actors arranged around you. Spacing defaults to 2 blocks (0.5–20); type defaults to PLAYER. | `/actor pattern extras line 5 2 ZOMBIE` |
+| `/es actor pattern <group> <line\|circle\|disc\|grid\|square> <front\|behind> <count> <kit> [spacing] [type]` | Create 1–200 equipped members of an existing managed group. Disc/square are filled; every X/Z column uses its highest safe ground. Spacing defaults to 2 blocks (1–20); type defaults to PLAYER. | `/actor pattern red disc behind 40 fighter 2 PLAYER` |
 | `/es actor all <group\|*> <setting> <value>` | Change a setting for a group, or every actor with `*`. | `/actor all extras look on` |
 | `/es actor group <group\|*> <hide\|show\|respawn\|jump>` | Run that operation for the group/every actor. | `/actor group extras jump` |
 | `/es actor group <group\|*> kit <kit>` | Give a kit to the group/every actor. Actual operators only. | `/actor group extras kit starter` |
 
 The visible actor section labels are **Identity & clothing**, **Movement**, **Record & replay**, and **Combat & supplies**. Direct `/actor gui` section arguments remain `appearance`, `movement`, `acting`, and `combat`.
 
-For example, create a mob without Citizens using `/actor create guard ZOMBIE`. Group patterns use their prefix as the group name. Server actor limits still apply.
+For example, create a mob without Citizens using `/actor create guard ZOMBIE`. A pattern needs an existing `/es group`, a saved kit, and an in-game creator. It uses the assigned online leader as its front/behind anchor; otherwise it uses the creator. Every candidate is validated before the first NPC is made, and server actor limits still apply.
 
 ### Every actor setting
 
@@ -93,7 +94,7 @@ Use `/actor set <id> <setting> <value>`.
 
 | Setting | Meaning | Example |
 | --- | --- | --- |
-| `name <text>` | Change displayed name; keep skin and ID. | `/actor set guard name RiverScout` |
+| `name <text>` | Change displayed name; keep skin and ID. This deliberate custom label need not follow generated-name digit/underscore rules, but cannot use a retired or known real/operator name. | `/actor set guard name RiverScout` |
 | `skin <account>` | Use a Java account's skin; PLAYER only. Account name, not a PNG or NameMC URL. | `/actor set guard skin Notch` |
 | `group <id>` | Set its group tag; a matching registered `/es group` faction uses that membership. | `/actor set guard group extras` |
 | `immortal on\|off` | ON: can be hit and knocked back but will not die. OFF: can die. New actors default to OFF. | `/actor set guard immortal on` |
@@ -113,7 +114,7 @@ Use `/actor set <id> <setting> <value>`.
 
 Names/skins/modes can change during recording **playback**. A currently possessed NPC or scene-controlled NPC may reject conflicting edits. Stop before changing position, kit or selected recording.
 
-A real NPC death permanently deletes it and broadcasts its displayed name leaving the server. Its selected take is deleted too, unless another NPC still uses it. `show`, `respawn`, scene reset and restarting the server cannot bring that deleted NPC back; create a new actor if needed.
+A real NPC death permanently deletes it, broadcasts its displayed name leaving the server, and retires that displayed username in the Dead Users registry. Its selected take is deleted too, unless another NPC still uses it. `show`, `respawn`, scene reset and restarting the server cannot bring that deleted NPC back; create a new actor if needed. Manual `/actor delete` and whole-group deletion do not retire names.
 
 ## Acting and playback
 
@@ -151,15 +152,19 @@ Groups are factions of independent actors. Each NPC keeps its own equipment, bac
 | `/es group gui [group]` | Open the group library or one group's controls. | `/es group gui red` |
 | `/es group list` | List groups you can direct. | `/es group list` |
 | `/es group create <group>` | Create a faction; adopt existing actors with the same group tag. Operators only. | `/es group create red` |
-| `/es group delete <group>` | Delete the faction and unassign its actors, keeping them alive. Operators only. | `/es group delete red` |
-| `/es group info <group>` | Print leader, member count, order, Intelligence and active enemies. | `/es group info red` |
-| `/es group add <group> <actor>` | Add or transfer one existing actor, retaining its equipment and health. Operators only. | `/es group add red guard` |
-| `/es group add <group> tag:<old-group>` | Transfer all actors with an existing tag. Operators only. | `/es group add red tag:guards` |
+| `/es group delete <group>` | Permanently delete the faction and every NPC in it. Manual group deletion does not add their names to Dead Users. Operators only. | `/es group delete red` |
+| `/es group info <group>` | Print leader, member count, order, Intelligence, shared settings and active enemies. | `/es group info red` |
+| `/es group add <group> <actor>` | Add or transfer one existing actor. It keeps individual state unless this group has a shared kit/Immortal value, which is applied. Operators only. | `/es group add red guard` |
+| `/es group add <group> tag:<old-group>` | Transfer all actors with an existing tag; this group's shared kit/Immortal values apply when configured. Operators only. | `/es group add red tag:guards` |
 | `/es group remove <group> <actor>` | Remove an NPC from the faction without deleting it. Operators only. | `/es group remove red guard` |
 | `/es group leader <group> <online-player>` | Assign a real account name as leader and begin following. Operators only. | `/es group leader red Alex` |
 | `/es group leader <group> off` | Clear its leader and hold position. Operators only. | `/es group leader red off` |
 | `/es group intelligence <group> on\|off` | ON enables coordinated attacks and defensive combat reactions. OFF follows movement orders only; automatic totem handling is separate. Operators only. | `/es group intelligence red on` |
-| `/es group follow <group>` | Clear current attacks and follow the leader in formation; the leader's later hits add enemies. | `/es group follow red` |
+| `/es group immortal <group> on\|off` | Set Immortal for all current members and remember the setting for actors added or created later. Operators only. | `/es group immortal red on` |
+| `/es group kit <group> <kit>` | Apply one saved kit to every available current member and remember it for actors later transferred with group add. Pattern/tool members always receive their explicitly required kit. Operators only. | `/es group kit red fighter` |
+| `/es group identities <group>` | Give every current member a fresh unused username and skin, including actors that are already moving or replaying. Operators only. | `/es group identities red` |
+| `/es group tool <group> <kit> [type]` | Give yourself a persistent item bound to the group, required kit and optional living entity type. Right-click a block to create the next equipped member. Operators only. | `/es group tool red fighter PLAYER` |
+| `/es group follow <group>` | Clear current attacks and follow the leader in compact rows behind their movement direction; the leader's later hits add enemies. | `/es group follow red` |
 | `/es group hold <group>` | Clear orders and stop at current positions. Intelligent groups can still defend themselves if attacked. | `/es group hold red` |
 | `/es group stop <group>` | Same as hold. Use Intelligence OFF as well to stop retaliation. | `/es group stop red` |
 | `/es group move <group>` | Walk into a formation around your current position. Requires an in-game director. | `/es group move red` |
@@ -168,7 +173,13 @@ Groups are factions of independent actors. Each NPC keeps its own equipment, bac
 | `/es group fight <group> <enemy-group>` | Engage another faction and its leader. An intelligent opposing group responds. | `/es group fight red blue` |
 | `/es actor set <id> aggressive on\|off` | Toggle standalone retaliation. Uses real melee damage, misses, reaction delays, potions and shields. | `/actor set guard aggressive on` |
 
-Start with `/actor pattern red grid 100 2 PLAYER`, then `/es group create red` and `/es group leader red Alex`. A pattern gives each NPC the `red` tag automatically. Use `/actor kit red_1 fighter` or `/es kits claim fighter actor:red_1` to give one NPC its own supplies. Read [NPC-GROUPS.md](NPC-GROUPS.md) for a complete setup and prototype limits.
+Start with `/es group create red`, assign the leader with `/es group leader red Alex`, then use `/actor pattern red square behind 100 fighter 2 PLAYER`. A mass pattern requires the kit up front and gives each NPC the group tag. As an alternative, `/es group tool red fighter PLAYER` creates a reusable tool whose actors are named `red-actor-1`, `red-actor-2`, and so on. Each right-click resolves that block column to its highest safe standing surface. Read [NPC-GROUPS.md](NPC-GROUPS.md) for a complete setup and prototype limits.
+
+The group GUI's **Deploy equipped formation** prompt accepts `<disc|square> <front|behind> <count> <kit> [spacing] [type]`; use the full command for line, circle or grid. Shared Immortal/kit and identity controls are operator-only. The bound-tool GUI uses the configured default actor type.
+
+Members use ordinary Citizens/native paths at a normal walking pace, switch to a sprint-like catch-up pace only when far behind, and walk through intermediate waypoints instead of teleporting. A stable movement heading keeps formation rows from crossing whenever the leader turns their head while stopped.
+
+Friendly protection is directional. Group NPCs cannot hurt their own leader or another member of their group through melee, projectiles, splash potions or lingering clouds. The real leader may still hit their own NPCs. Actors in opposing groups can damage each other normally.
 
 NPCs offhand spare totems and refill after a pop, with a default one-tick delay (about 50 ms at 20 TPS). Intelligent NPCs can throw up to three carried beneficial splash potions upward, one at a time, before fighting. They sometimes miss or jump after being hit. A carried shield may be raised after a random delay if an enemy above them holds a mace; this reaction is deliberately not guaranteed. They never get free replacement supplies. AI yields while an NPC is acting, replaying, or owned by a scene.
 
@@ -409,7 +420,7 @@ Access: `identity`; `/nickname` targeting someone else/resetting all also requir
 
 | Command | What it does | Example |
 | --- | --- | --- |
-| `/es nickname <online-player-or-nickname>` | Give an online real player a random readable API nickname; preserve skin. Excludes NPCs. | `/nickname Alex` |
+| `/es nickname <online-player-or-nickname>` | Give an online real player an unused public-provider nickname; preserve skin. Generated names are 5–16 characters and contain at least one digit or underscore. Excludes NPCs. | `/nickname Alex` |
 | `/es nickname <player-or-nickname> off` | Reset one player, accepting their account name or current nickname. | `/nickname RiverScout off` |
 | `/es nickname off` | Reset all temporary nicknames and cancel pending requests. | `/nickname off` |
 | `/es nick set <name>` | Set your own chosen temporary name. | `/es nick set RiverScout` |
@@ -425,7 +436,21 @@ Access: `identity`; `/nickname` targeting someone else/resetting all also requir
 
 Texture URLs must be `https://textures.minecraft.net/texture/<hash>`, not arbitrary PNG/NameMC links. Use `/actor set <id> skin <account>` for NPCs.
 
-Temporary nicknames appear in normal display-name chat, Tab, nametags, death/killer and leave messages, then expire on disconnect. The next join uses the real name. Your client may show the nickname in server-controlled UI, but a server cannot rename the account authenticated by your launcher. Another plugin's custom formatting may deliberately retain account names. API/fallback settings are in nicknames.yml.
+Temporary nicknames appear in normal display-name chat, Tab, nametags, death/killer and leave messages, then expire on disconnect. The next join uses the real name. If the nicknamed player dies first, that nickname is retired and their normal identity is restored. Your client may show the nickname in server-controlled UI, but a server cannot rename the account authenticated by your launcher. Another plugin's custom formatting may deliberately retain account names.
+
+Generated actor names and `/nickname` names are 5–16 Minecraft username characters and always contain at least one letter plus at least one digit or underscore. EasyScripting skips current actor/nickname names, blacklisted names, retired Dead Users entries, every real account known to have joined this server, and current operators. Public username and skin-owner pools are fetched asynchronously and cached; actor creation continues with the readable local fallback if a provider is unavailable. Configure this in `npc-identities.yml`.
+
+## Dead usernames
+
+Access: `identity` (operator by default and editable through the identity access rule). A natural mortal actor death or a temporarily nicknamed real-player death saves that displayed name in `state/dead-users.yml`. It cannot be generated again until an authorized user releases it. Manual actor deletion and group deletion do not add entries.
+
+| Command | What it does | Example |
+| --- | --- | --- |
+| `/deadusers` or `/deadusers list` | Open the paginated Dead Users GUI. It shows saved heads, usernames, kind, owner and death time. | `/deadusers list` |
+| `/deadusers search <username-or-part>` | Open the same GUI filtered by a case-insensitive full or partial username. Previous/Next keep the filter. | `/deadusers search frost` |
+| `/deadusers remove <username>` | Release one retired name so it may be generated again. | `/deadusers remove Frost_7` |
+
+In the GUI, use **Search** to type a 1–48 character letter/digit/underscore filter in chat, **Clear search** to return to every entry, and Previous/Next to move through pages. Normal-click a head for its details; shift-right-click releases that username immediately.
 
 ## Inventory
 
