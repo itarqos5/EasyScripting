@@ -52,7 +52,7 @@ public final class DeathService implements Listener {
     store.save("state", "deaths", modes);
   }
 
-  @EventHandler(priority = EventPriority.HIGHEST)
+  @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
   public void death(PlayerDeathEvent e) {
     if (!settings.enabled("death")) return;
     Player p = e.getEntity();

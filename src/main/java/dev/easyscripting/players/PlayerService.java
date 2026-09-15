@@ -384,19 +384,26 @@ public final class PlayerService implements Listener, AutoCloseable {
   @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
   public void damage(EntityDamageEvent e) {
     if (!(e.getEntity() instanceof Player p)) return;
-    if (flag(p.getUniqueId(), "halfheart") && e.getFinalDamage() >= p.getHealth()) {
-      e.setCancelled(true);
-      p.setHealth(
-          Math.min(1, Objects.requireNonNull(p.getAttribute(Attribute.MAX_HEALTH)).getValue()));
-      p.playHurtAnimation(0);
-    }
     if (e instanceof EntityDamageByEntityEvent hit) {
       Entity attacker = hit.getDamager();
       if (attacker instanceof Projectile projectile
           && projectile.getShooter() instanceof Entity source) attacker = source;
       if (attacker instanceof Player a
-          && (flag(a.getUniqueId(), "no-pvp") || flag(p.getUniqueId(), "no-pvp")))
+          && (flag(a.getUniqueId(), "no-pvp") || flag(p.getUniqueId(), "no-pvp"))) {
         e.setCancelled(true);
+        return;
+      }
+    }
+    if (HalfHeartPolicy.intercept(
+        flag(p.getUniqueId(), "halfheart"),
+        e.getFinalDamage(),
+        p.getHealth(),
+        p.getInventory().getItemInMainHand().getType(),
+        p.getInventory().getItemInOffHand().getType())) {
+      e.setCancelled(true);
+      p.setHealth(
+          Math.min(1, Objects.requireNonNull(p.getAttribute(Attribute.MAX_HEALTH)).getValue()));
+      p.playHurtAnimation(0);
     }
   }
 
@@ -453,6 +460,15 @@ public final class PlayerService implements Listener, AutoCloseable {
   @EventHandler(priority = EventPriority.LOWEST)
   public void death(PlayerDeathEvent e) {
     Player p = e.getEntity();
+    // Fallback if a totem could not resurrect (for example, a cancelled resurrection event).
+    // Held totems reach vanilla first, and the halfheart flag remains enabled after a normal pop.
+    if (flag(p.getUniqueId(), "halfheart")) {
+      e.setReviveHealth(
+          Math.min(1, Objects.requireNonNull(p.getAttribute(Attribute.MAX_HEALTH)).getValue()));
+      e.setCancelled(true);
+      return;
+    }
+    if (e.isCancelled()) return;
     if (settings.enabled("inventory")) rollbackSave(p);
     if (flag(p.getUniqueId(), "keepinv")) {
       if (settings.file("death").getBoolean("keep-inventory-respects-vanishing", true)) {
