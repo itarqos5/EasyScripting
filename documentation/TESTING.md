@@ -1,12 +1,14 @@
 # Testing and acceptance
 
-Current release: **0.1.8**, implementation commit `b943d64e92b39bc668ee548c011ba989c483bbdc`. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence.
+Current release: **0.2.0**. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence.
 
-## Unreleased group AI repairs
+## 0.2.0 validation
 
 **171 unit tests pass**, including the seven that previously covered group tactics plus new coverage for aligned rows and columns over a partial last row, requested and automatic column counts, the centred Move block, a movement heading that ignores head turns but follows sampled travel, attacker places around a shared target, sidesteps that keep the radius they started from, weapon-paced melee defaults, survival thresholds that gap before they run and leave more health than an ender pearl's own damage, a maximum shield hold that never falls below a single hold, and a resume margin that cannot invert or outgrow the catch-up distance. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.
 
-These are pure layout, allocation and configuration checks. Bukkit fixtures cannot exercise navigation, the attack-strength ticker or hitbox reach, so the acceptance cases below still decide whether the repairs feel right in a world. Two cases are specific to this change:
+Artifact: `build/libs/EasyScripting-0.2.0.jar`; source companion: `build/libs/EasyScripting-0.2.0-sources.jar`; SHA-256: `359DCE19F2CFA4735660FB5596D519D1452D688D2549C711BF4CEDD4C0FB62CA`. The JAR carries `plugin.yml` version 0.2.0 and the expanded `actor-ai.yml` including the new `survival` section. It has not been published as a GitHub release, so the download link in the README resolves only once a `v0.2.0` release exists with this JAR attached.
+
+These are pure layout, allocation and configuration checks. Bukkit fixtures cannot exercise navigation, the attack-strength ticker or hitbox reach, so the acceptance cases below still decide whether the repairs feel right in a world. Four cases are specific to this release:
 
 * Walk, stop, turn, strafe and sprint as a leader with groups of 4, 9, 25 and 100 members over level ground, stairs, slopes and through doorways. Verify the rows and columns stay aligned and behind the direction of travel rather than the direction of view, that a stopped leader looking around does not rotate the block, that a settled formation does not stutter between walking and standing, that killing a middle member closes the gap instead of reshuffling the group, that a slot inside a wall compresses toward the leader instead of stranding a member, and that stragglers still receive paths at 100 members. Repeat with `follow-columns` set to 1, 5 and 20.
 * Fight equipped groups with swords, axes and maces on flat ground, on stairs and across slabs. Verify NPCs wait for the weapon to recharge and land full-damage hits, that critical hops occur at roughly the configured rate without the NPC pathing away mid-hop, that several attackers surround one enemy instead of stacking, that a killed enemy is reassigned within a tick or two, and that an enemy standing one block higher can be hit. Watch the movement too: NPCs should sprint in from a distance, walk the last few blocks, circle rather than freeze between swings, and finish a sidestep instead of twitching.
@@ -42,7 +44,7 @@ With JDK 25, from the repository root on Windows:
 
 The final command rebuilds the distributable against the baseline 1.21.8 API after the compatibility compile. Use `./gradlew` on Linux/macOS. These commands do not start a Minecraft server. The HTML unit report is `build/reports/tests/test/index.html`; JUnit XML is under `build/test-results/test/`.
 
-The released plugin is [EasyScripting-0.1.8.jar](https://github.com/itarqos5/EasyScripting/releases/download/v0.1.8/EasyScripting-0.1.8.jar), SHA-256 `401043CA19B4B37C61586AA5376A9AABD15790142FA5629930C10B8C21189D07`. It contains the production descriptor and YAML resources, Java class major 65, and no smoke/Paper/Citizens classes. Sources are a separate release asset.
+The last plugin published as a GitHub release is [EasyScripting-0.1.8.jar](https://github.com/itarqos5/EasyScripting/releases/download/v0.1.8/EasyScripting-0.1.8.jar), SHA-256 `401043CA19B4B37C61586AA5376A9AABD15790142FA5629930C10B8C21189D07`. It contains the production descriptor and YAML resources, Java class major 65, and no smoke/Paper/Citizens classes. Sources are a separate release asset. The 0.2.0 JAR recorded above is a local build; publishing it is a separate step.
 
 Current documentation checks cover all 13 Markdown files, local links/anchors, all 32 registered command groups, the public facade methods, permission declarations and configuration filenames. Old GUI/recording commands are retained only where explicitly describing history or migration.
 
@@ -158,7 +160,7 @@ Paper emitted Windows performance-counter/OSHI warnings unrelated to the plugin.
 ./gradlew smokeJar
 ```
 
-The commands, artifacts and counts in this historical section describe the named earlier versions. Use the current build instructions above for 0.1.8; do not infer a fresh live test from these results.
+The commands, artifacts and counts in this historical section describe the named earlier versions. Use the current build instructions above for 0.2.0; do not infer a fresh live test from these results.
 
 All 44 pure tests passed on 0.1.2. The original 24 cover timeline ordering, state transitions, cancellation inside an action, execution budgets, argument/identifier validation, malformed scene lists, round trips, repeat/append semantics, detached YAML, atomic writes and GUI layout rejection. Nine identity tests added in 0.1.1 cover 200 unique generated names, occupied names, blacklist filtering, alternate skins, mob behavior, bounded pool exhaustion and malformed YAML choices. Eleven checks added in 0.1.2 cover varied name endings, bounded tiny-pool fallback, all playback endpoint sequences (including single-frame and legacy reverse behavior), invalid playback inputs, and inheriting missing actor GUI controls while preserving custom entries. The unit test report is `build/reports/tests/test/index.html`.
 
@@ -203,7 +205,7 @@ The acting fixture drives a known airborne/grounded path with server teleports. 
 
 ## Manual behavioral acceptance
 
-Each row defines setup, equivalent action, pass condition and reset procedure. Use the same starting state when comparing with a legitimately obtained reference installation. Do not compare source code. These rows are current 0.1.8 acceptance procedures, not claims that all have been run. A future server run must use updated fixtures and the exact deployment stack.
+Each row defines setup, equivalent action, pass condition and reset procedure. Use the same starting state when comparing with a legitimately obtained reference installation. Do not compare source code. These rows are current 0.2.0 acceptance procedures, not claims that all have been run. A future server run must use updated fixtures and the exact deployment stack.
 
 | Feature | Setup | Action | Expected result / pass condition | Reset |
 | --- | --- | --- | --- | --- |

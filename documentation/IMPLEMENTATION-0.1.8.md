@@ -1,5 +1,7 @@
 # 0.1.8 engineering notes
 
+This is a historical record. For the current 0.2.0 implementation, see [IMPLEMENTATION-0.2.0.md](IMPLEMENTATION-0.2.0.md).
+
 Release record for **EasyScripting 0.1.8**, implementation commit `b943d64e92b39bc668ee548c011ba989c483bbdc`. These notes describe the group movement, mass creation and identity-lifecycle work. Current service ownership is summarized in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Delivered changes

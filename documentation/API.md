@@ -1,6 +1,6 @@
 # Java integration API
 
-This describes the supported facade in **EasyScripting 0.1.8**. Compile against that release's plugin JAR; the sources JAR is for inspection.
+This describes the supported facade in **EasyScripting 0.2.0**. Compile against that release's plugin JAR; the sources JAR is for inspection.
 
 The public API is in `dev.easyscripting.api`. Declare `depend: [EasyScripting]` in your plugin metadata, or `softdepend` and explicitly handle absence. Compile against the EasyScripting JAR; do not shade its classes into your plugin.
 

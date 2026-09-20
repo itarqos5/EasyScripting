@@ -1,6 +1,6 @@
 # EasyScripting
 
-Current release: **[0.1.8](https://github.com/itarqos5/EasyScripting/releases/tag/v0.1.8)**. [Download the plugin JAR](https://github.com/itarqos5/EasyScripting/releases/download/v0.1.8/EasyScripting-0.1.8.jar). Documentation describes this release.
+Current release: **[0.2.0](https://github.com/itarqos5/EasyScripting/releases/tag/v0.2.0)**. [Download the plugin JAR](https://github.com/itarqos5/EasyScripting/releases/download/v0.2.0/EasyScripting-0.2.0.jar). Documentation describes this release.
 
 Paper/Purpur tools for scripted SMP productions: actors, timed scenes, movement recordings, repeatable takes, kits, inventory tools, world controls and configurable inventory menus.
 
@@ -18,9 +18,9 @@ Use JDK 25 and the included Gradle wrapper:
 
 On Windows, use `.\gradlew.bat build`.
 
-Copy `build/libs/EasyScripting-0.1.8.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
+Copy `build/libs/EasyScripting-0.2.0.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
 
-The project targets Paper/Purpur, with Paper 26.2 as its original primary target. Release 0.1.8 is compiled against Paper 1.21.8 and 1.21.11 using JDK 25 and produces Java 21 bytecode. Validation totals: **160 unit tests**; no server/client was launched for this release. Earlier 26.x compilation and runtime results are historical, not fresh 0.1.8 verification. See [TESTING.md](documentation/TESTING.md) for the exact matrix. Purpur is a compatibility target; Folia and Spigot are not supported.
+The project targets Paper/Purpur, with Paper 26.2 as its original primary target. Release 0.2.0 is compiled against Paper 1.21.8 and 1.21.11 using JDK 25 and produces Java 21 bytecode. Validation totals: **171 unit tests**; no server/client was launched for this release. Earlier 26.x compilation and runtime results are historical, not fresh 0.2.0 verification. See [TESTING.md](documentation/TESTING.md) for the exact matrix. Purpur is a compatibility target; Folia and Spigot are not supported.
 
 Optional integrations:
 
@@ -31,7 +31,7 @@ Neither dependency is bundled. Without them the rest of the plugin loads and the
 
 ## NPC movement, groups and identities
 
-Version 0.1.8 makes leader followers use stable compact rows, ordinary path navigation and a normal walking pace, with a sprint-like catch-up pace only when they fall behind. Since then the rows have been rebuilt as an aligned, configurable-width grid oriented by the leader's actual travel rather than their view direction, and melee now waits for the held weapon to recharge. The leader can hit their own group NPCs; members still cannot hurt their leader or each other. Start a group with `/es group create red`. See the [group and combat guide](documentation/NPC-GROUPS.md).
+Version 0.2.0 forms followers into aligned rows and columns of a configurable width, oriented by the direction the leader is actually travelling, at a normal walking pace with a sprint-like catch-up only when they fall behind. Melee waits for the held weapon to recharge, NPCs circle between swings, and a hurt NPC will break off to eat a carried golden apple or throw a carried ender pearl. The leader can hit their own group NPCs; members still cannot hurt their leader or each other. Start a group with `/es group create red`. See the [group and combat guide](documentation/NPC-GROUPS.md).
 
 Mass creation now requires an existing group and saved kit. `/actor pattern red disc behind 40 fighter 2 PLAYER` fills a disc behind the assigned leader and resolves every X/Z column to its highest safe standing surface. `/es group tool red fighter PLAYER` gives an operator a persistent bound tool; right-click a block to create `red-actor-1`, `red-actor-2`, and later members with that kit. Group controls can apply Immortal, one kit or fresh identities to every member. Deleting a group permanently deletes all its NPCs.
 

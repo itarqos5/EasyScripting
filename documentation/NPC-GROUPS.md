@@ -1,6 +1,6 @@
 # NPC movement, groups and combat
 
-EasyScripting 0.1.8 provides configurable group movement and combat. Each NPC owns its health, equipment and carried supplies. A group supplies orders, allies and optional shared defaults; it does not pool health, inventories, hunger or XP, and it does not choose a winner in advance. Paper handles damage, armor, potion effects, knockback and death. PLAYER actors require a Citizens build for your server version.
+EasyScripting 0.2.0 provides configurable group movement and combat. Each NPC owns its health, equipment and carried supplies. A group supplies orders, allies and optional shared defaults; it does not pool health, inventories, hunger or XP, and it does not choose a winner in advance. Paper handles damage, armor, potion effects, knockback and death. PLAYER actors require a Citizens build for your server version.
 
 ## Start with one NPC
 

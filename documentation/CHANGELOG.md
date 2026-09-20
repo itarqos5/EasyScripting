@@ -1,10 +1,10 @@
 # Changelog
 
-Latest plugin release: **[0.1.8](https://github.com/itarqos5/EasyScripting/releases/tag/v0.1.8)**. Entries below describe each version at its release; later entries supersede changed behavior.
+Latest plugin release: **[0.2.0](https://github.com/itarqos5/EasyScripting/releases/tag/v0.2.0)**. Entries below describe each version at its release; later entries supersede changed behavior.
 
-## Unreleased
+## 0.2.0 — 2026-09-20
 
-Group AI repairs. No version has been published for these changes yet.
+Group AI repairs and NPC self preservation.
 
 * Fixed group following orienting its rows by where the leader was looking instead of where they were walking. The heading now comes from how far the leader actually moved each tick; `Player#getVelocity` is not populated by walking input, so the old reading was almost always empty and the formation stayed frozen on whatever yaw it first saw.
 * Rebuilt the trailing formation as an aligned grid. Every row sits on one shared lateral grid so columns line up, and a partial last row is centred by whole slots. The new `groups.follow-columns` chooses the width; `0` keeps the automatic square block. A Move order now forms the same rows and columns, centred on the destination.

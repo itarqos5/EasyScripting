@@ -1,6 +1,6 @@
 # Configuration and storage
 
-Current schema/reference: **EasyScripting 0.1.8**. See [the shipped YAML files](../src/main/resources/) for the authoritative defaults and inline explanations.
+Current schema/reference: **EasyScripting 0.2.0**. See [the shipped YAML files](../src/main/resources/) for the authoritative defaults and inline explanations.
 
 Files are generated under `plugins/EasyScripting/`. Keep your existing files when updating. Missing top-level files are copied from the JAR. Existing values are preserved except for the documented, backed-up GUI/default migrations below; exact old shipped message/help text is updated in memory. Reload uses `/es reload`; definitions edited outside the plugin load during a server restart. Invalid YAML is preserved and its path is logged. Shipped explanations are added to uncommented existing keys on reload; configured values and your own comments stay intact. The asynchronous YAML writer preserves headers, nested comments and inline comments.
 
