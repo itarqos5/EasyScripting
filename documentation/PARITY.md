@@ -1,8 +1,12 @@
 # EasyScripting behavioral parity
 
-Feature inventory for **0.1.8**, reviewed against the current implementation. The public-reference evidence below was collected on 2026-09-13; it is not a new inspection of the reference product.
+Feature inventory for **0.2.0**, reviewed against the current implementation. The public-reference evidence below was collected on 2026-09-13; it is not a new inspection of the reference product.
 
 Independent clean-room implementation based on public descriptions, both listing/gallery images and public updates. No original plugin binary, source, private assets, licensing or DRM was accessed. Branding, source and configuration are independent.
+
+## 0.2.0 additions
+
+Group following was repaired: rows and columns are aligned on one shared grid of configurable width and are oriented by the direction the leader actually travels, formation places survive casualties, and the shared path budget is ranked by need. Melee waits for the held weapon to recharge, measures reach eye-to-hitbox, spreads a squad around one enemy and reassigns a dead one at once. NPCs raise a shield against a mace alongside as well as overhead, break off to eat a carried golden apple when hurt, throw a carried ender pearl when badly hurt, sprint in and circle between swings. All of it is configuration-driven in `actor-ai.yml`. Coverage is unit-level layout, allocation and configuration logic only; navigation feel, the attack-strength ticker, hitbox reach and the Paper item-use APIs behind eating still require live server acceptance. See [NPC-GROUPS.md](NPC-GROUPS.md) and [TESTING.md](TESTING.md).
 
 ## 0.1.8 additions
 
@@ -15,7 +19,7 @@ Group followers now use stable trailing rows, normal native path speeds, bounded
 * [Public updates](https://builtbybit.com/resources/scriptedessentials-full-release.75101/updates): combat, identity, kit, restriction and production workflow clarifications.
 * Platform sources: [Paper project setup](https://docs.papermc.io/paper/dev/project-setup/), [Java requirements](https://docs.papermc.io/paper/getting-started/), [BlockData snapshots](https://jd.papermc.io/paper/1.21.8/org/bukkit/block/data/BlockData.html#createBlockState()).
 
-IMPLEMENTED means working code exists. VERIFIED (historical) identifies the specific behavior exercised in earlier recorded tests; it does not mean the whole 0.1.8 implementation was retested in-game. PARTIAL identifies a known difference, NOT STARTED an absent behavior, and UNKNOWN insufficient public detail for equivalence. REMOVED identifies a deliberately retired command surface. Confidence describes the observed requirement, not code quality. Verification is against the behavior specification, not a running reference binary.
+IMPLEMENTED means working code exists. VERIFIED (historical) identifies the specific behavior exercised in earlier recorded tests; it does not mean the whole 0.2.0 implementation was retested in-game. PARTIAL identifies a known difference, NOT STARTED an absent behavior, and UNKNOWN insufficient public detail for equivalence. REMOVED identifies a deliberately retired command surface. Confidence describes the observed requirement, not code quality. Verification is against the behavior specification, not a running reference binary.
 
 Commands follow /es unless shown otherwise. Permission suffixes follow easyscripting. UI names refer to guis.yml inventory menus. Features are permission-gated and grouped under 18 feature switches, not one switch for every command.
 

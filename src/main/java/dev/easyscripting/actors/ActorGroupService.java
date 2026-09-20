@@ -5,6 +5,7 @@ import dev.easyscripting.core.*;
 import dev.easyscripting.items.KitService;
 import dev.easyscripting.storage.YamlStore;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import org.bukkit.*;
 import org.bukkit.entity.*;
@@ -30,6 +31,12 @@ public final class ActorGroupService implements Listener, AutoCloseable {
   private final Map<String, GroupMotion> groupMotion = new HashMap<>();
   private final Map<String, UUID> assignments = new HashMap<>();
   private final Map<String, UUID> soloTargets = new HashMap<>();
+  /** Actor id to {position among this target's attackers, attacker count}. */
+  private final Map<String, int[]> engagementSlots = new HashMap<>();
+  /** Actor id to its compacted formation slot; absent means the member has no place yet. */
+  private final Map<String, Integer> formationSlots = new HashMap<>();
+  private final Map<String, Integer> formationSizes = new HashMap<>();
+  private final List<PathRequest> requests = new ArrayList<>();
   private ActorCombatService combat;
 
   public void combat(ActorCombatService combat) {
@@ -48,17 +55,59 @@ public final class ActorGroupService implements Listener, AutoCloseable {
   private int cursor;
   private boolean closing;
 
+  /** Ordinary decision interval; an engaged member thinks more often so hits land on time. */
+  private static final int CADENCE = 5, COMBAT_CADENCE = 2;
+
+  /** Pull an unreachable formation slot toward the leader before abandoning the member. */
+  private static final double[] SLOT_FALLBACKS = {0.75, 0.5, 0.25};
+
+  /** How far around its target a sidestep carries the NPC, in radians. */
+  private static final double STRAFE_ARC = 0.7;
+
+  /** Never wait longer than this for a weapon to charge, in case the ticker is not simulated. */
+  private static final int CHARGE_WAIT = 40;
+
   private static final class Brain {
     String group;
     Location lastGoal;
-    long nextPath, nextAttack, pauseUntil;
+    long nextPath, nextAttack, pauseUntil, critAt, chargeBy;
     boolean moving;
     boolean sprintOverride;
+    /** True while a sidestep is still walking, so the next decision does not cancel it. */
+    boolean strafing;
+    /** True once the member reached its slot; it then waits for the wider resume distance. */
+    boolean parked;
   }
 
   private static final class GroupMotion {
-    long tick = -1;
     Vector heading;
+    Location previous;
+  }
+
+  /** A path the director would like to issue this tick, ranked before the budget is spent. */
+  private static final class PathRequest {
+    final ActorService.ManagedActor actor;
+    final Brain brain;
+    final Location goal;
+    final double speed, priority;
+    final boolean following, sprint;
+
+    PathRequest(
+        ActorService.ManagedActor actor,
+        Brain brain,
+        Location goal,
+        double speed,
+        boolean following,
+        boolean sprint,
+        double priority) {
+      this.actor = actor;
+      this.brain = brain;
+      this.goal = goal;
+      this.speed = speed;
+      this.following = following;
+      this.sprint = sprint;
+      this.priority = priority;
+    }
   }
 
   public ActorGroupService(
@@ -81,7 +130,7 @@ public final class ActorGroupService implements Listener, AutoCloseable {
             enabled()
                 && ((a.definition.aggressive
                         && (soloTargets.containsKey(a.id())
-                            || (combat != null && combat.defending(a))))
+                            || (combat != null && combat.busy(a))))
                     || (settings.actorAi().groupsEnabled() && groups.containsKey(a.group()))));
     actors.onSpawned(
         a -> {
@@ -93,6 +142,8 @@ public final class ActorGroupService implements Listener, AutoCloseable {
           brains.remove(id);
           assignments.remove(id);
           soloTargets.remove(id);
+          engagementSlots.remove(id);
+          formationSlots.remove(id);
           refreshAt = 0;
         });
   }
@@ -450,10 +501,13 @@ public final class ActorGroupService implements Listener, AutoCloseable {
       group.enemies.clear();
     }
     groupMotion.remove(group.id);
+    formationSizes.remove(group.id);
     for (var actor : members(group.id)) {
       if (!actors.busy(actor.id())) actor.stop();
       brains.remove(actor.id());
       assignments.remove(actor.id());
+      engagementSlots.remove(actor.id());
+      formationSlots.remove(actor.id());
     }
   }
 
@@ -477,16 +531,41 @@ public final class ActorGroupService implements Listener, AutoCloseable {
         }
         brains.remove(id);
         assignments.remove(id);
+        engagementSlots.remove(id);
+        formationSlots.remove(id);
       }
-    if (settings.actorAi().groupsEnabled())
+    if (settings.actorAi().groupsEnabled()) {
+      layout();
       for (ActorGroup group : groups.values()) allocate(group);
+    }
     refreshAt = tick + 20;
+  }
+
+  /**
+   * Number the members that can actually stand in the formation. Absent and reserved actors are
+   * skipped rather than reserving an empty square, and the surviving members keep their order, so
+   * a casualty closes the gap instead of shuffling everyone into a neighbour's place.
+   */
+  private void layout() {
+    formationSlots.clear();
+    formationSizes.clear();
+    for (ActorGroup group : groups.values()) {
+      int slot = 0;
+      for (var actor : members.getOrDefault(group.id, List.of()))
+        if (actor.entity().isPresent() && !actors.busy(actor.id()))
+          formationSlots.put(actor.id(), slot++);
+      formationSizes.put(group.id, slot);
+    }
   }
 
   private void allocate(ActorGroup group) {
     var team = members.getOrDefault(group.id, List.of());
     if (!group.intelligence) {
-      team.forEach(a -> assignments.remove(a.id()));
+      team.forEach(
+          a -> {
+            assignments.remove(a.id());
+            engagementSlots.remove(a.id());
+          });
       return;
     }
     group.targets.removeIf(
@@ -534,8 +613,23 @@ public final class ActorGroupService implements Listener, AutoCloseable {
                         .getLocation()
                         .distanceSquared(targets.get(target).getLocation())
                     : Double.POSITIVE_INFINITY);
-    team.forEach(a -> assignments.remove(a.id()));
+    team.forEach(
+        a -> {
+          assignments.remove(a.id());
+          engagementSlots.remove(a.id());
+        });
     assignments.putAll(allocation);
+    // Remember each attacker's place around its target so a squad surrounds instead of stacking.
+    Map<UUID, List<String>> byTarget = new LinkedHashMap<>();
+    allocation.forEach(
+        (member, target) -> byTarget.computeIfAbsent(target, key -> new ArrayList<>()).add(member));
+    byTarget
+        .values()
+        .forEach(
+            attackers -> {
+              for (int i = 0; i < attackers.size(); i++)
+                engagementSlots.put(attackers.get(i), new int[] {i, attackers.size()});
+            });
   }
 
   private void update() {
@@ -545,14 +639,16 @@ public final class ActorGroupService implements Listener, AutoCloseable {
       return;
     }
     if (tick >= refreshAt) refresh();
-    int budget = settings.actorAi().pathsPerTick();
+    if (settings.actorAi().groupsEnabled())
+      for (ActorGroup group : groups.values()) trackHeading(group);
+    requests.clear();
     for (int offset = 0; offset < roster.size(); offset++) {
       var actor = roster.get((cursor + offset) % roster.size());
-      if (Math.floorMod(tick + actor.id().hashCode(), 5) != 0) continue;
       if (actors.busy(actor.id()) || actor.entity().isEmpty()) {
         brains.remove(actor.id());
         continue;
       }
+      if (Math.floorMod(tick + actor.id().hashCode(), cadence(actor)) != 0) continue;
       ActorGroup group = settings.actorAi().groupsEnabled() ? groups.get(actor.group()) : null;
       if (group == null && !actor.definition.aggressive) continue;
       Brain brain = brains.computeIfAbsent(actor.id(), key -> new Brain());
@@ -561,18 +657,62 @@ public final class ActorGroupService implements Listener, AutoCloseable {
         actor.stop();
         brain.group = owner;
         brain.lastGoal = null;
+        brain.parked = false;
       }
       try {
-        budget = act(actor, group, brain, budget);
+        act(actor, group, brain);
       } catch (IllegalArgumentException | IllegalStateException ex) {
         stopMotion(actor, brain);
         brain.nextPath = tick + 40;
       }
     }
+    dispatch();
     if (!roster.isEmpty()) cursor = (cursor + 1) % roster.size();
   }
 
-  private int act(ActorService.ManagedActor actor, ActorGroup group, Brain brain, int budget) {
+  /** A member with an enemy reassesses more often, so its swings are not quantised into misses. */
+  private int cadence(ActorService.ManagedActor actor) {
+    boolean engaged =
+        assignments.containsKey(actor.id())
+            || soloTargets.containsKey(actor.id())
+            || (combat != null && combat.defending(actor));
+    return engaged ? COMBAT_CADENCE : CADENCE;
+  }
+
+  /**
+   * Sample how far the leader actually travelled this tick. Player velocity is not filled in by
+   * walking input, so reading it made the rows line up with where the leader looked rather than
+   * where they were going.
+   */
+  private void trackHeading(ActorGroup group) {
+    Player leader = group.leader == null ? null : Bukkit.getPlayer(group.leader);
+    if (leader == null || group.order != ActorGroup.Order.FOLLOW) {
+      groupMotion.remove(group.id);
+      return;
+    }
+    GroupMotion motion = groupMotion.computeIfAbsent(group.id, ignored -> new GroupMotion());
+    Location now = leader.getLocation();
+    Vector travel =
+        motion.previous != null && motion.previous.getWorld() == now.getWorld()
+            ? now.toVector().subtract(motion.previous.toVector())
+            : new Vector();
+    motion.previous = now.clone();
+    motion.heading = GroupTactics.movementHeading(motion.heading, travel, now.getYaw());
+  }
+
+  /** Spend the shared path budget on whoever is worst off rather than on whoever ticked first. */
+  private void dispatch() {
+    int budget = settings.actorAi().pathsPerTick();
+    if (requests.size() > budget)
+      requests.sort(Comparator.comparingDouble((PathRequest r) -> r.priority).reversed());
+    for (PathRequest request : requests) {
+      if (budget < 1) break;
+      if (navigate(request)) budget--;
+    }
+    requests.clear();
+  }
+
+  private void act(ActorService.ManagedActor actor, ActorGroup group, Brain brain) {
     LivingEntity entity = actor.requireEntity();
     Player leader = group == null || group.leader == null ? null : Bukkit.getPlayer(group.leader);
     if (group != null
@@ -585,55 +725,84 @@ public final class ActorGroupService implements Listener, AutoCloseable {
       actor.look(null);
       group.targets.clear();
       group.enemies.clear();
-      return budget;
+      return;
     }
-    if (tick < brain.pauseUntil) return budget;
+    if (tick < brain.pauseUntil) return;
     if (combat != null && combat.defending(actor)) {
       stopMotion(actor, brain);
-      return budget;
+      return;
     }
     UUID targetId = (group == null ? soloTargets : assignments).get(actor.id());
     LivingEntity target =
         targetId != null && Bukkit.getEntity(targetId) instanceof LivingEntity e ? e : null;
+    // A target that vanished between sweeps would otherwise leave the squad idle for a second.
+    if (targetId != null && (target == null || !targetable(target))) refreshAt = 0;
     if (intelligent(actor)
         && target != null
         && targetable(target)
         && !allied(entity, target)
         && inRange(entity, target)) {
-      if (combat != null && combat.prepare(actor, target)) {
-        // Stop pathfinding without clearing the item's chosen look direction.
-        if (brain.moving) {
-          stopMotion(actor, brain);
-          combat.prepare(actor, target);
+      brain.parked = false;
+      if (combat != null) {
+        // The reaction decides first; only then is it clear whether it wants to stand or run.
+        boolean reacting = combat.prepare(actor, target);
+        if (combat.retreating(actor)) {
+          brain.critAt = 0;
+          brain.strafing = false;
+          actor.look(target.getEyeLocation());
+          withdraw(actor, entity, brain, target);
+          return;
         }
-        return budget;
+        if (reacting) {
+          // Stop pathfinding without clearing the item's chosen look direction.
+          if (brain.moving) {
+            stopMotion(actor, brain);
+            combat.prepare(actor, target);
+          }
+          return;
+        }
       }
       actor.look(target.getEyeLocation());
-      if (entity.getLocation().distanceSquared(target.getLocation())
-              <= Math.pow(settings.actorAi().meleeReach(), 2)
+      if (reach(entity, target) <= settings.actorAi().meleeReach()
           && entity.hasLineOfSight(target)) {
-        stopMotion(actor, brain);
-        actor.look(target.getEyeLocation());
-        if (tick >= brain.nextAttack) {
-          brain.nextAttack =
-              tick + (combat == null ? settings.actorAi().attackCooldown() : combat.attackDelay());
-          if (combat != null) combat.strike(actor, target);
-          else {
-            entity.swingMainHand();
-            entity.attack(target);
-          }
+        if (melee(actor, entity, brain, target)) {
+          brain.strafing = false;
+          return;
         }
-        return budget;
+        // Nothing to swing with yet. Waiting out a weapon is when a player circles, not freezes.
+        if (brain.strafing && actor.navigating()) return;
+        brain.strafing = false;
+        if (combat != null && combat.strafe(actor)) {
+          // The path itself is issued after the budget is shared out, so the intent is recorded
+          // now; a sidestep the budget never funds simply gets rolled again next time.
+          sidestep(actor, entity, brain, target);
+          brain.strafing = true;
+        } else stopMotion(actor, brain);
+        return;
       }
-      return navigate(
-          actor, brain, target.getLocation(), settings.actorAi().chaseSpeed(), budget, false);
+      brain.critAt = 0;
+      brain.strafing = false;
+      Location approach = approach(actor, entity, target);
+      double gap = entity.getLocation().distanceSquared(approach);
+      double sprintAt = settings.actorAi().sprintChaseDistance();
+      request(
+          actor,
+          brain,
+          approach,
+          settings.actorAi().chaseSpeed(),
+          false,
+          gap > sprintAt * sprintAt,
+          gap);
+      return;
     }
+    brain.critAt = 0;
+    brain.strafing = false;
     if (combat != null) combat.idle(actor);
     if (group == null) {
       actor.lookNearby(true);
       soloTargets.remove(actor.id());
       stopMotion(actor, brain);
-      return budget;
+      return;
     }
     actor.look(null);
     Location center =
@@ -642,109 +811,245 @@ public final class ActorGroupService implements Listener, AutoCloseable {
             : group.order == ActorGroup.Order.MOVE ? group.destination : null;
     if (center == null || center.getWorld() != entity.getWorld()) {
       stopMotion(actor, brain);
-      return budget;
+      return;
     }
-    int index = members.getOrDefault(group.id, List.of()).indexOf(actor);
-    List<ActorService.ManagedActor> team = members.getOrDefault(group.id, List.of());
+    Integer index = formationSlots.get(actor.id());
+    int count = formationSizes.getOrDefault(group.id, 0);
+    // Without a numbered place the member would share slot zero and shove whoever holds it.
+    if (index == null || index >= count) {
+      stopMotion(actor, brain);
+      return;
+    }
     boolean following = group.order == ActorGroup.Order.FOLLOW;
+    var ai = settings.actorAi();
+    Vector facing = following ? heading(group, leader) : facing(center);
     Vector slot =
         following
             ? GroupTactics.trailingFormation(
-                Math.max(0, index),
-                Math.max(1, team.size()),
-                settings.actorAi().followSpacing(),
-                movementHeading(group, leader))
-            : GroupTactics.formation(Math.max(0, index), settings.actorAi().followSpacing());
-    Location goal =
-        ActorWandering.ground(center.clone().add(slot), 6);
+                index, count, ai.followColumns(), ai.followSpacing(), facing)
+            : GroupTactics.blockFormation(
+                index, count, ai.followColumns(), ai.followSpacing(), facing);
+    Location goal = slotGround(center, slot);
     if (goal == null) {
       stopMotion(actor, brain);
-      return budget;
+      return;
     }
     double distanceSquared = entity.getLocation().distanceSquared(goal);
-    if (distanceSquared
-        <= settings.actorAi().followArrivalDistance()
-            * settings.actorAi().followArrivalDistance()) {
+    // Hysteresis: a member that has taken its place waits for the wider resume distance, so a
+    // leader shuffling on the spot does not make the whole formation stutter in and out of walking.
+    double settle = brain.parked ? ai.followResumeDistance() : ai.followArrivalDistance();
+    if (distanceSquared <= settle * settle) {
+      brain.parked = true;
       stopMotion(actor, brain);
       if (leader != null) actor.look(leader.getEyeLocation());
-      return budget;
+      return;
     }
+    brain.parked = false;
     double speed =
-        following
-                && distanceSquared
-                >= settings.actorAi().followCatchUpDistance()
-                    * settings.actorAi().followCatchUpDistance()
-            ? settings.actorAi().followCatchUpSpeed()
-            : settings.actorAi().followSpeed();
-    if (distanceSquared
-        > settings.actorAi().followWaypointDistance()
-            * settings.actorAi().followWaypointDistance()) {
+        following && distanceSquared >= ai.followCatchUpDistance() * ai.followCatchUpDistance()
+            ? ai.followCatchUpSpeed()
+            : ai.followSpeed();
+    if (distanceSquared > ai.followWaypointDistance() * ai.followWaypointDistance()) {
       Vector point =
           GroupTactics.waypoint(
-              entity.getLocation().toVector(),
-              goal.toVector(),
-              settings.actorAi().followWaypointDistance());
+              entity.getLocation().toVector(), goal.toVector(), ai.followWaypointDistance());
       Location intermediate =
           ActorWandering.ground(
               new Location(
-                  entity.getWorld(),
-                  point.getX(),
-                  point.getY(),
-                  point.getZ(),
-                  goal.getYaw(),
-                  0),
+                  entity.getWorld(), point.getX(), point.getY(), point.getZ(), goal.getYaw(), 0),
               12);
       if (intermediate != null) goal = intermediate;
     }
-    return navigate(actor, brain, goal, speed, budget, following);
+    request(actor, brain, goal, speed, following, speed > ai.followSpeed(), distanceSquared);
   }
 
-  private Vector movementHeading(ActorGroup group, Player leader) {
-    if (leader == null) return new Vector(0, 0, 1);
-    GroupMotion motion = groupMotion.computeIfAbsent(group.id, ignored -> new GroupMotion());
-    if (motion.tick != tick) {
-      motion.heading =
-          GroupTactics.movementHeading(motion.heading, leader.getVelocity(), leader.getYaw());
-      motion.tick = tick;
+  /**
+   * Swing once the weapon is actually charged, optionally hopping first to land a critical.
+   * Returns true while the NPC is mid-swing or mid-hop and must hold its ground; false means it
+   * has nothing to do with its weapon yet and the caller may move it.
+   */
+  private boolean melee(
+      ActorService.ManagedActor actor, LivingEntity entity, Brain brain, LivingEntity target) {
+    if (tick < brain.nextAttack) return false;
+    if (combat == null) {
+      plant(actor, brain, target);
+      brain.nextAttack = tick + settings.actorAi().attackCooldown();
+      entity.swingMainHand();
+      entity.attack(target);
+      return true;
     }
-    return motion.heading.clone();
+    if (brain.critAt > 0) {
+      if (tick < brain.critAt) return true; // Still rising; the blow lands on the way back down.
+      brain.critAt = 0;
+    } else if (!ready(entity, brain)) {
+      return false;
+    } else if (combat.critJump(actor)) {
+      plant(actor, brain, target);
+      brain.critAt = tick + settings.actorCombat().critJumpDelay();
+      return true;
+    }
+    plant(actor, brain, target);
+    brain.chargeBy = 0;
+    brain.nextAttack = tick + combat.attackDelay();
+    combat.strike(actor, target);
+    return true;
   }
 
-  private int navigate(
+  /** Stop walking and face the enemy; stopping clears the look, so the order matters. */
+  private void plant(ActorService.ManagedActor actor, Brain brain, LivingEntity target) {
+    stopMotion(actor, brain);
+    actor.look(target.getEyeLocation());
+  }
+
+  /** True once the held weapon has recharged, or once waiting any longer would stall the fight. */
+  private boolean ready(LivingEntity entity, Brain brain) {
+    if (combat.charged(entity)) return true;
+    // Waiting for full charge must never become waiting forever on an unsimulated entity.
+    if (brain.chargeBy == 0) brain.chargeBy = tick + CHARGE_WAIT;
+    return tick >= brain.chargeBy;
+  }
+
+  /**
+   * Break off and open a gap. The NPC keeps facing its enemy while it backs away, so a retreat
+   * reads as a retreat rather than as the NPC losing interest and wandering off.
+   */
+  private void withdraw(
+      ActorService.ManagedActor actor, LivingEntity entity, Brain brain, LivingEntity target) {
+    double distance = settings.actorCombat().retreatDistance();
+    Vector away = ActorCombatService.away(entity, target).multiply(distance);
+    Location goal = groundNear(entity.getLocation().add(away), away);
+    if (goal == null) {
+      stopMotion(actor, brain);
+      return;
+    }
+    request(
+        actor,
+        brain,
+        goal,
+        settings.actorAi().chaseSpeed(),
+        false,
+        true,
+        entity.getLocation().distanceSquared(goal) + 512);
+  }
+
+  /** Circle the target at the distance already held, so the sidestep never gives up the reach. */
+  private void sidestep(
+      ActorService.ManagedActor actor, LivingEntity entity, Brain brain, LivingEntity target) {
+    Vector bearing = entity.getLocation().toVector().subtract(target.getLocation().toVector());
+    double radius = Math.max(1, bearing.clone().setY(0).length());
+    double arc = ThreadLocalRandom.current().nextBoolean() ? STRAFE_ARC : -STRAFE_ARC;
+    Location goal =
+        ActorWandering.ground(
+            target.getLocation().clone().add(GroupTactics.circleOffset(bearing, radius, arc)), 3);
+    if (goal == null) {
+      stopMotion(actor, brain);
+      return;
+    }
+    request(actor, brain, goal, settings.actorAi().followSpeed(), false, false, 256);
+  }
+
+  /** Resolve a point to a standing surface, shortening the offset when the far end is blocked. */
+  private Location groundNear(Location goal, Vector offset) {
+    Location exact = ActorWandering.ground(goal, 4);
+    if (exact != null) return exact;
+    Location origin = goal.clone().subtract(offset);
+    for (double shrink : SLOT_FALLBACKS) {
+      Location nearer =
+          ActorWandering.ground(origin.clone().add(offset.clone().multiply(shrink)), 4);
+      if (nearer != null) return nearer;
+    }
+    return null;
+  }
+
+  /** Approach a share of the ring around the target instead of everyone's exact centre block. */
+  private Location approach(
+      ActorService.ManagedActor actor, LivingEntity entity, LivingEntity target) {
+    int[] engagement = engagementSlots.get(actor.id());
+    if (engagement == null || engagement[1] < 2) return target.getLocation();
+    Vector bearing = entity.getLocation().toVector().subtract(target.getLocation().toVector());
+    Vector offset =
+        GroupTactics.engagementOffset(
+            engagement[0],
+            engagement[1],
+            Math.max(1, settings.actorAi().meleeReach() - 0.6),
+            bearing);
+    Location spread = ActorWandering.ground(target.getLocation().clone().add(offset), 4);
+    return spread == null ? target.getLocation() : spread;
+  }
+
+  /**
+   * Resolve a formation slot to a standing surface. A slot inside a wall or over a drop pulls in
+   * toward the anchor rather than freezing the member where it stands.
+   */
+  private Location slotGround(Location center, Vector slot) {
+    Location exact = ActorWandering.ground(center.clone().add(slot), 6);
+    if (exact != null) return exact;
+    for (double shrink : SLOT_FALLBACKS) {
+      Location nearer = ActorWandering.ground(center.clone().add(slot.clone().multiply(shrink)), 6);
+      if (nearer != null) return nearer;
+    }
+    return ActorWandering.ground(center.clone(), 6);
+  }
+
+  private Vector heading(ActorGroup group, Player leader) {
+    GroupMotion motion = groupMotion.get(group.id);
+    if (motion != null && motion.heading != null) return motion.heading.clone();
+    return leader == null ? new Vector(0, 0, 1) : facing(leader.getLocation());
+  }
+
+  private static Vector facing(Location location) {
+    double angle = Math.toRadians(location.getYaw());
+    return new Vector(-Math.sin(angle), 0, Math.cos(angle));
+  }
+
+  /**
+   * Queue a path for this tick's shared budget. Requests that would repeat an active path, or that
+   * are still inside their repath interval, never reach the queue and so never crowd it out.
+   */
+  private void request(
       ActorService.ManagedActor actor,
       Brain brain,
       Location goal,
       double speed,
-      int budget,
-      boolean following) {
-    if (budget < 1) return budget;
+      boolean following,
+      boolean sprint,
+      double priority) {
     boolean navigating = actor.navigating();
     double change = following ? settings.actorAi().followGoalChange() : 1.5;
     if (navigating
         && brain.lastGoal != null
         && brain.lastGoal.getWorld() == goal.getWorld()
-        && brain.lastGoal.distanceSquared(goal) < change * change) return budget;
+        && brain.lastGoal.distanceSquared(goal) < change * change) return;
     // A completed FOLLOW path gets another chance immediately when the leader has moved on.
-    if (tick < brain.nextPath && (!following || navigating)) return budget;
+    if (tick < brain.nextPath && (!following || navigating)) return;
+    // A stopped member is further behind than its distance alone suggests, so it goes first.
+    requests.add(
+        new PathRequest(
+            actor, brain, goal, speed, following, sprint, priority + (navigating ? 0 : 256)));
+  }
+
+  private boolean navigate(PathRequest request) {
+    ActorService.ManagedActor actor = request.actor;
+    Brain brain = request.brain;
     brain.nextPath =
         tick
-            + (following
+            + (request.following
                 ? settings.actorAi().followRepathTicks()
                 : settings.actorAi().repathTicks());
     try {
-      actor.move(goal, speed);
-      brain.lastGoal = goal.clone();
+      actor.move(request.goal, request.speed);
+      brain.lastGoal = request.goal.clone();
       brain.moving = true;
-      if (following && actor.requireEntity() instanceof Player player) {
-        player.setSprinting(
-            actor.definition.sprinting || speed > settings.actorAi().followSpeed());
+      if (actor.requireEntity() instanceof Player player) {
+        player.setSprinting(actor.definition.sprinting || request.sprint);
         brain.sprintOverride = true;
       }
+      return true;
     } catch (IllegalArgumentException | IllegalStateException ex) {
       stopMotion(actor, brain);
-      brain.nextPath = tick + (following ? 10 : 40);
+      brain.nextPath = tick + (request.following ? 10 : 40);
+      return false;
     }
-    return budget - 1;
   }
 
   private void stopMotion(ActorService.ManagedActor actor, Brain brain) {
@@ -754,6 +1059,21 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     brain.moving = false;
     brain.sprintOverride = false;
     brain.lastGoal = null;
+  }
+
+  /**
+   * Distance from the attacker's eyes to the nearest point of the target's hitbox, the way a real
+   * player's reach is measured. Comparing foot positions denied hits on anything standing on a
+   * slab, a stair or the attacker's own head.
+   */
+  private static double reach(LivingEntity from, LivingEntity to) {
+    if (from.getWorld() != to.getWorld()) return Double.POSITIVE_INFINITY;
+    Location eye = from.getEyeLocation();
+    var box = to.getBoundingBox();
+    double x = Math.max(box.getMinX(), Math.min(eye.getX(), box.getMaxX()));
+    double y = Math.max(box.getMinY(), Math.min(eye.getY(), box.getMaxY()));
+    double z = Math.max(box.getMinZ(), Math.min(eye.getZ(), box.getMaxZ()));
+    return eye.toVector().distance(new Vector(x, y, z));
   }
 
   private boolean inRange(LivingEntity from, LivingEntity to) {
@@ -941,6 +1261,18 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     if (changed) refreshAt = 0;
   }
 
+  /** Reassign at once; otherwise a squad keeps swinging at a corpse until the next sweep. */
+  @EventHandler(priority = EventPriority.MONITOR)
+  public void died(EntityDeathEvent event) {
+    if (!enabled()) return;
+    UUID dead = event.getEntity().getUniqueId();
+    boolean assigned =
+        assignments.values().removeIf(dead::equals) | soloTargets.values().removeIf(dead::equals);
+    boolean ordered = false;
+    for (ActorGroup group : groups.values()) ordered |= group.targets.remove(dead);
+    if (assigned || ordered) refreshAt = 0;
+  }
+
   @EventHandler
   public void quit(PlayerQuitEvent event) {
     for (var group : groups.values())
@@ -971,5 +1303,9 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     groupMotion.clear();
     assignments.clear();
     soloTargets.clear();
+    engagementSlots.clear();
+    formationSlots.clear();
+    formationSizes.clear();
+    requests.clear();
   }
 }

@@ -1,6 +1,6 @@
 # Permissions
 
-Permission reference for **EasyScripting 0.1.8**, checked against `plugin.yml`, command registration and the live access policies.
+Permission reference for **EasyScripting 0.2.0**, checked against `plugin.yml`, command registration and the live access policies.
 
 Acting as an NPC and playing its selected recording require both `easyscripting.actor` and `easyscripting.record`. Finish/cancel restore the current performer's own session. Actor GUI sections and Hittable/Immortal toggles use `easyscripting.actor`; all buttons still dispatch permission-checked commands.
 

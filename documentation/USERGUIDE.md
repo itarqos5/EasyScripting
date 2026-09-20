@@ -1,11 +1,11 @@
 # EasyScripting user guide
 
-This guide covers EasyScripting 0.1.8: setting up your cast, acting as an NPC, autoplay, public identities, managed groups, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
+This guide covers EasyScripting 0.2.0: setting up your cast, acting as an NPC, autoplay, public identities, managed groups, making a scene, recording movement, and repeating a take. The complete syntax is in [COMMANDS.md](COMMANDS.md); supported features and remaining differences from the public reference are in [PARITY.md](PARITY.md).
 
 ## 1. Install and open the studio
 
-1. Stop your Paper/Purpur server. Release 0.1.8 has build/API checks against Paper 1.21.8 and 1.21.11, not a new server test; see [TESTING.md](TESTING.md) for the version-specific evidence and use the Java version required by your server.
-2. Put `build/libs/EasyScripting-0.1.8.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
+1. Stop your Paper/Purpur server. Release 0.2.0 has build/API checks against Paper 1.21.8 and 1.21.11, not a new server test; see [TESTING.md](TESTING.md) for the version-specific evidence and use the Java version required by your server.
+2. Put `build/libs/EasyScripting-0.2.0.jar` in the server's `plugins/` folder. Replace the previous EasyScripting JAR so only one version is installed. Do not install the sources or SmokeTests JAR.
 3. For human NPCs and skins, also install a Citizens build compatible with your exact Minecraft version. Mob actors work without Citizens.
 4. Start the server. EasyScripting creates its YAML files under `plugins/EasyScripting/`.
 5. Join with operator access or the appropriate [permissions](PERMISSIONS.md), then run `/es`, `/actors` or `/kits`. Use `/es help` for commands you can access, and `/es status` to check loaded actors, scenes and active jobs.

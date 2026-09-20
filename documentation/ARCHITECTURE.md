@@ -1,12 +1,12 @@
 # EasyScripting architecture
 
-Current implementation: **0.1.8**. This is the architecture of the shipped code. Version history is in [CHANGELOG.md](CHANGELOG.md); release-specific implementation decisions are in [IMPLEMENTATION-0.1.8.md](IMPLEMENTATION-0.1.8.md).
+Current implementation: **0.2.0**. This is the architecture of the shipped code. Version history is in [CHANGELOG.md](CHANGELOG.md); release-specific implementation decisions are in [IMPLEMENTATION-0.2.0.md](IMPLEMENTATION-0.2.0.md).
 
 ## Build and supported execution model
 
-One Gradle 9.3.1 project builds `EasyScripting-0.1.8.jar` and its sources companion. The JDK 25 toolchain emits Java 21 bytecode. The default compile API is Paper 1.21.8; `-PpaperVersion=1.21.11-R0.1-SNAPSHOT` selects the additional compatibility gate. `plugin.yml` uses Gradle version expansion and declares the minimum API as 1.21.8. Adventure is provided by the server.
+One Gradle 9.3.1 project builds `EasyScripting-0.2.0.jar` and its sources companion. The JDK 25 toolchain emits Java 21 bytecode. The default compile API is Paper 1.21.8; `-PpaperVersion=1.21.11-R0.1-SNAPSHOT` selects the additional compatibility gate. `plugin.yml` uses Gradle version expansion and declares the minimum API as 1.21.8. Adventure is provided by the server.
 
-The project targets Paper/Purpur, with Paper 26.2 as its original primary target. Release 0.1.8 has unit/build/API validation against 1.21.8 and 1.21.11 only. Historical 26.x and runtime evidence is separated in [TESTING.md](TESTING.md). There is no Folia or Spigot support claim, NMS adapter, custom server protocol implementation or shaded Paper/Citizens dependency.
+The project targets Paper/Purpur, with Paper 26.2 as its original primary target. Release 0.2.0 has unit/build/API validation against 1.21.8 and 1.21.11 only. Historical 26.x and runtime evidence is separated in [TESTING.md](TESTING.md). There is no Folia or Spigot support claim, NMS adapter, custom server protocol implementation or shaded Paper/Citizens dependency.
 
 `src/smoke` is a separate source set. Its optional `smokeJar` is a test companion, never part of the deployable plugin. The production JAR bundles configuration and integration adapter code; optional plugins remain server installations.
 

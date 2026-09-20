@@ -34,8 +34,15 @@ groups:
   follow-goal-change: 0.5
   # Stop pathing once an NPC is this close to its assigned trailing slot (0.5..3).
   follow-arrival-distance: 1.0
+  # Extra distance beyond follow-arrival-distance before a member that already took its place
+  # walks again (0.1..4), capped at follow-catch-up-distance. This gap stops a settled formation
+  # from stuttering between walking and standing while the leader shuffles on the spot.
+  follow-resume-margin: 1.0
   # Distance in blocks between trailing rows and columns (1.5..5); larger groups use more rows.
   follow-spacing: 2.5
+  # Members per row behind the leader (0..32). 0 picks the squarest block that fits the group:
+  # 9 members form 3x3, 100 form 10x10. Set 5 for a narrow file, 20 for a wide battle line.
+  follow-columns: 0
   # Normal player-like walking speed multiplier while following or moving to a formation (0.1..3).
   follow-speed: 1.0
   # Beyond this distance from its slot, a follower uses the catch-up pace (3..48).
@@ -46,12 +53,17 @@ groups:
   follow-waypoint-distance: 32.0
   # Native speed multiplier while pursuing an enemy (0.1..3).
   chase-speed: 1.35
+  # Sprint while closing on an enemy further away than this many blocks (2..32). Closer than
+  # this an NPC walks, the way a player stops sprinting before a hit to keep their knockback.
+  sprint-chase-distance: 5.0
   # Maximum distance in blocks between an NPC and an eligible enemy; targets outside it are dropped (8..96).
   engagement-radius: 48
   # Maximum melee distance in blocks (1..3). Attacks also require line of sight.
   melee-reach: 3.0
-  # Minimum interval between melee attempts (10..100), plus the random combat jitter below.
-  attack-cooldown-ticks: 20
+  # Shortest interval between melee attempts (10..100), plus the random combat jitter below.
+  # With combat.weapon-cooldown on, the held weapon's own recharge decides the real pace and this
+  # is only a floor; raise it to deliberately slow NPCs below what their weapon allows.
+  attack-cooldown-ticks: 10
   # Wait this long after taking damage before resuming navigation (1..60), allowing real knockback.
   knockback-pause-ticks: 12
 # Carried-item reactions. Totem refill works on idle NPCs; combat reactions require Intelligence/aggression.
@@ -69,6 +81,13 @@ combat:
   reaction-max-ticks: 9
   # Add a random 0..this many ticks to each melee cooldown (0..20).
   attack-jitter-ticks: 4
+  # Wait for the held weapon to finish recharging before swinging, the way a player does.
+  # Off means NPCs attack on the cooldown above alone and land weak, partly charged hits.
+  weapon-cooldown: true
+  # Chance to hop before a ready melee attempt so the blow lands as a vanilla critical (0..1).
+  crit-jump-chance: 0.3
+  # Ticks between that hop and the strike (4..12); the NPC must still be falling when it lands.
+  crit-jump-delay-ticks: 8
   # Chance to schedule a jump after an incoming hit (0..1); requires the NPC to be on the ground.
   jump-reset-chance: 0.18
   # Allow intelligent NPCs to consume and throw beneficial splash potions from their own backpack.
@@ -79,9 +98,38 @@ combat:
   potion-interval-ticks: 8
   # Minimum time between starting defensive potion bursts (20..2400).
   potion-cooldown-ticks: 200
-  # Chance to react to an enemy overhead holding a mace (0..1); requires a carried shield.
+  # Chance to react to a mace holder (0..1); requires a carried shield.
   shield-chance: 0.55
   # Minimum interval between shield reaction rolls (10..100), so repeated checks are not instant guarantees.
   shield-check-ticks: 30
   # Duration of a successful shield hold (5..60); afterward automatic totem handling resumes.
   shield-hold-ticks: 16
+  # Also raise the shield against a mace holder standing at the NPC's own level within this many
+  # blocks (0..16). 0 keeps the old behavior of only reacting to a mace directly overhead.
+  shield-ground-radius: 5.0
+  # Keep blocking past shield-hold-ticks while the mace holder is still a threat, up to this long
+  # (20..200). The shield then drops so the NPC can fight back instead of blocking forever.
+  shield-max-hold-ticks: 60
+# Self preservation. Each reaction needs the NPC to actually carry the item; nothing is created.
+survival:
+  # Break off and eat a carried golden apple at or below this fraction of maximum health (0..1).
+  # 0 disables healing. The NPC backs away first, then eats; the meal can be interrupted.
+  heal-health: 0.45
+  # Minimum time between healing attempts (40..2400), whether or not the last one succeeded.
+  heal-cooldown-ticks: 200
+  # Throw a carried ender pearl away from the fight at or below this fraction of maximum health
+  # (0..1); 0 disables escaping. Must not be above heal-health: an NPC gaps before it runs.
+  # A landing pearl hurts its thrower for 5 health, so an NPC that would die to its own pearl
+  # keeps fighting instead. Vanilla teleports PLAYER actors only; a mob actor throws and stays.
+  escape-health: 0.35
+  # Minimum time between escape attempts (40..2400).
+  escape-cooldown-ticks: 400
+  # How far an NPC tries to get from its enemy while healing or escaping (3..24).
+  retreat-distance: 8.0
+  # Keep backing off for this long after the reason has passed (10..200), so it is a real gap
+  # rather than a flinch. A new order, a finished meal or a lost enemy still ends it early.
+  retreat-ticks: 60
+  # Chance to sidestep around the target between swings instead of standing still (0..1).
+  strafe-chance: 0.35
+  # Minimum time between sidesteps (5..60); each one is a short path, not a shove.
+  strafe-interval-ticks: 14

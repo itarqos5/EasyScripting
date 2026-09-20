@@ -18,12 +18,15 @@ public record ActorAiSettings(
     int followRepathTicks,
     double followGoalChange,
     double followArrivalDistance,
+    double followResumeDistance,
     double followSpacing,
+    int followColumns,
     double followSpeed,
     double followCatchUpDistance,
     double followCatchUpSpeed,
     double followWaypointDistance,
     double chaseSpeed,
+    double sprintChaseDistance,
     double engagementRadius,
     double meleeReach,
     int attackCooldown,
@@ -40,6 +43,10 @@ public record ActorAiSettings(
     if (arrival >= catchUp)
       throw new IllegalArgumentException(
           "actor-ai.yml: follow-arrival-distance must be below follow-catch-up-distance.");
+    // A margin rather than an absolute distance, so no combination of the two can invert. The
+    // catch-up distance caps it: past that point the member is sprinting back into place anyway.
+    double resume =
+        Math.min(arrival + number(y, "groups.follow-resume-margin", 0.1, 4), catchUp);
     if (catchUp >= waypoint)
       throw new IllegalArgumentException(
           "actor-ai.yml: follow-catch-up-distance must be below follow-waypoint-distance.");
@@ -61,12 +68,15 @@ public record ActorAiSettings(
         integer(y, "groups.follow-repath-ticks", 1, 20),
         number(y, "groups.follow-goal-change", 0.1, 4),
         arrival,
+        resume,
         number(y, "groups.follow-spacing", 1.5, 5),
+        integer(y, "groups.follow-columns", 0, 32),
         followSpeed,
         catchUp,
         catchUpSpeed,
         waypoint,
         number(y, "groups.chase-speed", 0.1, 3),
+        number(y, "groups.sprint-chase-distance", 2, 32),
         number(y, "groups.engagement-radius", 8, 96),
         number(y, "groups.melee-reach", 1, 3),
         integer(y, "groups.attack-cooldown-ticks", 10, 100),
