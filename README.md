@@ -31,7 +31,7 @@ Neither dependency is bundled. Without them the rest of the plugin loads and the
 
 ## NPC movement, groups and identities
 
-Version 0.1.8 makes leader followers use stable compact rows, ordinary path navigation and a normal walking pace, with a sprint-like catch-up pace only when they fall behind. The leader can hit their own group NPCs; members still cannot hurt their leader or each other. Start a group with `/es group create red`. See the [group and combat guide](documentation/NPC-GROUPS.md).
+Version 0.1.8 makes leader followers use stable compact rows, ordinary path navigation and a normal walking pace, with a sprint-like catch-up pace only when they fall behind. Since then the rows have been rebuilt as an aligned, configurable-width grid oriented by the leader's actual travel rather than their view direction, and melee now waits for the held weapon to recharge. The leader can hit their own group NPCs; members still cannot hurt their leader or each other. Start a group with `/es group create red`. See the [group and combat guide](documentation/NPC-GROUPS.md).
 
 Mass creation now requires an existing group and saved kit. `/actor pattern red disc behind 40 fighter 2 PLAYER` fills a disc behind the assigned leader and resolves every X/Z column to its highest safe standing surface. `/es group tool red fighter PLAYER` gives an operator a persistent bound tool; right-click a block to create `red-actor-1`, `red-actor-2`, and later members with that kit. Group controls can apply Immortal, one kit or fresh identities to every member. Deleting a group permanently deletes all its NPCs.
 

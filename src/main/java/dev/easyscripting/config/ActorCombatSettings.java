@@ -11,6 +11,9 @@ public record ActorCombatSettings(
     int reactionMin,
     int reactionMax,
     int attackJitter,
+    boolean weaponCooldown,
+    double critJumpChance,
+    int critJumpDelay,
     double jumpChance,
     boolean potions,
     int potionCount,
@@ -18,10 +21,27 @@ public record ActorCombatSettings(
     int potionCooldown,
     double shieldChance,
     int shieldCheck,
-    int shieldHold) {
+    int shieldHold,
+    double shieldGroundRadius,
+    int shieldMaxHold,
+    double healHealth,
+    int healCooldown,
+    double escapeHealth,
+    int escapeCooldown,
+    double retreatDistance,
+    int retreatTicks,
+    double strafeChance,
+    int strafeInterval) {
   public static ActorCombatSettings read(YamlConfiguration y) {
     int min = integer(y, "combat.reaction-min-ticks", 1, 40);
     int max = integer(y, "combat.reaction-max-ticks", min, 60);
+    int hold = integer(y, "combat.shield-hold-ticks", 5, 60);
+    double heal = number(y, "survival.heal-health", 0, 1);
+    double escape = number(y, "survival.escape-health", 0, 1);
+    // An NPC gaps before it runs, so the escape threshold cannot be the higher of the two.
+    if (heal > 0 && escape > heal)
+      throw new IllegalArgumentException(
+          "actor-ai.yml: survival.escape-health must not be above survival.heal-health.");
     return new ActorCombatSettings(
         bool(y, "combat.auto-totem"),
         integer(y, "combat.totem-refill-ticks", 1, 20),
@@ -29,6 +49,9 @@ public record ActorCombatSettings(
         min,
         max,
         integer(y, "combat.attack-jitter-ticks", 0, 20),
+        bool(y, "combat.weapon-cooldown"),
+        number(y, "combat.crit-jump-chance", 0, 1),
+        integer(y, "combat.crit-jump-delay-ticks", 4, 12),
         number(y, "combat.jump-reset-chance", 0, 1),
         bool(y, "combat.potions"),
         integer(y, "combat.potion-count", 1, 3),
@@ -36,7 +59,17 @@ public record ActorCombatSettings(
         integer(y, "combat.potion-cooldown-ticks", 20, 2400),
         number(y, "combat.shield-chance", 0, 1),
         integer(y, "combat.shield-check-ticks", 10, 100),
-        integer(y, "combat.shield-hold-ticks", 5, 60));
+        hold,
+        number(y, "combat.shield-ground-radius", 0, 16),
+        Math.max(hold, integer(y, "combat.shield-max-hold-ticks", 20, 200)),
+        heal,
+        integer(y, "survival.heal-cooldown-ticks", 40, 2400),
+        escape,
+        integer(y, "survival.escape-cooldown-ticks", 40, 2400),
+        number(y, "survival.retreat-distance", 3, 24),
+        integer(y, "survival.retreat-ticks", 10, 200),
+        number(y, "survival.strafe-chance", 0, 1),
+        integer(y, "survival.strafe-interval-ticks", 5, 60));
   }
 
   private static boolean bool(YamlConfiguration y, String key) {

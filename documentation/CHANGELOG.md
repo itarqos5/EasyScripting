@@ -2,6 +2,28 @@
 
 Latest plugin release: **[0.1.8](https://github.com/itarqos5/EasyScripting/releases/tag/v0.1.8)**. Entries below describe each version at its release; later entries supersede changed behavior.
 
+## Unreleased
+
+Group AI repairs. No version has been published for these changes yet.
+
+* Fixed group following orienting its rows by where the leader was looking instead of where they were walking. The heading now comes from how far the leader actually moved each tick; `Player#getVelocity` is not populated by walking input, so the old reading was almost always empty and the formation stayed frozen on whatever yaw it first saw.
+* Rebuilt the trailing formation as an aligned grid. Every row sits on one shared lateral grid so columns line up, and a partial last row is centred by whole slots. The new `groups.follow-columns` chooses the width; `0` keeps the automatic square block. A Move order now forms the same rows and columns, centred on the destination.
+* Fixed formation places being taken from a list position that shifted whenever a member died, was hidden or was reserved for a recording, which re-shuffled the whole group and let two members share one slot. Places are now numbered over the members that are present and free, so a casualty closes the gap, and a member with no place waits instead of piling onto the first one.
+* Fixed a formation slot inside a wall or over a drop stopping that member outright; the slot now pulls in toward the leader before the member gives up.
+* Added `groups.follow-resume-margin`, so a member that has taken its place waits for a wider distance before walking again. A settled formation no longer stutters in and out of walking while the leader shuffles on the spot.
+* Fixed the shared path budget going to whoever happened to be considered first, which starved stragglers in a large group. Path requests are now ranked, stopped members first and then those furthest from their slot.
+* Added `combat.weapon-cooldown` (on by default): an NPC waits for its held weapon to recharge before swinging rather than attacking on a fixed timer and landing partly charged hits. `groups.attack-cooldown-ticks` becomes a floor and its shipped default drops from 20 to 10; an existing `actor-ai.yml` keeps its own value.
+* Added `combat.crit-jump-chance` and `combat.crit-jump-delay-ticks`, giving a ready attacker a chance to hop and land the blow while falling, which Minecraft scores as a critical hit.
+* Fixed melee reach being measured between foot positions, which denied hits on anything standing on a slab or a stair. It is now measured from the attacker's eyes to the nearest point of the target's hitbox.
+* Fixed an engaged member only reassessing every five ticks, which quantised its swings into misses; engaged members now think every two ticks.
+* Fixed several members sent at one enemy all pathing onto its exact block. They now take separate places around it.
+* Fixed a dead enemy staying assigned until the next sweep, leaving a squad swinging at a corpse for up to a second. A death reassigns its attackers at once.
+* Generalised the mace shield reaction. An NPC now raises a carried shield against a mace holder standing at its own level within the new `combat.shield-ground-radius`, not only one directly overhead, and keeps the guard up while that threat remains — past `shield-hold-ticks`, up to the new `combat.shield-max-hold-ticks` — instead of dropping it on a fixed timer.
+* Added a `survival` section. At or below `heal-health` an NPC breaks off, backs away `retreat-distance` and eats a carried golden apple; at or below `escape-health` it throws a carried ender pearl away from the fight. Eating stows the weapon, plays the real animation and hands the consumption to Paper, so the apple's own effects apply and nothing is invented; a hit interrupts the meal and returns the apple. An NPC that would die to its own pearl's 5 damage keeps fighting instead. Neither reaction creates supplies.
+* Added combat movement. NPCs sprint while closing beyond the new `groups.sprint-chase-distance` and walk inside it, circle the target at the distance they already hold while waiting on a weapon (`survival.strafe-chance`, `survival.strafe-interval-ticks`) instead of standing still, and back away while still facing their enemy when healing or escaping.
+* Fixed ambient wandering being able to interrupt a shield, a potion burst, a meal or a retreat; all four now hold the NPC until they finish.
+* Validation: **171 unit tests**, production, test and smoke compilation. No Minecraft server was started; the live acceptance cases in [TESTING.md](TESTING.md) still apply.
+
 ## 0.1.8 — 2026-09-15
 
 * Rebuilt group following around compact trailing rows, a stable movement heading and normal native pathing. Members walk at a normal pace, use a sprint-like catch-up pace only when far behind and use intermediate waypoints instead of teleporting.

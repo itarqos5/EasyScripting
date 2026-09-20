@@ -37,9 +37,32 @@ Outside scenes/recordings, a carried totem moves to the offhand automatically. T
 
 An aggressive NPC retaliates after an uncancelled hit. An intelligent group member can also defend allies or attack an ordered enemy. Before retaliation, it throws up to three **carried beneficial splash potions** straight upward, one at a time. Fewer supplies mean fewer throws. Harmful potions and drinkable potions are not used by this defensive routine. Throws create actual potion projectiles and consume the items; terrain and splash range matter.
 
-Melee has configurable accuracy, cooldown jitter and a chance to jump after a hit. A missed attempt swings but does not deal damage. These are intentionally imperfect prototype reactions, not a trained PvP bot. A carried shield may be raised after a random delay when a non-allied mace holder is overhead. It can notice that threat before the first hit, but a failed reaction roll or exhausted inventory leaves the NPC unprotected. No shield or potion is conjured. Shield effectiveness follows Minecraft's facing/attack rules and the installed Citizens adapter.
+Melee has configurable accuracy, cooldown jitter and a chance to jump after a hit. A missed attempt swings but does not deal damage. These are intentionally imperfect prototype reactions, not a trained PvP bot.
 
-Idle aggressive NPCs may still wander when Wander is enabled. A fight takes priority. Group orders take priority over ambient wandering. A scene, actor performance capture or replay has an exclusive reservation; autonomous movement and item reactions yield until it ends.
+With `weapon-cooldown: true` an NPC waits for its held weapon to finish recharging before swinging, the way a player does, instead of attacking on a fixed timer and landing partly charged hits for a fraction of the weapon's damage. `attack-cooldown-ticks` then acts only as a floor; raise it to deliberately slow NPCs below what their weapon allows. The shipped default is **10**, low enough for the weapon to set the pace. An `actor-ai.yml` carried over from an earlier version keeps its own value, so lower it to 10 to get weapon-paced attacks on an existing server. `crit-jump-chance` gives a ready attacker a chance to hop first and land the blow while falling, which Minecraft scores as a critical hit. Reach is measured from the attacker's eyes to the nearest point of the target's hitbox, so an enemy standing on a slab or a stair can be hit.
+
+An engaged member reassesses every two ticks rather than every five, so its swings are not quantised into misses. Several members sent at one enemy take separate places around it instead of stacking on its block, and an enemy that dies is reassigned immediately rather than at the next sweep, so a squad does not keep swinging at a corpse.
+
+### Shields, apples and pearls
+
+A carried shield may be raised after a random delay against a non-allied mace holder. The NPC reacts to a mace directly overhead, which is the falling smash, and — within `shield-ground-radius` — to one simply walking in with a mace at its own level. It can notice either threat before the first hit. While the mace holder is still a threat the guard stays up past `shield-hold-ticks`, up to `shield-max-hold-ticks`, after which the shield drops so the NPC can fight back instead of blocking forever. A failed reaction roll or an exhausted inventory leaves it unprotected. Shield effectiveness follows Minecraft's facing/attack rules and the installed Citizens adapter.
+
+The `survival` section adds two graded reactions, both of which need the NPC to actually carry the item:
+
+| At or below | Reaction |
+| --- | --- |
+| `heal-health` (default 0.45) | Break off, back away `retreat-distance`, then eat a carried golden apple. |
+| `escape-health` (default 0.35) | Throw a carried ender pearl away from the fight and keep running. |
+
+An NPC gaps before it runs, so `escape-health` may not be set above `heal-health`. Eating stows the weapon, holds the apple, plays the real eating animation and hands the consumption to Paper, so the apple's own effects apply exactly as they would for a player and nothing is invented. A hit taken mid-meal interrupts it and returns the apple, the way it does for a player. A cornered NPC that cannot open a gap eats where it stands rather than backing into a wall forever, and an NPC that finishes a fight badly hurt still patches itself up once its cooldown allows. If Paper does not simulate item use for a particular entity the apple comes back untouched rather than being destroyed.
+
+A landing ender pearl hurts whoever threw it for 5 health, so an NPC that would die to its own pearl keeps fighting instead. Vanilla only teleports PLAYER actors; a mob actor throws the pearl and stays where it is. Neither reaction creates supplies: an NPC with no apples does not heal and an NPC with no pearls does not escape.
+
+### How a fight moves
+
+An NPC sprints while closing on an enemy further away than `sprint-chase-distance` and walks inside it, the way a player drops sprint before a hit to keep their knockback. In reach and waiting on its weapon it circles the target at the distance it already holds — `strafe-chance` and `strafe-interval-ticks` set how often — rather than standing perfectly still, and a sidestep in progress is allowed to finish instead of being cancelled two ticks later. While healing or escaping it backs away at chase speed, still facing its enemy, so a retreat reads as a retreat rather than as the NPC losing interest. A meal or a raised shield pins it in place until it is done.
+
+Idle aggressive NPCs may still wander when Wander is enabled. A fight takes priority, and so does a shield, a meal, a potion burst or a retreat, so an NPC is never pulled into a wander partway through one. Group orders take priority over ambient wandering. A scene, actor performance capture or replay has an exclusive reservation; autonomous movement and item reactions yield until it ends.
 
 ## Create a group and appoint its leader
 
@@ -81,9 +104,17 @@ NPCs need **Hittable ON** to be eligible melee targets. **Immortal OFF** allows 
 
 ### How following moves
 
-Follow slots form compact rows behind the leader's movement direction. The heading is smoothed and retained while the leader is stopped, so looking around does not rotate the entire formation or make members cross through one another. Followers use ordinary Citizens/native paths at `follow-speed: 1.0`, stop within one block of their slot and look toward the leader after arriving. At least eight blocks behind, they may use the configured 1.3 sprint-like catch-up pace. Very long routes are split into intermediate 32-block path targets; group following never teleports a lagging NPC.
+Follow slots form aligned rows and columns behind the leader. Every row is centred on the same lateral grid, so columns line up from row to row, and a partial last row is centred by whole slots rather than sitting half a space off. `follow-columns` chooses the width: `0` picks the squarest block that fits the group, so nine members form 3x3 and a hundred form 10x10, while `5` gives a narrow file and `20` a wide battle line. `follow-spacing` sets the distance between neighbouring rows and columns.
 
-The default follower goal refreshes every five ticks only after the slot moves at least half a block. These thresholds, speeds, spacing and the shared path-request budget are all in `actor-ai.yml`. An unavailable/dead/spectator/acting leader stops the members and clears active enemies.
+The rows are oriented by the direction the leader is actually travelling, sampled from how far they moved during each tick. The heading is heavily smoothed and retained while the leader is stopped, so looking around does not rotate the formation or make members cross through one another.
+
+Members are numbered over those that are present and free, in a stable order. A casualty closes the gap instead of shuffling everyone into a neighbour's place, and a member with no numbered slot waits rather than piling onto the first one. A slot inside a wall or over a drop pulls in toward the leader instead of freezing that member where it stands.
+
+Followers use ordinary Citizens/native paths at `follow-speed: 1.0`, stop within `follow-arrival-distance` of their slot and look toward the leader after arriving. A member that has taken its place only walks again once its slot has drifted a further `follow-resume-margin`; that gap keeps a settled formation from stuttering in and out of walking while the leader shuffles on the spot. At least eight blocks behind, members may use the configured 1.3 sprint-like catch-up pace. Very long routes are split into intermediate 32-block path targets; group following never teleports a lagging NPC.
+
+The default follower goal refreshes every five ticks only after the slot moves at least half a block. The shared path budget is spent on whoever is worst off — members that are stopped, then those furthest from their slot — instead of on whoever happened to be considered first, so stragglers in a large group are no longer starved of paths. These thresholds, speeds, spacing, column count and the budget are all in `actor-ai.yml`. An unavailable/dead/spectator/acting leader stops the members and clears active enemies.
+
+A **Move** order uses the same rows and columns, centred on the destination and facing the way the commander was looking when they issued it.
 
 ## Deploy a larger equipped faction
 
@@ -97,7 +128,7 @@ Create the `fighter` kit before running this example. Pattern creation now requi
 
 Every X/Z column is resolved independently using the world's highest motion-blocking surface while ignoring leaves. The floor must be solid and nonhazardous, the chunk must already be loaded and three passable blocks must be clear above it. Water, lava, fire, magma, cactus, campfires, powder snow, berry bushes and wither roses are rejected. The command validates all columns, the world border, actor limit and kit before creating the first entity; a creation failure rolls back the new actors. The global actor limit still applies (default 200).
 
-Each NPC receives its own path and attack timing. New paths share a configurable budget, and decisions are staggered. A 100-member formation is supported by the allocation logic; actual server capacity depends on terrain, Citizens and server hardware and has **not been benchmarked** for this release.
+Each NPC receives its own path and attack timing. New paths share a configurable budget, are ranked by need and are staggered across ticks. A 100-member formation is supported by the allocation and layout logic; actual server capacity depends on terrain, Citizens and server hardware and has **not been benchmarked** for this release.
 
 ## Use the bound actor tool
 

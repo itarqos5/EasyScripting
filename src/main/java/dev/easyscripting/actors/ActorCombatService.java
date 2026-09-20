@@ -5,6 +5,7 @@ import dev.easyscripting.core.TickEngine;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import org.bukkit.*;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.*;
 import org.bukkit.event.*;
 import org.bukkit.event.entity.*;
@@ -23,10 +24,22 @@ public final class ActorCombatService implements Listener, AutoCloseable {
   private UUID job;
   private boolean closing;
 
+  /** A landing ender pearl hurts whoever threw it; vanilla applies this much to the thrower. */
+  private static final double PEARL_DAMAGE = 5;
+
+  /** Vanilla golden apples take 32 ticks to eat; the slack absorbs a late server tick. */
+  private static final int EAT_TICKS = 34;
+
   private static final class Reaction {
     long refillAt, nextPotion, potionCooldown, shieldCheck, shieldRaise, shieldUntil, jumpAt;
+    long blockingSince, healAt, healBy, healUntil, healCooldown;
+    long escapeAt, escapeCooldown, retreatUntil, strafeAt;
     int potionsLeft;
     boolean blocking;
+    /** The weapon set aside while the main hand is holding a golden apple; null when not eating. */
+    ItemStack stowed;
+
+    int stowedSlot = -1;
   }
 
   public ActorCombatService(
@@ -66,6 +79,30 @@ public final class ActorCombatService implements Listener, AutoCloseable {
         + ThreadLocalRandom.current().nextInt(settings.actorCombat().attackJitter() + 1);
   }
 
+  /**
+   * A vanilla attack made before the held weapon finishes recharging deals a fraction of its
+   * damage. Waiting for full charge is what makes an NPC with a real sword hit like one.
+   */
+  public boolean charged(LivingEntity entity) {
+    return !settings.actorCombat().weaponCooldown()
+        || !(entity instanceof HumanEntity human)
+        || human.getAttackCooldown() >= 0.92f;
+  }
+
+  /**
+   * Roll for a hop before a ready swing. The caller strikes a few ticks later, while the NPC is
+   * still falling, which is exactly the condition Minecraft scores as a critical hit.
+   */
+  public boolean critJump(ActorService.ManagedActor actor) {
+    var entity = actor.requireEntity();
+    if (!groups.intelligent(actor)
+        || !entity.isOnGround()
+        || ThreadLocalRandom.current().nextDouble() >= settings.actorCombat().critJumpChance())
+      return false;
+    entity.setVelocity(entity.getVelocity().setY(0.42));
+    return true;
+  }
+
   public void strike(ActorService.ManagedActor actor, LivingEntity target) {
     var entity = actor.requireEntity();
     entity.swingMainHand();
@@ -84,48 +121,78 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     return r != null && r.blocking;
   }
 
+  /** True while a timed reaction owns this NPC's hands, so ambient behavior must yield to it. */
+  public boolean busy(ActorService.ManagedActor actor) {
+    Reaction r = reactions.get(actor.id());
+    return r != null
+        && (r.blocking || r.stowed != null || r.potionsLeft > 0 || tick < r.retreatUntil);
+  }
+
+  /**
+   * True while the NPC wants distance from its enemy rather than a place next to it. A meal and a
+   * raised shield both pin it in place, so neither one walks while the gap is still open.
+   */
+  public boolean retreating(ActorService.ManagedActor actor) {
+    Reaction r = reactions.get(actor.id());
+    return r != null && r.stowed == null && !r.blocking && tick < r.retreatUntil;
+  }
+
+  /**
+   * Roll a sidestep for an NPC that is in reach and waiting on its weapon. Standing perfectly
+   * still between swings is the clearest tell that something is not a player.
+   */
+  public boolean strafe(ActorService.ManagedActor actor) {
+    Reaction r = reactions.get(actor.id());
+    var c = settings.actorCombat();
+    if (r == null || tick < r.strafeAt || !groups.intelligent(actor)) return false;
+    r.strafeAt = tick + c.strafeInterval();
+    return ThreadLocalRandom.current().nextDouble() < c.strafeChance();
+  }
+
   private void pulse() {
     tick++;
+    var c = settings.actorCombat();
     for (var actor : actors.list()) {
       LivingEntity entity = actor.entity().orElse(null);
       if (entity == null) continue;
       Reaction r = reactions.computeIfAbsent(actor.id(), key -> new Reaction());
       if (!settings.enabled("actors") || actors.busy(actor.id())) {
         if (r.blocking) entity.clearActiveItem();
+        abandonMeal(actor, entity, r);
         reactions.remove(actor.id());
         continue;
       }
-      if (r.blocking && tick >= r.shieldUntil) {
-        entity.clearActiveItem();
-        r.blocking = false;
-        r.refillAt = tick + settings.actorCombat().refillTicks();
+      // Both hands are busy during a meal: no shield, no totem swap, no potion.
+      if (r.stowed != null) {
+        if (tick >= r.healUntil) finishEating(actor, entity, r);
+        continue;
       }
-      if (Math.floorMod(tick + actor.id().hashCode(), 5) == 0
-          && groups.intelligent(actor)
-          && r.potionsLeft == 0
-          && (r.shieldRaise > 0 || r.blocking || tick >= r.shieldCheck)) {
-        // Threat sensing does not need a previous hit: a descending mace can be the first attack.
-        LivingEntity overhead =
-            entity.getNearbyEntities(4, 10, 4).stream()
-                .filter(e -> e instanceof LivingEntity && !e.isDead() && !groups.allied(entity, e))
-                .map(e -> (LivingEntity) e)
-                .filter(
-                    e ->
-                        !(e instanceof Player p)
-                            || (p.getGameMode() != GameMode.CREATIVE
-                                && p.getGameMode() != GameMode.SPECTATOR
-                                && !p.isInvisible()))
-                .filter(e -> maceThreat(entity, e) && entity.hasLineOfSight(e))
-                .min(
-                    Comparator.comparingDouble(
-                        e -> e.getLocation().distanceSquared(entity.getLocation())))
-                .orElse(null);
-        shield(actor, overhead, r);
-      }
-      if (settings.actorCombat().autoTotem()
+      // A fight that ends at two hearts still needs patching up, and no enemy means no gap to
+      // open first, so the meal starts as soon as the reaction delay passes.
+      if (Math.floorMod(tick + actor.id().hashCode(), 10) == 0
           && !r.blocking
-          && r.shieldRaise == 0
-          && tick >= r.refillAt) {
+          && r.potionsLeft == 0
+          && c.healHealth() > 0
+          && tick >= r.healCooldown
+          && groups.intelligent(actor)
+          && healthFraction(entity) <= c.healHealth()) eat(actor, entity, null, r);
+      boolean scan =
+          Math.floorMod(tick + actor.id().hashCode(), 5) == 0
+              && groups.intelligent(actor)
+              && r.potionsLeft == 0
+              && (r.shieldRaise > 0 || r.blocking || tick >= r.shieldCheck);
+      LivingEntity mace = scan || (r.blocking && tick >= r.shieldUntil) ? maceHolder(entity) : null;
+      if (r.blocking && tick >= r.shieldUntil) {
+        // Keep the guard up while the mace is still a threat, but never block forever.
+        if (mace != null && tick - r.blockingSince < c.shieldMaxHold()) r.shieldUntil = tick + 5;
+        else {
+          entity.clearActiveItem();
+          r.blocking = false;
+          r.refillAt = tick + c.refillTicks();
+        }
+      }
+      if (scan) shield(actor, mace, r);
+      if (c.autoTotem() && !r.blocking && r.shieldRaise == 0 && tick >= r.refillAt) {
         if (ActorSupplies.offhand(actor, Material.TOTEM_OF_UNDYING)) actors.save(actor);
         r.refillAt = tick + 10;
       }
@@ -145,8 +212,13 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     if (!groups.intelligent(actor)) {
       r.potionsLeft = 0;
       r.shieldRaise = 0;
+      r.retreatUntil = 0;
+      abandonMeal(actor, entity, r);
       return false;
     }
+    // Running and eating come before trading blows; a raised shield still beats reaching for food.
+    if (escape(actor, entity, target, r)) return true;
+    if (!r.blocking && eat(actor, entity, target, r)) return true;
     if (r.potionsLeft > 0) {
       if (!c.potions()) r.potionsLeft = 0;
       else {
@@ -173,6 +245,186 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     return shield(actor, target, r);
   }
 
+  /** Remaining health as a fraction of this NPC's own maximum, which kits and mobs both change. */
+  private static double healthFraction(LivingEntity entity) {
+    var maximum = entity.getAttribute(Attribute.MAX_HEALTH);
+    double max = maximum == null ? 20 : maximum.getValue();
+    return max <= 0 ? 1 : Math.min(1, entity.getHealth() / max);
+  }
+
+  /**
+   * Throw a carried ender pearl away from the fight. Vanilla teleports the thrower when it lands
+   * and hurts them, so an NPC that would die to its own pearl keeps fighting rather than killing
+   * itself escaping. Only PLAYER actors are teleported; a mob actor throws the pearl and stays.
+   */
+  private boolean escape(
+      ActorService.ManagedActor actor, LivingEntity entity, LivingEntity target, Reaction r) {
+    var c = settings.actorCombat();
+    if (r.escapeAt > 0) {
+      if (tick < r.escapeAt) return true; // Reacting; the caller keeps it backing away meanwhile.
+      r.escapeAt = 0;
+      var items = ActorSupplies.inventory(actor);
+      int slot = ActorSupplies.find(items, item -> item.getType() == Material.ENDER_PEARL);
+      if (slot < 0) return false;
+      ItemStack pearl = ActorSupplies.takeOne(items, slot);
+      ActorSupplies.inventory(actor, items);
+      entity.launchProjectile(
+          EnderPearl.class, away(entity, target).multiply(0.9).setY(0.5),
+          spawned -> spawned.setItem(pearl));
+      entity.swingMainHand();
+      actors.save(actor);
+      r.retreatUntil = tick + c.retreatTicks();
+      return true;
+    }
+    if (c.escapeHealth() <= 0
+        || target == null
+        || tick < r.escapeCooldown
+        || r.stowed != null
+        || healthFraction(entity) > c.escapeHealth()
+        || entity.getHealth() <= PEARL_DAMAGE + 1
+        || !carries(actor, Material.ENDER_PEARL)) return false;
+    r.escapeAt = tick + reactionDelay();
+    r.escapeCooldown = tick + c.escapeCooldown();
+    r.retreatUntil = tick + c.retreatTicks();
+    return true;
+  }
+
+  /**
+   * Back off, then eat a carried golden apple. The meal only starts once the NPC has opened a gap
+   * or run out of room to open one, and Paper's own consumption applies the apple's effects, so
+   * nothing here invents healing that the item would not have given a player.
+   */
+  private boolean eat(
+      ActorService.ManagedActor actor, LivingEntity entity, LivingEntity target, Reaction r) {
+    var c = settings.actorCombat();
+    if (r.stowed != null) {
+      if (target != null) actor.look(target.getEyeLocation());
+      if (tick >= r.healUntil) finishEating(actor, entity, r);
+      return true;
+    }
+    if (r.healAt > 0) {
+      // A cornered NPC that cannot open a gap eats anyway rather than backing into a wall forever.
+      if (tick < r.healAt || !(clear(entity, target, c.retreatDistance()) || tick >= r.healBy))
+        return true;
+      r.healAt = 0;
+      return startEating(actor, entity, r);
+    }
+    if (c.healHealth() <= 0
+        || tick < r.healCooldown
+        || healthFraction(entity) > c.healHealth()
+        || !carries(actor, Material.GOLDEN_APPLE, Material.ENCHANTED_GOLDEN_APPLE)) return false;
+    r.healAt = tick + reactionDelay();
+    r.healBy = tick + c.retreatTicks();
+    r.healCooldown = tick + c.healCooldown();
+    // Open the gap first; a player does not stand inside an axe's reach to eat either.
+    if (target != null) r.retreatUntil = tick + c.retreatTicks();
+    return true;
+  }
+
+  /**
+   * Move a carried apple into the main hand and stow the weapon in the slot it came out of. A
+   * PLAYER actor's held slot is part of its own backpack, so the apple is never taken from the
+   * hand slot itself; an NPC already holding one simply eats it where it is.
+   */
+  private boolean startEating(ActorService.ManagedActor actor, LivingEntity entity, Reaction r) {
+    var equipment = entity.getEquipment();
+    if (equipment == null) return false;
+    if (goldenApple(equipment.getItemInMainHand())) {
+      r.stowed = new ItemStack(Material.AIR);
+      r.stowedSlot = -1; // Nothing was moved, so nothing has to be moved back.
+    } else {
+      var items = ActorSupplies.inventory(actor);
+      int held = entity instanceof Player player ? player.getInventory().getHeldItemSlot() : -1;
+      int slot = -1;
+      for (int i = 0; i < items.length && slot < 0; i++)
+        if (i != held && items[i] != null && goldenApple(items[i])) slot = i;
+      if (slot < 0) return false;
+      ItemStack apple = items[slot];
+      ItemStack weapon = equipment.getItemInMainHand();
+      items[slot] = weapon.getType().isAir() ? null : weapon;
+      ActorSupplies.inventory(actor, items);
+      equipment.setItemInMainHand(apple);
+      r.stowed = weapon;
+      r.stowedSlot = slot;
+    }
+    r.healUntil = tick + EAT_TICKS;
+    actor.stop();
+    // Paper marks startUsingItem experimental; isolated here and covered by API compilation.
+    entity.startUsingItem(EquipmentSlot.HAND);
+    actors.save(actor);
+    return true;
+  }
+
+  /**
+   * Hand the consumption to Paper so the apple's own effects apply exactly as they would for a
+   * player. If nothing was actually eaten — an entity whose item use Paper does not simulate —
+   * the apple comes back untouched rather than being destroyed or traded for invented effects.
+   */
+  private void finishEating(ActorService.ManagedActor actor, LivingEntity entity, Reaction r) {
+    if (entity.hasActiveItem()) entity.completeUsingActiveItem();
+    unstow(actor, entity, r);
+  }
+
+  /** Put the weapon back without finishing the meal: a reload, a hit, a recording or shutdown. */
+  private void abandonMeal(ActorService.ManagedActor actor, LivingEntity entity, Reaction r) {
+    if (r.stowed == null) return;
+    entity.clearActiveItem();
+    unstow(actor, entity, r);
+  }
+
+  /**
+   * Undo the swap. The backpack is written before the hand, so the slot holding the weapon is
+   * overwritten by whatever is left of the apples and the weapon exists in exactly one place.
+   */
+  private void unstow(ActorService.ManagedActor actor, LivingEntity entity, Reaction r) {
+    var equipment = entity.getEquipment();
+    if (equipment != null && r.stowedSlot >= 0) {
+      ItemStack leftover = equipment.getItemInMainHand();
+      var items = ActorSupplies.inventory(actor);
+      if (r.stowedSlot < items.length)
+        items[r.stowedSlot] =
+            leftover.getType().isAir() || leftover.getAmount() < 1 ? null : leftover;
+      ActorSupplies.inventory(actor, items);
+      equipment.setItemInMainHand(r.stowed);
+    }
+    r.stowed = null;
+    r.stowedSlot = -1;
+    r.healUntil = 0;
+    actors.save(actor);
+  }
+
+  private static boolean goldenApple(ItemStack item) {
+    return item.getType() == Material.ENCHANTED_GOLDEN_APPLE
+        || item.getType() == Material.GOLDEN_APPLE;
+  }
+
+  private static boolean carries(ActorService.ManagedActor actor, Material... materials) {
+    var wanted = Set.of(materials);
+    var items = ActorSupplies.inventory(actor);
+    return ActorSupplies.find(items, item -> wanted.contains(item.getType())) >= 0;
+  }
+
+  /** True once the NPC has opened the requested gap, or has no enemy left to open one from. */
+  private static boolean clear(LivingEntity entity, LivingEntity target, double distance) {
+    return target == null
+        || target.isDead()
+        || target.getWorld() != entity.getWorld()
+        || entity.getLocation().distanceSquared(target.getLocation()) >= distance * distance;
+  }
+
+  /** A horizontal unit vector pointing from the threat toward the NPC. */
+  static Vector away(LivingEntity entity, LivingEntity target) {
+    Vector delta =
+        target == null || target.getWorld() != entity.getWorld()
+            ? new Vector()
+            : entity.getLocation().toVector().subtract(target.getLocation().toVector()).setY(0);
+    if (delta.lengthSquared() < 0.000001) {
+      double angle = Math.toRadians(entity.getLocation().getYaw());
+      return new Vector(-Math.sin(angle), 0, Math.cos(angle));
+    }
+    return delta.normalize();
+  }
+
   private boolean shield(ActorService.ManagedActor actor, LivingEntity target, Reaction r) {
     var entity = actor.requireEntity();
     var c = settings.actorCombat();
@@ -188,6 +440,7 @@ public final class ActorCombatService implements Listener, AutoCloseable {
           // Paper marks startUsingItem experimental; isolated here and covered by API compilation.
           entity.startUsingItem(EquipmentSlot.OFF_HAND);
           r.blocking = true;
+          r.blockingSince = tick;
           r.shieldUntil = tick + c.shieldHold();
           actors.save(actor);
         }
@@ -205,15 +458,39 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     return false;
   }
 
-  private static boolean maceThreat(LivingEntity actor, LivingEntity target) {
+  /** The nearest visible non-allied mace holder, whether it is overhead or standing alongside. */
+  private LivingEntity maceHolder(LivingEntity entity) {
+    double radius = Math.max(4, settings.actorCombat().shieldGroundRadius());
+    // Threat sensing does not need a previous hit: a descending mace can be the first attack.
+    return entity.getNearbyEntities(radius, 10, radius).stream()
+        .filter(e -> e instanceof LivingEntity && !e.isDead() && !groups.allied(entity, e))
+        .map(e -> (LivingEntity) e)
+        .filter(
+            e ->
+                !(e instanceof Player p)
+                    || (p.getGameMode() != GameMode.CREATIVE
+                        && p.getGameMode() != GameMode.SPECTATOR
+                        && !p.isInvisible()))
+        .filter(e -> maceThreat(entity, e) && entity.hasLineOfSight(e))
+        .min(
+            Comparator.comparingDouble(e -> e.getLocation().distanceSquared(entity.getLocation())))
+        .orElse(null);
+  }
+
+  /**
+   * A mace overhead is a falling smash. A mace at the NPC's own level is a threat too, so the
+   * shield also goes up against someone simply walking in with one.
+   */
+  private boolean maceThreat(LivingEntity actor, LivingEntity target) {
     if (target == null
         || target.getWorld() != actor.getWorld()
         || target.getEquipment() == null
         || target.getEquipment().getItemInMainHand().getType() != Material.MACE) return false;
     var delta = target.getLocation().toVector().subtract(actor.getLocation().toVector());
-    return delta.getY() > 1.5
-        && delta.getY() < 10
-        && delta.getX() * delta.getX() + delta.getZ() * delta.getZ() < 16;
+    double flat = delta.getX() * delta.getX() + delta.getZ() * delta.getZ();
+    if (delta.getY() > 1.5 && delta.getY() < 10 && flat < 16) return true;
+    double ground = settings.actorCombat().shieldGroundRadius();
+    return ground > 0 && Math.abs(delta.getY()) <= 3 && flat <= ground * ground;
   }
 
   public static boolean beneficialSplash(ItemStack item) {
@@ -265,6 +542,9 @@ public final class ActorCombatService implements Listener, AutoCloseable {
               if (actors.busy(actor.id()) || !groups.intelligent(actor)) return;
               Reaction r = reactions.computeIfAbsent(actor.id(), key -> new Reaction());
               var c = settings.actorCombat();
+              // A hit taken mid-meal interrupts it, exactly as it does for a player.
+              if (r.stowed != null)
+                actor.entity().ifPresent(entity -> abandonMeal(actor, entity, r));
               if (c.potions() && tick >= r.potionCooldown && r.potionsLeft == 0) {
                 r.potionsLeft = c.potionCount();
                 r.nextPotion = tick + reactionDelay();
@@ -281,7 +561,9 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     if (job != null) ticks.cancel(job);
     for (var actor : actors.list()) {
       Reaction r = reactions.get(actor.id());
-      if (r != null && r.blocking) actor.entity().ifPresent(LivingEntity::clearActiveItem);
+      if (r == null) continue;
+      if (r.blocking) actor.entity().ifPresent(LivingEntity::clearActiveItem);
+      actor.entity().ifPresent(entity -> abandonMeal(actor, entity, r));
     }
     reactions.clear();
   }
