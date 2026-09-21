@@ -112,7 +112,8 @@ class ActorGroupTest {
     assertEquals(3, ai.meleeReach());
     assertEquals(5, ai.followRepathTicks());
     assertEquals(0.5, ai.followGoalChange());
-    assertEquals(1.0, ai.followArrivalDistance());
+    // Tighter than a block, so members settle onto their slot and the columns stay visible.
+    assertEquals(0.6, ai.followArrivalDistance());
     assertEquals(1.0, ai.followSpeed());
     assertEquals(1.3, ai.followCatchUpSpeed());
     assertEquals(32, ai.followWaypointDistance());

@@ -2,6 +2,21 @@
 
 Current release: **0.2.0**. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence.
 
+## Unreleased group AI, formation and lifecycle fixes
+
+**175 unit tests pass**, adding coverage for block-aligned line-ups (every member on its own block across awkward and cardinal yaws, front/behind symmetry, rejected counts and column widths) and for the new mace, falling and formation settings. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.
+
+Most of this batch is behaviour no fixture can reach. These cases decide it:
+
+* Hold a mace in your **inventory** rather than your hand and jump above a shielded NPC; the shield must come up. Repeat with the mace held, at ground level within `shield-ground-radius`, and with `shield-inventory-mace` off, which must react only to a held mace.
+* Give an NPC several beneficial splash potions and hurt it. It must throw one, then stop while those effects are running, and throw again once they expire or are cleared with `/effect clear`. An unhurt NPC must not throw an instant-health potion.
+* Fight an NPC down to its heal threshold and watch the break-off: it must turn and run, not walk backwards with its head turned.
+* Drop NPCs from 30+ blocks. The fall must look and land like a player's, with ordinary fall damage, and they must resume moving on landing.
+* Run `/es group lineup` with 1, 5, 23 and 100 members, facing each cardinal direction and diagonally, on flat ground, on stairs, indoors under a roof and beside a cliff. Every NPC must be on its own whole block, all facing your way; an unusable column must refuse the whole line-up and move nobody; indoors must not place anyone on the roof.
+* Open the group GUI and use Attack with a target in range, out of range, in creative, and with Intelligence off. In-range targets must appear and work; the others must not be listed, and any refusal must print one sentence with no syntax help after it.
+* Use both delete-all buttons and confirm the group survives a purge while its NPCs do not, and that `/actors` empties without touching group definitions.
+* Kill an equipped, mortal NPC. Its kit must drop once — check nothing is duplicated against its backpack — and the death message must appear before the "left the game" line.
+
 ## 0.2.0 validation
 
 **171 unit tests pass**, including the seven that previously covered group tactics plus new coverage for aligned rows and columns over a partial last row, requested and automatic column counts, the centred Move block, a movement heading that ignores head turns but follows sampled travel, attacker places around a shared target, sidesteps that keep the radius they started from, weapon-paced melee defaults, survival thresholds that gap before they run and leave more health than an ender pearl's own damage, a maximum shield hold that never falls below a single hold, and a resume margin that cannot invert or outgrow the catch-up distance. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.

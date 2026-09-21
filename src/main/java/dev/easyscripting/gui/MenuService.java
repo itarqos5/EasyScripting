@@ -533,6 +533,23 @@ public final class MenuService implements Listener, AutoCloseable {
           settings.file("guis").getString("entries." + menu + ".create", label("create-name")),
           settings.file("guis").getStringList("dynamic.create-lore"),
           c -> create.run());
+    // Emptying the whole library is an operator action and is kept away from the create button.
+    if (menu.equals("actors") && p.isOp() && !ids.isEmpty())
+      button(
+          h,
+          settings.file("guis").getInt("dynamic.delete-all-slot", 46),
+          Material.BONE_MEAL,
+          label("actors-delete-all"),
+          settings.file("guis").getStringList("dynamic.delete-all-lore"),
+          c ->
+              confirm(
+                  p,
+                  String.valueOf(ids.size()),
+                  () -> {
+                    command(p, "actor deleteall");
+                    open(p, menu, 0);
+                  },
+                  () -> open(p, menu, page)));
     if (ids.isEmpty())
       h.inventory.setItem(
           layout("empty-slot"),
@@ -1785,22 +1802,13 @@ public final class MenuService implements Listener, AutoCloseable {
         29,
         Material.IRON_SWORD,
         c -> {
-          List<String> targets =
-              new ArrayList<>(
-                  Bukkit.getOnlinePlayers().stream()
-                      .filter(
-                          player ->
-                              !player.hasMetadata("NPC")
-                                  && actors.byEntity(player.getUniqueId()).isEmpty()
-                                  && !groups.groupOf(player).filter(id::equals).isPresent())
-                      .map(Player::getName)
-                      .toList());
-          actors.list().stream()
-              .filter(actor -> !actor.group().equals(id))
-              .forEach(actor -> targets.add("actor:" + actor.id()));
+          // Only what this group can actually be ordered to attack right now: a live member must
+          // be within the engagement radius, and the target must be a hittable non-ally. Listing
+          // anything else just produced a refusal after the click.
+          List<String> targets = groups.attackable(id);
           picker(
               p,
-              "Choose an enemy",
+              targets.isEmpty() ? "No reachable enemy" : "Choose an enemy",
               targets,
               0,
               Material.TARGET,
@@ -1810,6 +1818,26 @@ public final class MenuService implements Listener, AutoCloseable {
               },
               h.refresh);
         });
+    control(
+        h,
+        "group-lineup",
+        30,
+        Material.LEAD,
+        c -> {
+          p.closeInventory();
+          command(p, "group lineup " + id + " behind");
+        });
+    control(
+        h,
+        "group-purge",
+        42,
+        Material.BONE_MEAL,
+        c ->
+            confirm(
+                p,
+                id,
+                () -> command(p, "group purge " + id),
+                h.refresh));
     control(
         h,
         "group-fight",

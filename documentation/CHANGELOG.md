@@ -2,6 +2,23 @@
 
 Latest plugin release: **[0.2.0](https://github.com/itarqos5/EasyScripting/releases/tag/v0.2.0)**. Entries below describe each version at its release; later entries supersede changed behavior.
 
+## Unreleased
+
+Group AI, formation and lifecycle fixes on top of 0.2.0. No version has been published for these changes yet.
+
+* Shields now answer a mace carried **anywhere** in a player's inventory, not only one in their hand. Attribute swapping means the mace is in the backpack until the instant it swings, so held-only detection reacted after the smash had landed. The new `combat.shield-inventory-mace` turns the backpack check off.
+* Fixed defensive potion bursts re-dosing effects the NPC already had. A potion is thrown only when its effect has run out, been cleared, or is weaker than the one in the bottle; healing counts only while hurt. The check is repeated before every throw, so a burst stops as soon as one bottle has covered it.
+* Fixed a retreating NPC keeping its enemy in view while walking away, which read as moonwalking. It now turns and runs the way it is going.
+* Tightened the follow formation so its rows and columns visibly line up: `follow-arrival-distance` ships at 0.6 instead of 1.0, and members that have taken their place face the way the formation faces instead of each swivelling to stare at the leader.
+* Added `/es group lineup <group> [front|behind] [columns]` and a **Line up on me** button. It teleports every present, free member into block-aligned rows and columns beside you, each NPC on its own whole block, facing the way you face. The direction is snapped to the nearest cardinal so the grid follows the world exactly, columns resolve near your own feet rather than to the world's highest block, and one unusable column refuses the whole line-up rather than stacking two members on one square.
+* Fixed falling NPCs being steered mid-air, which made long drops look floaty. An NPC with clear ground more than the new `groups.fall-pause-distance` below it is left to gravity — no navigation, no wandering, no attack steering — and takes its ordinary fall damage.
+* Fixed the group GUI's attack picker offering targets the order would then refuse. It now lists only reachable, hittable, non-allied targets, and shows an explicit empty state.
+* Fixed every refused command printing four lines of syntax help after its real reason. Syntax help is now shown only when the command itself was malformed, so an ordinary refusal reads as one sentence.
+* Added **Delete all NPCs in this group** to the group page and `/es group purge <group>`: deletes every member while keeping the group, its leader and its shared defaults. Added an operator-only **Delete every NPC** button to `/actors` and `/actor deleteall`.
+* Dead NPCs now drop their backpack and worn equipment, controlled by the new `actors.death-drops` (default true). The items are the ones the NPC was carrying; nothing is created.
+* Fixed the NPC "left the game" announcement being sent before the server's own death message. It is now sent one tick later, so the two read in the order they happened.
+* Validation: **175 unit tests**, production, test and smoke compilation. No Minecraft server was started.
+
 ## 0.2.0 — 2026-09-20
 
 Group AI repairs and NPC self preservation.

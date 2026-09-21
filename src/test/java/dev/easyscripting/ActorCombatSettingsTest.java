@@ -95,6 +95,19 @@ class ActorCombatSettingsTest {
   }
 
   @Test
+  void defaultsWatchForACarriedMaceAndPaceTheFormationTightly() {
+    var c = ActorCombatSettings.read(config());
+    // Attribute swapping means the mace is in the backpack until the instant it swings.
+    assertTrue(c.shieldInventoryMace());
+    var ai = ActorAiSettings.read(config());
+    // Tighter than a block, or the rows and columns never visibly line up.
+    assertTrue(ai.followArrivalDistance() < 1.0);
+    assertTrue(ai.followResumeDistance() > ai.followArrivalDistance());
+    // A falling NPC is left to gravity rather than steered.
+    assertTrue(ai.fallPause() > 0);
+  }
+
+  @Test
   void invalidChanceDelayAndInvertedReactionRangeFailReloadValidation() {
     for (String field :
         List.of(
@@ -120,6 +133,12 @@ class ActorCombatSettingsTest {
     var switched = config();
     switched.set("combat.weapon-cooldown", "yes");
     assertThrows(IllegalArgumentException.class, () -> ActorCombatSettings.read(switched));
+    var mace = config();
+    mace.set("combat.shield-inventory-mace", "sometimes");
+    assertThrows(IllegalArgumentException.class, () -> ActorCombatSettings.read(mace));
+    var fall = config();
+    fall.set("groups.fall-pause-distance", 9);
+    assertThrows(IllegalArgumentException.class, () -> ActorAiSettings.read(fall));
     var columns = config();
     columns.set("groups.follow-columns", 33);
     assertThrows(IllegalArgumentException.class, () -> ActorAiSettings.read(columns));

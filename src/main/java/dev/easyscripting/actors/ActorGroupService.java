@@ -232,6 +232,94 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     refreshAt = 0;
   }
 
+  /** Delete every member NPC but keep the group, its leader, orders and shared defaults. */
+  public int purge(String id) {
+    ActorGroup group = get(id);
+    List<ActorService.ManagedActor> doomed = List.copyOf(members(id));
+    halt(group, true);
+    RuntimeException failure = null;
+    for (var actor : doomed)
+      try {
+        actors.remove(actor.id());
+      } catch (RuntimeException error) {
+        if (failure == null) failure = error;
+        else failure.addSuppressed(error);
+      }
+    refreshAt = 0;
+    if (failure != null) throw failure;
+    return doomed.size();
+  }
+
+  /**
+   * Teleport every available member onto its own block in rows and columns beside the anchor.
+   * Unlike a Move order this does not path: it is the reliable way to get a clean formation.
+   */
+  public int lineUp(String id, Player anchor, String side, int columns) {
+    ActorGroup group = get(id);
+    if (!enabled() || !settings.actorAi().groupsEnabled())
+      throw new IllegalArgumentException(
+          "NPC groups are disabled in actor-ai.yml or features.yml.");
+    List<ActorService.ManagedActor> team =
+        members(id).stream()
+            .filter(a -> a.entity().isPresent() && !actors.busy(a.id()))
+            .toList();
+    if (team.isEmpty())
+      throw new IllegalArgumentException(
+          "No member of " + id + " is present and free. Respawn or finish recordings first.");
+    List<Location> places =
+        PatternLayout.lineUp(
+            team.size(),
+            columns > 0 ? columns : GroupTactics.columns(0, team.size()),
+            anchor.getLocation(),
+            side);
+    List<Location> safe = new ArrayList<>(places.size());
+    for (Location place : places) {
+      // Anchored near the caller's own feet, not the world's highest block: lining up indoors
+      // must not drop the group onto the roof.
+      Location ground = ActorWandering.ground(place, 4);
+      // Refuse the whole line-up rather than stacking two members on one usable block.
+      if (ground == null)
+        throw new IllegalArgumentException(
+            "No safe standing block at "
+                + place.getBlockX()
+                + ", "
+                + place.getBlockZ()
+                + ". Line up on clear, level, loaded ground.");
+      ground.setYaw(place.getYaw());
+      ground.setPitch(0);
+      safe.add(ground);
+    }
+    halt(group, true);
+    // Hold, or a following group would immediately walk back out of the formation it was put in.
+    group.order = ActorGroup.Order.HOLD;
+    group.destination = null;
+    save(group);
+    for (int i = 0; i < team.size(); i++) actors.teleport(team.get(i).id(), safe.get(i));
+    refreshAt = 0;
+    return team.size();
+  }
+
+  /** Targets this group could actually be ordered to attack right now. */
+  public List<String> attackable(String id) {
+    ActorGroup group = groups.get(id);
+    if (group == null || !group.intelligence) return List.of();
+    List<LivingEntity> present =
+        members(id).stream().flatMap(a -> a.entity().stream()).toList();
+    List<String> result = new ArrayList<>();
+    for (Player player : Bukkit.getOnlinePlayers())
+      if (targetable(player)
+          && !friendly(group, player)
+          && present.stream().anyMatch(e -> inRange(e, player))) result.add(player.getName());
+    for (var actor : actors.list())
+      actor
+          .entity()
+          .filter(this::targetable)
+          .filter(e -> !friendly(group, e))
+          .filter(e -> present.stream().anyMatch(member -> inRange(member, e)))
+          .ifPresent(e -> result.add("actor:" + actor.id()));
+    return List.copyOf(result);
+  }
+
   /** Delete the faction and every actor assigned to it. Stale bound tools then fail safely. */
   public int delete(String id) {
     ActorGroup group = get(id);
@@ -728,6 +816,12 @@ public final class ActorGroupService implements Listener, AutoCloseable {
       return;
     }
     if (tick < brain.pauseUntil) return;
+    // A long drop belongs to gravity. Steering mid-air is what makes a fall look floaty, and a
+    // path request on landing cancels the fall before the damage lands.
+    if (falling(entity)) {
+      if (brain.moving) stopMotion(actor, brain);
+      return;
+    }
     if (combat != null && combat.defending(actor)) {
       stopMotion(actor, brain);
       return;
@@ -749,7 +843,9 @@ public final class ActorGroupService implements Listener, AutoCloseable {
         if (combat.retreating(actor)) {
           brain.critAt = 0;
           brain.strafing = false;
-          actor.look(target.getEyeLocation());
+          // Face the way it is running. Holding the enemy in view while the body walks the other
+          // way is what reads as moonwalking, so a break-off turns around like a player does.
+          actor.look(null);
           withdraw(actor, entity, brain, target);
           return;
         }
@@ -841,7 +937,10 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     if (distanceSquared <= settle * settle) {
       brain.parked = true;
       stopMotion(actor, brain);
-      if (leader != null) actor.look(leader.getEyeLocation());
+      // Everyone faces the way the formation is facing. A hundred NPCs each swivelling to stare
+      // at the leader hides the rows and columns they are standing in.
+      if (leader != null)
+        actor.look(entity.getEyeLocation().add(facing.clone().multiply(4)));
       return;
     }
     brain.parked = false;
@@ -1031,6 +1130,11 @@ public final class ActorGroupService implements Listener, AutoCloseable {
   private boolean navigate(PathRequest request) {
     ActorService.ManagedActor actor = request.actor;
     Brain brain = request.brain;
+    // A request queued before the NPC left the ground must not land during its fall.
+    if (actor.entity().filter(this::falling).isPresent()) {
+      brain.nextPath = tick + 5;
+      return false;
+    }
     brain.nextPath =
         tick
             + (request.following
@@ -1074,6 +1178,28 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     double y = Math.max(box.getMinY(), Math.min(eye.getY(), box.getMaxY()));
     double z = Math.max(box.getMinZ(), Math.min(eye.getZ(), box.getMaxZ()));
     return eye.toVector().distance(new Vector(x, y, z));
+  }
+
+  /**
+   * True while the NPC is airborne with real ground well below it. Small step-downs and jumps are
+   * excluded so ordinary walking is never mistaken for a fall.
+   */
+  private boolean falling(LivingEntity entity) {
+    double pause = settings.actorAi().fallPause();
+    if (pause <= 0 || entity.isOnGround() || entity.isInsideVehicle()) return false;
+    if (entity.getVelocity().getY() > -0.08) return false; // Rising, or held up by something.
+    if (entity instanceof Player player && player.isGliding()) return false;
+    var world = entity.getWorld();
+    Location at = entity.getLocation();
+    int floor = at.getBlockY();
+    int limit = (int) Math.ceil(pause);
+    for (int drop = 1; drop <= limit; drop++) {
+      int y = floor - drop;
+      if (y < world.getMinHeight()) return false;
+      var block = world.getBlockAt(at.getBlockX(), y, at.getBlockZ());
+      if (!block.isPassable() || block.isLiquid()) return false;
+    }
+    return true;
   }
 
   private boolean inRange(LivingEntity from, LivingEntity to) {

@@ -35,6 +35,62 @@ public final class PatternLayout {
     return List.copyOf(result);
   }
 
+  /**
+   * Block-aligned rows and columns for a teleported line-up. The anchor's facing is snapped to
+   * the nearest cardinal direction so every row and column follows the world grid exactly and
+   * each member lands on its own whole block, which free-angle placement cannot guarantee.
+   */
+  public static List<Location> lineUp(int count, int columns, Location anchor, String side) {
+    if (count < 1 || count > 200)
+      throw new IllegalArgumentException("A line-up needs 1..200 members.");
+    if (columns < 1 || columns > 32)
+      throw new IllegalArgumentException("A line-up needs 1..32 members per row.");
+    int direction =
+        switch (side.toLowerCase(Locale.ROOT)) {
+          case "front" -> 1;
+          case "behind" -> -1;
+          default -> throw new IllegalArgumentException("Line-up side must be front or behind.");
+        };
+    int lanes = Math.min(columns, count);
+    // Snap to N/E/S/W: a diagonal grid would round two members onto one block.
+    int quadrant = Math.floorMod(Math.round(anchor.getYaw() / 90f), 4);
+    Vector forward =
+        switch (quadrant) {
+          case 0 -> new Vector(0, 0, 1);
+          case 1 -> new Vector(-1, 0, 0);
+          case 2 -> new Vector(0, 0, -1);
+          default -> new Vector(1, 0, 0);
+        };
+    Vector right = new Vector(forward.getZ(), 0, -forward.getX());
+    // Floor rather than getBlock(): this class stays free of any world lookup.
+    Location origin =
+        new Location(
+            anchor.getWorld(),
+            Math.floor(anchor.getX()),
+            Math.floor(anchor.getY()),
+            Math.floor(anchor.getZ()));
+    List<Location> result = new ArrayList<>(count);
+    for (int index = 0; index < count; index++) {
+      int row = index / lanes;
+      int first = row * lanes;
+      int inRow = Math.min(lanes, count - first);
+      int lane = (lanes - inRow) / 2 + (index - first);
+      int lateral = lane - (lanes - 1) / 2;
+      int depth = direction * (2 + row);
+      Location at =
+          origin
+              .clone()
+              .add(
+                  right.clone().multiply(lateral).add(forward.clone().multiply(depth)))
+              .add(0.5, 0, 0.5);
+      at.setPitch(0);
+      // Every member faces the way the anchor faces, so the block reads as one formation.
+      at.setDirection(forward);
+      result.add(at);
+    }
+    return List.copyOf(result);
+  }
+
   private static List<Vector> offsets(String shape, int count, double spacing) {
     return switch (shape) {
       case "line" ->

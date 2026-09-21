@@ -11,6 +11,7 @@ import org.bukkit.event.*;
 import org.bukkit.event.entity.*;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionEffect;
 import org.bukkit.util.Vector;
 
 /** Tick-owned supply use and fallible combat reactions; never synthesizes replacement items. */
@@ -225,7 +226,8 @@ public final class ActorCombatService implements Listener, AutoCloseable {
         actor.look(entity.getEyeLocation().add(0, 10, 0));
         if (tick >= r.nextPotion) {
           var items = ActorSupplies.inventory(actor);
-          int slot = ActorSupplies.find(items, ActorCombatService::beneficialSplash);
+          // Re-checked before every throw: the first one may already have supplied the effect.
+          int slot = ActorSupplies.find(items, item -> useful(entity, item));
           if (slot < 0) r.potionsLeft = 0;
           else {
             ItemStack potion = ActorSupplies.takeOne(items, slot);
@@ -245,10 +247,14 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     return shield(actor, target, r);
   }
 
+  private static double maximum(LivingEntity entity) {
+    var attribute = entity.getAttribute(Attribute.MAX_HEALTH);
+    return attribute == null ? 20 : attribute.getValue();
+  }
+
   /** Remaining health as a fraction of this NPC's own maximum, which kits and mobs both change. */
   private static double healthFraction(LivingEntity entity) {
-    var maximum = entity.getAttribute(Attribute.MAX_HEALTH);
-    double max = maximum == null ? 20 : maximum.getValue();
+    double max = maximum(entity);
     return max <= 0 ? 1 : Math.min(1, entity.getHealth() / max);
   }
 
@@ -477,15 +483,29 @@ public final class ActorCombatService implements Listener, AutoCloseable {
         .orElse(null);
   }
 
+
+  /**
+   * A mace is a threat wherever it is carried, not only where it is held. Players swap a mace in
+   * for the hit itself — attribute swapping — so reacting only to a held mace means reacting
+   * after the smash has already landed. `shield-inventory-mace` turns the backpack check off.
+   */
+  private boolean carriesMace(LivingEntity entity) {
+    var equipment = entity.getEquipment();
+    if (equipment != null
+        && (equipment.getItemInMainHand().getType() == Material.MACE
+            || equipment.getItemInOffHand().getType() == Material.MACE)) return true;
+    return settings.actorCombat().shieldInventoryMace()
+        && entity instanceof HumanEntity human
+        && human.getInventory().contains(Material.MACE);
+  }
+
   /**
    * A mace overhead is a falling smash. A mace at the NPC's own level is a threat too, so the
    * shield also goes up against someone simply walking in with one.
    */
   private boolean maceThreat(LivingEntity actor, LivingEntity target) {
-    if (target == null
-        || target.getWorld() != actor.getWorld()
-        || target.getEquipment() == null
-        || target.getEquipment().getItemInMainHand().getType() != Material.MACE) return false;
+    if (target == null || target.getWorld() != actor.getWorld() || !carriesMace(target))
+      return false;
     var delta = target.getLocation().toVector().subtract(actor.getLocation().toVector());
     double flat = delta.getX() * delta.getX() + delta.getZ() * delta.getZ();
     if (delta.getY() > 1.5 && delta.getY() < 10 && flat < 16) return true;
@@ -496,11 +516,40 @@ public final class ActorCombatService implements Listener, AutoCloseable {
   public static boolean beneficialSplash(ItemStack item) {
     if (item.getType() != Material.SPLASH_POTION
         || !(item.getItemMeta() instanceof PotionMeta meta)) return false;
+    var effects = effects(meta);
+    return !effects.isEmpty()
+        && effects.stream().allMatch(effect -> beneficial(effect.getType().getKey().getKey()));
+  }
+
+  private static List<PotionEffect> effects(PotionMeta meta) {
     var effects = new ArrayList<>(meta.getCustomEffects());
     if (meta.getBasePotionType() != null)
       effects.addAll(meta.getBasePotionType().getPotionEffects());
-    return !effects.isEmpty()
-        && effects.stream().allMatch(effect -> beneficial(effect.getType().getKey().getKey()));
+    return effects;
+  }
+
+  /**
+   * A splash potion is only worth throwing when the NPC is actually missing what it would give:
+   * the effect ran out, was cleared, or is weaker than the one in the bottle. Healing counts as
+   * missing whenever the NPC is hurt. This is what stops an NPC re-dosing an effect it still has.
+   */
+  static boolean useful(LivingEntity entity, ItemStack item) {
+    if (!beneficialSplash(item) || !(item.getItemMeta() instanceof PotionMeta meta)) return false;
+    for (PotionEffect effect : effects(meta)) {
+      if (effect.getType().getKey().getKey().equals("instant_health")) {
+        if (entity.getHealth() < maximum(entity)) return true;
+        continue;
+      }
+      PotionEffect active = entity.getPotionEffect(effect.getType());
+      if (active == null || active.getAmplifier() < effect.getAmplifier()) return true;
+    }
+    return false;
+  }
+
+  private boolean carriesUseful(ActorService.ManagedActor actor) {
+    LivingEntity entity = actor.entity().orElse(null);
+    return entity != null
+        && ActorSupplies.find(ActorSupplies.inventory(actor), item -> useful(entity, item)) >= 0;
   }
 
   static boolean beneficial(String effect) {
@@ -545,7 +594,10 @@ public final class ActorCombatService implements Listener, AutoCloseable {
               // A hit taken mid-meal interrupts it, exactly as it does for a player.
               if (r.stowed != null)
                 actor.entity().ifPresent(entity -> abandonMeal(actor, entity, r));
-              if (c.potions() && tick >= r.potionCooldown && r.potionsLeft == 0) {
+              if (c.potions()
+                  && tick >= r.potionCooldown
+                  && r.potionsLeft == 0
+                  && carriesUseful(actor)) {
                 r.potionsLeft = c.potionCount();
                 r.nextPotion = tick + reactionDelay();
                 r.potionCooldown = tick + c.potionCooldown();

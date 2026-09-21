@@ -67,4 +67,51 @@ class PatternLayoutTest {
   private static Location anchor(float yaw) {
     return new Location(null, 0, 80, 0, yaw, 0);
   }
+
+  @Test
+  void aLineUpGivesEveryMemberItsOwnWholeBlockInAlignedRows() {
+    // A deliberately awkward yaw and fractional stance: free-angle placement would round two
+    // members onto one block, which is exactly what a line-up must never do.
+    var at = new Location(null, 100.3, 70, -40.8, 37f, 12f);
+    var places = PatternLayout.lineUp(23, 5, at, "behind");
+    assertEquals(23, places.size());
+    var blocks = new HashSet<String>();
+    for (var place : places) {
+      blocks.add(place.getBlockX() + ":" + place.getBlockZ());
+      assertEquals(0.5, Math.abs(place.getX() % 1), 0.0001); // Centred on its block.
+      assertEquals(0.5, Math.abs(place.getZ() % 1), 0.0001);
+      assertEquals(0, place.getPitch(), 0.0001);
+    }
+    assertEquals(23, blocks.size(), "every member must stand on its own block");
+    // Five lanes across and five rows deep, all on the world grid.
+    assertEquals(5, places.stream().map(Location::getBlockX).distinct().count());
+    assertEquals(5, places.stream().map(Location::getBlockZ).distinct().count());
+    assertTrue(places.stream().map(Location::getYaw).distinct().count() == 1);
+  }
+
+  @Test
+  void everyCardinalFacingKeepsTheLineUpOnDistinctBlocks() {
+    for (float yaw : new float[] {0, 44, 46, 90, 135, 180, -135, -90, -44, 270, 359}) {
+      var places = PatternLayout.lineUp(12, 4, new Location(null, 8.2, 64, 8.7, yaw, 0), "front");
+      assertEquals(
+          12,
+          places.stream().map(place -> place.getBlockX() + ":" + place.getBlockZ()).distinct()
+              .count(),
+          "yaw " + yaw);
+    }
+  }
+
+  @Test
+  void aLineUpSitsBehindOrInFrontAccordingToTheSideAndRejectsBadInput() {
+    var at = new Location(null, 0.5, 70, 0.5, 0f, 0f); // Facing +Z.
+    var behind = PatternLayout.lineUp(1, 1, at, "behind").get(0);
+    var front = PatternLayout.lineUp(1, 1, at, "front").get(0);
+    assertTrue(behind.getZ() < at.getZ() && front.getZ() > at.getZ());
+    // Equally far from the anchor on each side, measured from where the anchor stands.
+    assertEquals(at.getZ() - behind.getZ(), front.getZ() - at.getZ(), 0.0001);
+    assertThrows(IllegalArgumentException.class, () -> PatternLayout.lineUp(1, 1, at, "sideways"));
+    assertThrows(IllegalArgumentException.class, () -> PatternLayout.lineUp(0, 1, at, "front"));
+    assertThrows(IllegalArgumentException.class, () -> PatternLayout.lineUp(4, 0, at, "front"));
+    assertThrows(IllegalArgumentException.class, () -> PatternLayout.lineUp(4, 33, at, "front"));
+  }
 }

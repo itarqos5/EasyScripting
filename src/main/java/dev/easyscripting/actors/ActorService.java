@@ -319,6 +319,21 @@ public final class ActorService implements Listener, AutoCloseable {
     ensureBehaviors();
   }
 
+  /** Permanently delete every actor. Group definitions and their settings are left alone. */
+  public int purge() {
+    List<ManagedActor> doomed = list();
+    RuntimeException failure = null;
+    for (ManagedActor actor : doomed)
+      try {
+        remove(actor.id());
+      } catch (RuntimeException error) {
+        if (failure == null) failure = error;
+        else failure.addSuppressed(error);
+      }
+    if (failure != null) throw failure;
+    return doomed.size();
+  }
+
   public void remove(String id) {
     ManagedActor actor = get(id);
     removed.accept(id);
@@ -743,7 +758,11 @@ public final class ActorService implements Listener, AutoCloseable {
                   ActorDefinition d = a.definition;
                   if (Math.floorMod(tick + a.id().hashCode(), 5) == 0)
                     a.lookNearby(d.lookNearby || d.wander || a.navigating());
-                  if (d.wander && tick >= a.nextWander && !a.navigating()) {
+                  // Gravity owns a falling NPC; a wander path mid-drop looks unnatural.
+                  if (d.wander
+                      && tick >= a.nextWander
+                      && !a.navigating()
+                      && (e.isOnGround() || e.getVelocity().getY() > -0.08)) {
                     a.nextWander =
                         tick
                             + settings.actorAi().wanderInterval()
@@ -814,11 +833,40 @@ public final class ActorService implements Listener, AutoCloseable {
     event.setCancelled(true);
   }
 
+  /**
+   * A Citizens NPC does not populate its own drop list, so an NPC that should drop its kit has
+   * that kit built here from what it is actually carrying. Nothing is created: the items come
+   * from the saved backpack and the worn equipment, and both are cleared as they are dropped.
+   */
   @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
   public void deathDrops(EntityDeathEvent event) {
-    if (!entities.containsKey(event.getEntity().getUniqueId())) return;
+    ManagedActor actor = entities.get(event.getEntity().getUniqueId());
+    if (actor == null) return;
     event.getDrops().clear();
     event.setDroppedExp(0);
+    if (!settings.file("config").getBoolean("actors.death-drops", true)) return;
+    List<ItemStack> loot = new ArrayList<>();
+    for (ItemStack item : ActorSupplies.inventory(actor))
+      if (item != null && !item.getType().isAir() && item.getAmount() > 0) loot.add(item.clone());
+    var equipment = event.getEntity().getEquipment();
+    if (equipment != null)
+      for (ItemStack item :
+          List.of(
+              equipment.getItemInMainHand(),
+              equipment.getItemInOffHand(),
+              orAir(equipment.getHelmet()),
+              orAir(equipment.getChestplate()),
+              orAir(equipment.getLeggings()),
+              orAir(equipment.getBoots())))
+        if (!item.getType().isAir() && item.getAmount() > 0) loot.add(item.clone());
+    event.getDrops().addAll(loot);
+    // The definition is deleted moments later; clearing keeps a mid-death save from duplicating.
+    actor.definition.inventory = new ItemStack[actor.definition.inventory.length];
+    Arrays.fill(actor.definition.equipment, new ItemStack(Material.AIR));
+  }
+
+  private static ItemStack orAir(ItemStack item) {
+    return item == null ? new ItemStack(Material.AIR) : item;
   }
 
   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -848,8 +896,8 @@ public final class ActorService implements Listener, AutoCloseable {
               "Could not clean up data owned by dead actor '" + actor.id() + "'",
               error);
     }
-    if (settings.file("config").getBoolean("actors.announce-death-leave", true))
-      Bukkit.broadcast(
+    if (settings.file("config").getBoolean("actors.announce-death-leave", true)) {
+      var left =
           new dev.easyscripting.config.Messages(settings)
               .text(
                   "actor-left",
@@ -858,7 +906,12 @@ public final class ActorService implements Listener, AutoCloseable {
                       net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
                           .plainText()
                           .serialize(
-                              dev.easyscripting.config.Messages.rich(actor.definition.name)))));
+                              dev.easyscripting.config.Messages.rich(actor.definition.name))));
+      // The server sends the death message after this event finishes, so announcing the departure
+      // here put it first. A tick later the two read in the order they happened.
+      if (ticks.acceptingWork()) ticks.later(1, () -> Bukkit.broadcast(left));
+      else Bukkit.broadcast(left);
+    }
     Runnable cleanup =
         () -> {
           try {
