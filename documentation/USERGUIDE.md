@@ -407,7 +407,7 @@ For a faction, start with `/es group create red`, `/es group add red guard_1`, t
 
 NPCs automatically offhand carried totems and refill after a pop (default one tick, about 50 ms). Aggressive/intelligent NPCs can use carried beneficial splash potions, imperfect melee timing, jumps and delayed shields against overhead maces. These reactions yield during scenes and performances. Configure every timing/chance in the commented `actor-ai.yml`.
 
-Player `/es player halfheart` now lets a held totem pop normally and keeps protection afterward. Elytra recordings now retain the gliding flag; old frames explicitly marked FALL_FLYING are repaired on load. If an old take saved only swimming, record it again. `/actor finish` retains the same save/autoplay workflow.
+Player `/es player halfheart` now lets a held totem pop normally and keeps protection afterward. A lethal hit is no longer cancelled: it lands with its knockback and hurt animation and simply deals no damage, leaving half a heart. Elytra recordings now retain the gliding flag; old frames explicitly marked FALL_FLYING are repaired on load. If an old take saved only swimming, record it again. `/actor finish` retains the same save/autoplay workflow.
 
 ## Troubleshooting
 

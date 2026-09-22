@@ -320,7 +320,7 @@ commands:
     description: "Hold the player's position for the shot."
     example: ""
   - syntax: "/es player halfheart on|off [player]"
-    description: "Prevent lethal damage without a held totem. Held totems pop normally, and half-heart protection stays enabled afterward. This is separate from NPC Immortal."
+    description: "Survive lethal damage without a held totem. The hit still lands with its knockback and animation; only its damage is taken away, leaving half a heart. Held totems pop normally, and half-heart protection stays enabled afterward. This is separate from NPC Immortal."
     example: ""
   - syntax: "/es player keepinv on|off [player]"
     description: "Keep inventory/experience through death."

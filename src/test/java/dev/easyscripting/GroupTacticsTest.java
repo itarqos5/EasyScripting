@@ -152,6 +152,42 @@ class GroupTacticsTest {
   }
 
   @Test
+  void everyMemberTakesTheFormationSlotNearestToWhereItAlreadyStands() {
+    // Three members standing left to right in front of slots laid out right to left. Numbering
+    // them in roster order would cross every one of them past its neighbours to the far side.
+    Map<String, Integer> where = Map.of("left", 0, "middle", 1, "right", 2);
+    var slots =
+        GroupTactics.nearestSlots(
+            List.of("left", "middle", "right"),
+            3,
+            Map.of(),
+            (member, slot) -> Math.abs(where.get(member) - (2 - slot)));
+    assertEquals(Map.of("left", 2, "middle", 1, "right", 0), slots);
+  }
+
+  @Test
+  void aMemberKeepsThePlaceItHeldWhenNothingHasMovedAndNobodyIsLeftWithoutOne() {
+    // Equal distances everywhere: only the preference for the held slot can break the tie.
+    var held = Map.of("one", 1, "two", 0);
+    var settled =
+        GroupTactics.nearestSlots(List.of("one", "two"), 2, held, (member, slot) -> 4.0);
+    assertEquals(held, settled);
+    // A member the caller cannot measure still gets a place rather than standing slotless.
+    var unreachable =
+        GroupTactics.nearestSlots(
+            List.of("one", "lost"),
+            2,
+            Map.of(),
+            (member, slot) -> member.equals("lost") ? Double.POSITIVE_INFINITY : slot);
+    assertEquals(2, new HashSet<>(unreachable.values()).size());
+    assertEquals(0, unreachable.get("one"));
+    // More members than squares is a caller mistake, not a member left standing about.
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> GroupTactics.nearestSlots(List.of("one", "two"), 1, Map.of(), (m, slot) -> 1));
+  }
+
+  @Test
   void distantGoalsUseWalkingWaypointsAndFriendlyDamageIsOneWay() {
     var waypoint =
         GroupTactics.waypoint(new Vector(), new Vector(100, 0, 0), 32);

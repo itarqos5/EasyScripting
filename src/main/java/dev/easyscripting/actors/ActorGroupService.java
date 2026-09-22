@@ -630,19 +630,59 @@ public final class ActorGroupService implements Listener, AutoCloseable {
   }
 
   /**
-   * Number the members that can actually stand in the formation. Absent and reserved actors are
-   * skipped rather than reserving an empty square, and the surviving members keep their order, so
-   * a casualty closes the gap instead of shuffling everyone into a neighbour's place.
+   * Give the members that can actually stand in the formation a place in it. Absent and reserved
+   * actors are skipped rather than reserving an empty square, and each member takes the place
+   * nearest to where it already stands instead of a fixed number, so a group that turns or
+   * reforms never sends a member around the leader and through its neighbours to reach a square.
    */
   private void layout() {
+    Map<String, Integer> previous = Map.copyOf(formationSlots);
     formationSlots.clear();
     formationSizes.clear();
+    var ai = settings.actorAi();
     for (ActorGroup group : groups.values()) {
-      int slot = 0;
+      List<ActorService.ManagedActor> present = new ArrayList<>();
       for (var actor : members.getOrDefault(group.id, List.of()))
-        if (actor.entity().isPresent() && !actors.busy(actor.id()))
-          formationSlots.put(actor.id(), slot++);
-      formationSizes.put(group.id, slot);
+        if (actor.entity().isPresent() && !actors.busy(actor.id())) present.add(actor);
+      int count = present.size();
+      formationSizes.put(group.id, count);
+      if (count == 0) continue;
+      boolean following = group.order == ActorGroup.Order.FOLLOW;
+      Player leader = group.leader == null ? null : Bukkit.getPlayer(group.leader);
+      Location center =
+          following && leader != null
+              ? leader.getLocation()
+              : group.order == ActorGroup.Order.MOVE ? group.destination : null;
+      if (center == null) {
+        // Nothing to measure distances from; the roster order alone decides who stands where.
+        for (int slot = 0; slot < count; slot++) formationSlots.put(present.get(slot).id(), slot);
+        continue;
+      }
+      Vector facing = following ? heading(group, leader) : facing(center);
+      List<Location> places = new ArrayList<>(count);
+      for (int slot = 0; slot < count; slot++)
+        places.add(
+            center
+                .clone()
+                .add(
+                    following
+                        ? GroupTactics.trailingFormation(
+                            slot, count, ai.followColumns(), ai.followSpacing(), facing)
+                        : GroupTactics.blockFormation(
+                            slot, count, ai.followColumns(), ai.followSpacing(), facing)));
+      Map<String, Location> standing = new HashMap<>();
+      present.forEach(a -> a.entity().ifPresent(e -> standing.put(a.id(), e.getLocation())));
+      formationSlots.putAll(
+          GroupTactics.nearestSlots(
+              present.stream().map(ActorService.ManagedActor::id).toList(),
+              count,
+              previous,
+              (id, slot) -> {
+                Location at = standing.get(id), place = places.get(slot);
+                return at == null || at.getWorld() != place.getWorld()
+                    ? Double.POSITIVE_INFINITY
+                    : at.distanceSquared(place);
+              }));
     }
   }
 
@@ -859,9 +899,9 @@ public final class ActorGroupService implements Listener, AutoCloseable {
         }
       }
       actor.look(target.getEyeLocation());
-      if (reach(entity, target) <= settings.actorAi().meleeReach()
-          && entity.hasLineOfSight(target)) {
-        if (melee(actor, entity, brain, target)) {
+      double distance = reach(entity, target);
+      if (distance <= settings.actorAi().meleeReach() && entity.hasLineOfSight(target)) {
+        if (melee(actor, entity, brain, target, distance)) {
           brain.strafing = false;
           return;
         }
@@ -933,7 +973,13 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     double distanceSquared = entity.getLocation().distanceSquared(goal);
     // Hysteresis: a member that has taken its place waits for the wider resume distance, so a
     // leader shuffling on the spot does not make the whole formation stutter in and out of walking.
-    double settle = brain.parked ? ai.followResumeDistance() : ai.followArrivalDistance();
+    // A navigator that has already stopped this close counts as settled too. Citizens and Paper
+    // both finish a path a little short of its destination, and asking for that last fraction of
+    // a block back every few ticks is what makes a member shuffle on the spot instead of walking.
+    double settle =
+        brain.parked || !actor.navigating()
+            ? ai.followResumeDistance()
+            : ai.followArrivalDistance();
     if (distanceSquared <= settle * settle) {
       brain.parked = true;
       stopMotion(actor, brain);
@@ -968,13 +1014,22 @@ public final class ActorGroupService implements Listener, AutoCloseable {
    * has nothing to do with its weapon yet and the caller may move it.
    */
   private boolean melee(
-      ActorService.ManagedActor actor, LivingEntity entity, Brain brain, LivingEntity target) {
+      ActorService.ManagedActor actor,
+      LivingEntity entity,
+      Brain brain,
+      LivingEntity target,
+      double distance) {
     if (tick < brain.nextAttack) return false;
     if (combat == null) {
       plant(actor, brain, target);
       brain.nextAttack = tick + settings.actorAi().attackCooldown();
       entity.swingMainHand();
-      entity.attack(target);
+      // Accuracy applies with or without the combat service; no swing lands unconditionally.
+      var c = settings.actorCombat();
+      if (ThreadLocalRandom.current().nextDouble()
+          < ActorCombatService.hitChance(
+              distance, settings.actorAi().meleeReach(), c.accuracy(), c.reachAccuracy()))
+        entity.attack(target);
       return true;
     }
     if (brain.critAt > 0) {
@@ -990,7 +1045,7 @@ public final class ActorGroupService implements Listener, AutoCloseable {
     plant(actor, brain, target);
     brain.chargeBy = 0;
     brain.nextAttack = tick + combat.attackDelay();
-    combat.strike(actor, target);
+    combat.strike(actor, target, distance);
     return true;
   }
 
@@ -1119,8 +1174,9 @@ public final class ActorGroupService implements Listener, AutoCloseable {
         && brain.lastGoal != null
         && brain.lastGoal.getWorld() == goal.getWorld()
         && brain.lastGoal.distanceSquared(goal) < change * change) return;
-    // A completed FOLLOW path gets another chance immediately when the leader has moved on.
-    if (tick < brain.nextPath && (!following || navigating)) return;
+    // One interval covers a completed path as well as a running one. Re-issuing a path the moment
+    // the last one ends restarts the walk cycle every few ticks, which reads as a stutter.
+    if (tick < brain.nextPath) return;
     // A stopped member is further behind than its distance alone suggests, so it goes first.
     requests.add(
         new PathRequest(
@@ -1327,17 +1383,21 @@ public final class ActorGroupService implements Listener, AutoCloseable {
   @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
   public void damage(EntityDamageEvent event) {
     if (!enabled() || event.getFinalDamage() <= 0) return;
-    actors
-        .byEntity(event.getEntity().getUniqueId())
-        .ifPresent(
-            actor -> {
-              if (actors.busy(actor.id())) return;
-              Brain brain = brains.get(actor.id());
-              if (brain != null) {
-                stopMotion(actor, brain);
-                brain.pauseUntil = tick + settings.actorAi().knockbackPause();
-              }
-            });
+    // The pause exists so real knockback can carry, so only a blow earns one. Fire, fall damage,
+    // drowning and cactus throw an NPC nowhere, and pausing on those left it standing in the
+    // damage it should have been walking out of.
+    if (event instanceof EntityDamageByEntityEvent)
+      actors
+          .byEntity(event.getEntity().getUniqueId())
+          .ifPresent(
+              actor -> {
+                if (actors.busy(actor.id())) return;
+                Brain brain = brains.get(actor.id());
+                if (brain != null) {
+                  stopMotion(actor, brain);
+                  brain.pauseUntil = tick + settings.actorAi().knockbackPause();
+                }
+              });
     if (!(event instanceof EntityDamageByEntityEvent hit)
         || !(event.getEntity() instanceof LivingEntity victim)) return;
     Entity source = source(hit.getDamager());

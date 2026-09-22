@@ -71,7 +71,7 @@ Commands follow /es unless shown otherwise. Permission suffixes follow easyscrip
 | Player state | Health/hunger/heal/feed, gamemode/flight/speed, invisibility/glow/fire/invulnerability | player | player, player.others | Player, command | state/players.yml | IMPLEMENTED | HIGH |
 | Health/take reset | Health changes and take restoration exercised by actual client | player health; take | player, record | Player | In-memory takes | VERIFIED (historical) | HIGH |
 | Restrictions | Freeze, hunger/durability, build/break/PvP, inventory/armor/pickup | player | player, player.others | Player | state/players.yml | IMPLEMENTED | HIGH |
-| Half heart (0.1.7) | Held totems can pop normally; protection stays enabled, preventing lethal damage when no held totem remains | player halfheart | player, player.others | Player | state/players.yml | IMPLEMENTED | HIGH |
+| Half heart (0.1.7) | Held totems can pop normally; protection stays enabled. A lethal hit still lands with its knockback and animation, with its damage removed, leaving half a heart | player halfheart | player, player.others | Player | state/players.yml | IMPLEMENTED | HIGH |
 | Keep inventory | Retain inventory/XP; configurable Curse of Vanishing consumption | player keepinv | player, player.others | Player | death.yml | IMPLEMENTED | HIGH |
 | Potions/pause | Presets; freeze remaining effect durations and resume | player potion/pauseeffects | player, player.others | Player, command | potions.yml | IMPLEMENTED | HIGH |
 | Vanish | Hide body/tab and join/quit; silent container/interaction effects absent | player vanish | player, see.vanish | Player | state/players.yml | PARTIAL | HIGH |

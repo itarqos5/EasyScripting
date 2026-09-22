@@ -8,7 +8,8 @@ Current release: **0.2.0**. Test results are version-specific. The current relea
 
 Most of this batch is behaviour no fixture can reach. These cases decide it:
 
-* Hold a mace in your **inventory** rather than your hand and jump above a shielded NPC; the shield must come up. Repeat with the mace held, at ground level within `shield-ground-radius`, and with `shield-inventory-mace` off, which must react only to a held mace.
+* Hold a mace in your **inventory** rather than your hand and jump above a shielded NPC; the shield must come up. Repeat with the mace held. Standing in front of the NPC with a mace on level ground must **not** raise the shield. With `shield-inventory-mace` off, only a held mace counts.
+* Fight an NPC with a sword at the very edge of its reach and then close in: edge-of-reach swings must visibly miss far more often than close ones.
 * Give an NPC several beneficial splash potions and hurt it. It must throw one, then stop while those effects are running, and throw again once they expire or are cleared with `/effect clear`. An unhurt NPC must not throw an instant-health potion.
 * Fight an NPC down to its heal threshold and watch the break-off: it must turn and run, not walk backwards with its head turned.
 * Drop NPCs from 30+ blocks. The fall must look and land like a player's, with ordinary fall damage, and they must resume moving on landing.
@@ -76,7 +77,7 @@ Live acceptance still required:
 * On level terrain and around stairs/obstacles, use Wander and Walk to me; verify normal walking, eye-height tracking during movement, no roof/void destinations, and no drift away from home while alone. Ground sampling itself is not exercised against real blocks by the unit suite.
 * Assign a real leader to a faction, test leader/non-leader/op controls, follow/hold/move, and hit multiple enemies. Verify actual native melee, knockback, split targeting, friendly melee/projectile/potion protection, leader disconnect/death, group battles and permanent NPC deletion. Profile two 100-member groups before claiming production capacity.
 * Equip finite totems/potions/shields. Pop main/offhand totems and verify a one-tick refill without losing displaced items or creating new stacks. Verify three separate upward beneficial potion throws, real effects, misses/jumps and a delayed/non-guaranteed shield against a descending mace. Test both mob actors and matching Citizens PLAYER actors, external cancellations, reservations and shutdown.
-* Enable `/es player halfheart`, suffer lethal damage with main/offhand totems, verify actual vanilla consumption/animation/effects and continued protection after the final totem. Confirm cancelled PvP does not reduce health.
+* Enable `/es player halfheart`, suffer lethal damage with main/offhand totems, verify actual vanilla consumption/animation/effects and continued protection after the final totem. With no totem left, the lethal hit must still knock you back and play its hurt animation while leaving you on half a heart. Confirm cancelled PvP does not reduce health.
 * Record a complete elytra flight and landing, finish with autoplay, inspect from another client in STOP/REPEAT/REVERSE modes, change skin during flight, take knockback, and stop midair. Confirm flight renders as elytra, swimming stays swimming, and stopping/restoration clears replay flight state. Old FALL_FLYING frames are supported; an old ambiguous swimming-only take must be recorded again.
 * Browse `/actors`, `/kits`, NPC/group pages and Record session ON/OFF. Check selected highlights, de-op while a GUI is open, invalid syntax feedback, upgrade backups and preserved custom comments after reload/restart.
 

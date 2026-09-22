@@ -31,6 +31,12 @@ public final class ActorCombatService implements Listener, AutoCloseable {
   /** Vanilla golden apples take 32 ticks to eat; the slack absorbs a late server tick. */
   private static final int EAT_TICKS = 34;
 
+  /**
+   * The box a smash can fall from: at least this far above the NPC's feet, no higher than a fall
+   * it would survive aiming, and within a horizontal radius the smash could still cover.
+   */
+  private static final double OVERHEAD_MINIMUM = 1.5, OVERHEAD_HEIGHT = 10, OVERHEAD_RADIUS = 4;
+
   private static final class Reaction {
     long refillAt, nextPotion, potionCooldown, shieldCheck, shieldRaise, shieldUntil, jumpAt;
     long blockingSince, healAt, healBy, healUntil, healCooldown;
@@ -104,11 +110,31 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     return true;
   }
 
-  public void strike(ActorService.ManagedActor actor, LivingEntity target) {
+  /**
+   * The chance a swing from this far away connects. Close in an NPC is as accurate as
+   * `combat.accuracy` allows; at the very edge of `groups.melee-reach` it is only as accurate as
+   * `combat.reach-accuracy`, falling off linearly between the two. Without this an NPC lands
+   * every single blow at exactly its maximum reach, which no player can do.
+   */
+  public static double hitChance(double distance, double reach, double accuracy, double atReach) {
+    double comfortable = reach / 2;
+    if (!(reach > comfortable) || distance <= comfortable) return accuracy;
+    double far = Math.min(1, (distance - comfortable) / (reach - comfortable));
+    return accuracy + (atReach - accuracy) * far;
+  }
+
+  /** Roll this NPC's accuracy for a swing at the given distance, using the configured falloff. */
+  public boolean connects(double distance) {
+    var c = settings.actorCombat();
+    return ThreadLocalRandom.current().nextDouble()
+        < hitChance(distance, settings.actorAi().meleeReach(), c.accuracy(), c.reachAccuracy());
+  }
+
+  /** Swing, and deal damage only when the accuracy roll for this distance succeeds. */
+  public void strike(ActorService.ManagedActor actor, LivingEntity target, double distance) {
     var entity = actor.requireEntity();
     entity.swingMainHand();
-    if (ThreadLocalRandom.current().nextDouble() < settings.actorCombat().accuracy())
-      entity.attack(target);
+    if (connects(distance)) entity.attack(target);
   }
 
   public void idle(ActorService.ManagedActor actor) {
@@ -464,11 +490,10 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     return false;
   }
 
-  /** The nearest visible non-allied mace holder, whether it is overhead or standing alongside. */
+  /** The nearest visible non-allied mace holder overhead, the one a shield actually helps with. */
   private LivingEntity maceHolder(LivingEntity entity) {
-    double radius = Math.max(4, settings.actorCombat().shieldGroundRadius());
     // Threat sensing does not need a previous hit: a descending mace can be the first attack.
-    return entity.getNearbyEntities(radius, 10, radius).stream()
+    return entity.getNearbyEntities(OVERHEAD_RADIUS, OVERHEAD_HEIGHT, OVERHEAD_RADIUS).stream()
         .filter(e -> e instanceof LivingEntity && !e.isDead() && !groups.allied(entity, e))
         .map(e -> (LivingEntity) e)
         .filter(
@@ -500,17 +525,18 @@ public final class ActorCombatService implements Listener, AutoCloseable {
   }
 
   /**
-   * A mace overhead is a falling smash. A mace at the NPC's own level is a threat too, so the
-   * shield also goes up against someone simply walking in with one.
+   * Only a mace held overhead is a mace threat. The falling smash is the attack a shield is worth
+   * raising against; a mace carried at the NPC's own level is an ordinary melee weapon, and
+   * turtling against one leaves the NPC standing behind its shield through a normal ground fight.
    */
   private boolean maceThreat(LivingEntity actor, LivingEntity target) {
     if (target == null || target.getWorld() != actor.getWorld() || !carriesMace(target))
       return false;
     var delta = target.getLocation().toVector().subtract(actor.getLocation().toVector());
     double flat = delta.getX() * delta.getX() + delta.getZ() * delta.getZ();
-    if (delta.getY() > 1.5 && delta.getY() < 10 && flat < 16) return true;
-    double ground = settings.actorCombat().shieldGroundRadius();
-    return ground > 0 && Math.abs(delta.getY()) <= 3 && flat <= ground * ground;
+    return delta.getY() > OVERHEAD_MINIMUM
+        && delta.getY() < OVERHEAD_HEIGHT
+        && flat < OVERHEAD_RADIUS * OVERHEAD_RADIUS;
   }
 
   public static boolean beneficialSplash(ItemStack item) {

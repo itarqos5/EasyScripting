@@ -78,8 +78,13 @@ combat:
   # 1 tick = about 50 ms at 20 TPS; Minecraft cannot safely switch inventory in 20 ms.
   # Delay after a totem pop before offhand refill (1..20); 1 is about 50 ms at 20 TPS.
   totem-refill-ticks: 1
-  # Chance a melee attempt connects (0..1); 0.82 means an 82% attempt success rate before vanilla checks.
+  # Chance a melee attempt connects from comfortably inside reach (0..1); 0.82 means an 82%
+  # attempt success rate before vanilla checks. Half of groups.melee-reach and closer uses it in full.
   accuracy: 0.82
+  # Chance a melee attempt connects from the very edge of groups.melee-reach (0..1), interpolated
+  # linearly with accuracy above from half that reach outward. Keep it well below accuracy: an NPC
+  # that lands every blow at exactly its maximum reach is doing something no player can do.
+  reach-accuracy: 0.25
   # Shortest random potion/jump/shield reaction delay (1..40); never instant.
   reaction-min-ticks: 3
   # Longest random reaction delay, at least reaction-min-ticks and at most 60.
@@ -103,16 +108,15 @@ combat:
   potion-interval-ticks: 8
   # Minimum time between starting defensive potion bursts (20..2400).
   potion-cooldown-ticks: 200
-  # Chance to react to a mace holder (0..1); requires a carried shield.
+  # Chance to react to a mace held overhead, which is the falling smash a shield is worth raising
+  # against (0..1); requires a carried shield. A mace carried at the NPC's own level is an ordinary
+  # melee weapon and never raises the shield, so NPCs do not turtle through a ground fight.
   shield-chance: 0.55
   # Minimum interval between shield reaction rolls (10..100), so repeated checks are not instant guarantees.
   shield-check-ticks: 30
   # Duration of a successful shield hold (5..60); afterward automatic totem handling resumes.
   shield-hold-ticks: 16
-  # Also raise the shield against a mace holder standing at the NPC's own level within this many
-  # blocks (0..16). 0 keeps the old behavior of only reacting to a mace directly overhead.
-  shield-ground-radius: 5.0
-  # Keep blocking past shield-hold-ticks while the mace holder is still a threat, up to this long
+  # Keep blocking past shield-hold-ticks while the mace is still overhead, up to this long
   # (20..200). The shield then drops so the NPC can fight back instead of blocking forever.
   shield-max-hold-ticks: 60
   # Treat a mace carried anywhere in a player's inventory as a threat, not only one in their hand.

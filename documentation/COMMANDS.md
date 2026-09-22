@@ -323,7 +323,7 @@ Each supports `on|off` and optional `[player]`. Example: `/es player freeze on A
 | Command | When ON |
 | --- | --- |
 | `/es player freeze on\|off [player]` | Hold the player's position for the shot. |
-| `/es player halfheart on\|off [player]` | Prevent lethal damage without a held totem. Held totems pop normally, and half-heart protection stays enabled afterward. This is separate from NPC Immortal. |
+| `/es player halfheart on\|off [player]` | Survive lethal damage without a held totem. The hit still lands with its knockback and animation; only its damage is taken away, leaving half a heart. Held totems pop normally, and half-heart protection stays enabled afterward. This is separate from NPC Immortal. |
 | `/es player keepinv on\|off [player]` | Keep inventory/experience through death. |
 | `/es player no-hunger on\|off [player]` | Stop hunger changes. |
 | `/es player no-durability on\|off [player]` | Stop item durability loss. |

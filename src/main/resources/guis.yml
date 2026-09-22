@@ -1155,7 +1155,7 @@ player-flags:
     lore: ["<gray>Hold your player in place.","","<yellow>Click to toggle"]
   halfheart:
     name: "<white>Half a heart"
-    lore: ["<gray>Survive lethal damage on half a heart.","<gray>Held totems pop normally; protection stays ON.","","<yellow>Click to toggle"]
+    lore: ["<gray>Survive lethal damage on half a heart.","<gray>The hit still lands; only its damage is removed.","<gray>Held totems pop normally; protection stays ON.","","<yellow>Click to toggle"]
   keepinv:
     name: "<white>Keep inventory"
     lore: ["<gray>Keep your items when you die.","","<yellow>Click to toggle"]
