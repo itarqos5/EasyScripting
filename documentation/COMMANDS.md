@@ -46,7 +46,7 @@ Access: `use` for opening the studio, help and status; `admin` for features, per
 | `/es features` | Open feature switches. | `/es features` |
 | `/es features <feature>` | Toggle that feature ON/OFF and save the setting. It toggles; there is no separate on/off argument. | `/es features effects` |
 | `/es permissions <feature> <everyone\|permission.node>` | Change which permission is needed for an editable feature. | `/es permissions warp everyone` |
-| `/es reload` | Validate and reload configuration/GUI YAML; close open studio menus. Invalid configuration keeps the previous settings. | `/es reload` |
+| `/es reload` | Validate and reload configuration/GUI YAML; close open studio menus. A file that cannot be read or validated is logged in full to console and answered from the copy bundled in the jar; the file on disk is never changed, and operators are told which files are affected on join. | `/es reload` |
 
 Menu names: `main`, `scenes`, `actors`, `groups`, `dead-users`, `players`, `kits`, `warps`, `session`, `recording`, `features`, `item`, `teams`, `production`, `world`, `effects`, `permissions`, `villagers`. Category pages also include `wardrobe`, `stage`, `organization` and `settings`.
 
@@ -449,8 +449,9 @@ Access: `identity` (operator by default and editable through the identity access
 | `/deadusers` or `/deadusers list` | Open the paginated Dead Users GUI. It shows saved heads, usernames, kind, owner and death time. | `/deadusers list` |
 | `/deadusers search <username-or-part>` | Open the same GUI filtered by a case-insensitive full or partial username. Previous/Next keep the filter. | `/deadusers search frost` |
 | `/deadusers remove <username>` | Release one retired name so it may be generated again. | `/deadusers remove Frost_7` |
+| `/deadusers clear` | Release every retired name at once so all of them may be generated again. Operators only. | `/deadusers clear` |
 
-In the GUI, use **Search** to type a 1–48 character letter/digit/underscore filter in chat, **Clear search** to return to every entry, and Previous/Next to move through pages. Normal-click a head for its details; shift-right-click releases that username immediately.
+In the GUI, use **Search** to type a 1–48 character letter/digit/underscore filter in chat, **Clear search** to return to every entry, and Previous/Next to move through pages. Normal-click a head for its details; shift-right-click releases that username immediately. Operators also get **Release every dead username**, which asks for confirmation and then empties the whole list; an active search filter does not limit what it releases.
 
 ## Inventory
 

@@ -370,7 +370,7 @@ All editable files are under `plugins/EasyScripting/`:
 | `moderation.yml`, `death.yml` | Join/chat/world rules and death behavior |
 | `items.yml`, `potions.yml`, `effects.yml` | Item pools/group actor tool, potion presets and effect settings |
 
-After editing settings, run `/es reload`. Invalid settings produce an error and leave the previous active configuration in use. Missing top-level files are supplied automatically. The documented GUI and new-actor-default migrations create backups; individual actors and custom schema-3 GUI values are preserved after the one-time layout upgrade. Actor/group/scene/kit/recording definitions edited by hand load on a full restart, not `/es reload`. Stop before editing saved definitions. Existing custom comments are retained; shipped explanations are added where comments are missing.
+After editing settings, run `/es reload`. A file that cannot be read or validated is reported in console with its full error, and only that file falls back to the copy inside the jar; your file is left exactly as you wrote it. Operators see `<file>.yml file is broken, please read console.` when they join, and saving that file from a command or menu is refused until it loads again. Missing top-level files are supplied automatically. The documented GUI and new-actor-default migrations create backups; individual actors and custom schema-3 GUI values are preserved after the one-time layout upgrade. Actor/group/scene/kit/recording definitions edited by hand load on a full restart, not `/es reload`. Stop before editing saved definitions. Existing custom comments are retained; shipped explanations are added where comments are missing.
 
 For example, change the randomize button by editing the existing keys under `dynamic` in `guis.yml`:
 

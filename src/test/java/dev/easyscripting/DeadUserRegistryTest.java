@@ -31,6 +31,28 @@ class DeadUserRegistryTest {
   }
 
   @Test
+  void clearingReleasesEveryNameAtOnceAndSurvivesAReload() {
+    try (YamlStore store = new YamlStore(temp, Logger.getAnonymousLogger())) {
+      var registry = new DeadUserRegistry(store);
+      registry.load();
+      // An empty registry reports nothing released rather than a silent success.
+      assertEquals(0, registry.clear());
+      assertTrue(registry.retire("Scout_7", "actor", "guard-7", "Notch", "value", "sig"));
+      assertTrue(registry.retire("Frost_2", "player", "account", "", "", ""));
+      assertEquals(2, registry.clear());
+      assertTrue(registry.list("").isEmpty());
+      assertFalse(registry.contains("scout_7"));
+      // A released name is free again, which is the whole point of clearing the list.
+      assertTrue(registry.retire("Scout_7", "actor", "guard-7", "Notch", "value", "sig"));
+    }
+    try (YamlStore store = new YamlStore(temp, Logger.getAnonymousLogger())) {
+      var reloaded = new DeadUserRegistry(store);
+      reloaded.load();
+      assertEquals(List.of("Scout_7"), reloaded.list("").stream().map(e -> e.name()).toList());
+    }
+  }
+
+  @Test
   void entriesAndIdentityDetailsRoundTripThroughDisk() {
     try (YamlStore store = new YamlStore(temp, Logger.getAnonymousLogger())) {
       var registry = new DeadUserRegistry(store);

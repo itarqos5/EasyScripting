@@ -707,6 +707,7 @@ dynamic:
   # Dead-user browser workflow labels; removal itself is shift-right-click on an entry.
   dead-users-search: "<aqua>Search dead usernames"
   dead-users-clear: "<yellow>Clear search"
+  dead-users-release-all: "<red>Release every dead username"
   controls:
     actor-aggressive:
       slot: 31
@@ -825,6 +826,11 @@ dynamic:
       slot: 52
       material: "MILK_BUCKET"
       lore: ["<gray>Show every retired username again."]
+    # Empty the whole retirement list; operators only, and it ignores the active search filter.
+    dead-users-release-all:
+      slot: 46
+      material: "BONE_MEAL"
+      lore: ["<gray>Release every saved username at once.", "<gray>All of them can be generated again.", "<gray>A search filter does not limit this.", "<yellow>Click, then confirm."]
     kits-import-all:
       slot: 40
       material: "CHEST_MINECART"

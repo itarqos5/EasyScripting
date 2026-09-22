@@ -35,6 +35,7 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       Settings settings = new Settings(this, store);
       settings.load(MenuService::validate);
       Messages messages = new Messages(settings);
+      ConfigAlerts configAlerts = new ConfigAlerts(settings, messages);
       Access access = new Access(settings);
       TickEngine ticks = own(new TickEngine(this));
       DeadUserRegistry deadUsers = new DeadUserRegistry(store);
@@ -175,6 +176,7 @@ public final class EasyScriptingPlugin extends JavaPlugin {
               teams,
               deaths,
               locks,
+              configAlerts,
               menus)) getServer().getPluginManager().registerEvents(listener, this);
       CommandRouter router = new CommandRouter(this, access, messages, settings);
       GroupCommands.register(router, groups, actors, groupActorTools, messages, menus);
@@ -261,8 +263,19 @@ public final class EasyScriptingPlugin extends JavaPlugin {
             menus.close();
             moderation.reload();
             worlds.reload();
-            messages.ok(
-                s, "Configuration and menus reloaded. Definitions reload on a full restart.");
+            List<String> broken = settings.broken();
+            if (broken.isEmpty())
+              messages.ok(
+                  s, "Configuration and menus reloaded. Definitions reload on a full restart.");
+            else
+              messages.error(
+                  s,
+                  "Reloaded, but "
+                      + String.join(".yml, ", broken)
+                      + ".yml could not be read and "
+                      + (broken.size() == 1 ? "is" : "are")
+                      + " running on the defaults from the jar. Your file was not changed; the"
+                      + " error is in console.");
           });
       router.add(
           "status",

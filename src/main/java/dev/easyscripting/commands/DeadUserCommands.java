@@ -13,7 +13,7 @@ public final class DeadUserCommands {
     router.add(
         "deadusers",
         "identity",
-        "[list] | search <text> | remove <username>",
+        "[list] | search <text> | remove <username> | clear",
         (sender, args) -> {
           String operation = args.get(0, "list").toLowerCase(Locale.ROOT);
           switch (operation) {
@@ -29,6 +29,18 @@ public final class DeadUserCommands {
                     "Use /deadusers search <username-or-part>.");
               menus.deadUsers(Args.player(sender), args.get(1), 0);
             }
+            case "clear" -> {
+              if (args.size() != 1) throw new IllegalArgumentException("Use /deadusers clear.");
+              if (!sender.isOp())
+                throw new IllegalArgumentException(
+                    "Only operators can release every dead username.");
+              int released = deadUsers.clear();
+              messages.ok(
+                  sender,
+                  released == 0
+                      ? "No dead usernames were saved; nothing to release."
+                      : "Released " + released + " dead username(s). They can be generated again.");
+            }
             case "remove" -> {
               if (args.size() != 2)
                 throw new IllegalArgumentException("Use /deadusers remove <username>.");
@@ -41,11 +53,11 @@ public final class DeadUserCommands {
             }
             default ->
                 throw new IllegalArgumentException(
-                    "Use /deadusers list, search <text>, or remove <username>.");
+                    "Use /deadusers list, search <text>, remove <username>, or clear.");
           }
         },
         (sender, args) -> {
-          if (args.size() <= 1) return List.of("list", "search", "remove");
+          if (args.size() <= 1) return List.of("list", "search", "remove", "clear");
           if (args.size() == 2 && args.get(0).equalsIgnoreCase("remove"))
             return deadUsers.list("").stream().map(DeadUserRegistry.Entry::name).toList();
           return List.of();

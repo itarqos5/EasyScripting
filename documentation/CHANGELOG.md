@@ -23,7 +23,9 @@ Group AI, formation and lifecycle fixes on top of 0.2.0. No version has been pub
 * Dead NPCs now drop their backpack and worn equipment, controlled by the new `actors.death-drops` (default true). The items are the ones the NPC was carrying; nothing is created.
 * Fixed the NPC "left the game" announcement being sent before the server's own death message. It is now sent one tick later, so the two read in the order they happened.
 * `/es player halfheart` now keeps the lethal hit instead of cancelling it. Cancelling swallowed the whole attack — no knockback, no hurt animation, no mace smash, no hit sound. The blow now lands with its damage taken away, leaving the player on half a heart.
-* Validation: **178 unit tests**, production, test and smoke compilation. No Minecraft server was started.
+* Configuration loading now isolates failures to the file that caused them. A file whose YAML cannot be parsed, or whose contents fail validation, is logged to console in full and answered from the copy bundled in the jar; every other file still loads, and the broken file on disk is never overwritten or replaced. Operators are told `<file>.yml file is broken, please read console.` when they join, `/es reload` names the affected files, and any command that would save one of them is refused rather than writing the defaults over it. Previously a single bad file disabled the whole plugin.
+* Added **Release every dead username** to `/deadusers` and `/es deadusers clear`: releases every retired name at once so all of them can be generated again. The button is operator-only, asks for confirmation, and ignores any active search filter.
+* Validation: **183 unit tests**, production, test and smoke compilation. No Minecraft server was started.
 
 ## 0.2.0 — 2026-09-20
 

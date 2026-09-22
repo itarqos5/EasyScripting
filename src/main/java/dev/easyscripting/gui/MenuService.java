@@ -665,6 +665,27 @@ public final class MenuService implements Listener, AutoCloseable {
         Material.MILK_BUCKET,
         click -> deadUsers(p, "", 0));
     if (query.isBlank()) disabled(h, "dead-users-clear", "No search filter is active.");
+    // Releasing the whole list is an operator action, and it frees names the search is hiding
+    // too, so its count is the whole registry rather than the page in front of them.
+    if (p.isOp()) {
+      int saved = deadUsers.list("").size();
+      control(
+          h,
+          "dead-users-release-all",
+          46,
+          Material.BONE_MEAL,
+          click ->
+              confirm(
+                  p,
+                  String.valueOf(saved),
+                  () -> {
+                    command(p, "deadusers clear");
+                    deadUsers(p, "", 0);
+                  },
+                  () -> deadUsers(p, query, page)));
+      if (saved == 0)
+        disabled(h, "dead-users-release-all", "No dead usernames are saved.");
+    }
     if (page > 0)
       button(
           h,

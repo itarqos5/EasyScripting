@@ -5,6 +5,7 @@ import dev.easyscripting.storage.YamlStore;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.logging.Level;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
@@ -47,6 +48,41 @@ public final class Settings {
     return actorAi;
   }
 
+  /** Every shipped configuration file, in the order it is loaded. */
+  public static final List<String> FILES =
+      List.of(
+          "config",
+          "actor-ai",
+          "command-help",
+          "npc-identities",
+          "nicknames",
+          "kits",
+          "messages",
+          "features",
+          "moderation",
+          "recording",
+          "items",
+          "potions",
+          "effects",
+          "death",
+          "permissions",
+          "guis");
+
+  private volatile List<String> broken = List.of();
+
+  /**
+   * The files that could not be read or validated and are running on the copies bundled in the
+   * jar. The files on disk are left exactly as their owner wrote them, so the list is what an
+   * operator has to repair rather than a record of anything this plugin changed.
+   */
+  public List<String> broken() {
+    return broken;
+  }
+
+  public boolean broken(String name) {
+    return broken.contains(name);
+  }
+
   private final List<Runnable> changeListeners = new ArrayList<>();
 
   public void onChange(Runnable listener) {
@@ -62,121 +98,53 @@ public final class Settings {
     load(yaml -> {});
   }
 
+  /**
+   * Load every configuration file, keeping a failure inside the file that caused it. A file whose
+   * YAML cannot be parsed, or whose contents fail validation, is reported to the console in full
+   * and answered in memory by the copy bundled in the jar. The file on disk is never rewritten:
+   * its owner can correct it and run /es reload without having lost what they wrote, and the rest
+   * of the plugin starts normally in the meantime.
+   */
   public void load(Consumer<YamlConfiguration> validateMenus) {
     Map<String, YamlConfiguration> next = new HashMap<>();
     Set<String> documented = new HashSet<>();
+    List<String> failed = new ArrayList<>();
     boolean upgradeGui = false;
-    for (String file :
-        List.of(
-            "config",
-            "actor-ai",
-            "command-help",
-            "npc-identities",
-            "nicknames",
-            "kits",
-            "messages",
-            "features",
-            "moderation",
-            "recording",
-            "items",
-            "potions",
-            "effects",
-            "death",
-            "permissions",
-            "guis")) {
+    for (String file : FILES) {
       Path path = plugin.getDataFolder().toPath().resolve(file + ".yml");
       if (!path.toFile().exists()) plugin.saveResource(file + ".yml", false);
-      next.put(file, YamlStore.read(path));
-      if (file.equals("messages")
-          || file.equals("moderation")
-          || file.equals("actor-ai")
-          || file.equals("npc-identities")
-          || file.equals("items")) {
-        try (var input = plugin.getResource(file + ".yml")) {
-          var defaults =
-              YamlConfiguration.loadConfiguration(
-                  new java.io.InputStreamReader(
-                      Objects.requireNonNull(input), java.nio.charset.StandardCharsets.UTF_8));
-          inheritMissing(next.get(file), defaults);
-          if (file.equals("messages")) migrateMessages(next.get(file), defaults);
-        } catch (java.io.IOException ex) {
-          throw new IllegalStateException("Could not read bundled " + file + " defaults", ex);
-        }
-      }
-      if (file.equals("guis")) {
-        try (var input = plugin.getResource("guis.yml")) {
-          upgradeGui = next.get(file).getInt("schema", 1) < 3;
-          next.put(
-              file,
-              GuiSchema.prepare(
-                  next.get(file),
-                  YamlConfiguration.loadConfiguration(
-                      new java.io.InputStreamReader(
-                          Objects.requireNonNull(input),
-                          java.nio.charset.StandardCharsets.UTF_8))));
-        } catch (java.io.IOException ex) {
-          throw new IllegalStateException("Could not read bundled GUI defaults", ex);
-        }
+      YamlConfiguration defaults = bundled(file);
+      try {
+        YamlConfiguration disk = YamlStore.read(path);
+        boolean legacyMenus = file.equals("guis") && disk.getInt("schema", 1) < 3;
+        next.put(file, prepare(file, disk, defaults, validateMenus));
+        upgradeGui |= legacyMenus;
+      } catch (RuntimeException ex) {
+        failed.add(file);
+        plugin
+            .getLogger()
+            .log(
+                Level.SEVERE,
+                file
+                    + ".yml could not be loaded, so EasyScripting is running on the copy bundled"
+                    + " in its jar. Your file has not been changed or replaced. Correct the error"
+                    + " below and run /es reload.",
+                ex);
+        // A bundled default that will not load is a packaging fault, and stays fatal.
+        next.put(file, prepare(file, bundled(file), defaults, validateMenus));
       }
     }
-    for (var entry : next.entrySet()) {
-      try (var input = plugin.getResource(entry.getKey() + ".yml")) {
-        var defaults =
-            YamlConfiguration.loadConfiguration(
-                new java.io.InputStreamReader(
-                    Objects.requireNonNull(input), java.nio.charset.StandardCharsets.UTF_8));
-        if (inheritComments(entry.getValue(), defaults)) documented.add(entry.getKey());
-      } catch (java.io.IOException ex) {
-        throw new IllegalStateException("Could not read configuration comments", ex);
-      }
+    for (String file : FILES) {
+      // A broken file keeps whatever its owner wrote, comments included; nothing is written back.
+      if (failed.contains(file)) continue;
+      if (inheritComments(next.get(file), bundled(file))) documented.add(file);
     }
     YamlConfiguration config = next.get("config");
     ActorAiSettings nextAi = ActorAiSettings.read(next.get("actor-ai"));
     ActorCombatSettings nextCombat = ActorCombatSettings.read(next.get("actor-ai"));
-    validateModeration(next.get("moderation"));
-    validateNicknames(next.get("nicknames"));
-    validateNpcIdentityProvider(next.get("npc-identities"));
-    validateItems(next.get("items"));
-    if (next.get("kits").getInt("schema") != 1
-        || !(next.get("kits").get("max-provider-kits") instanceof Integer)
-        || next.get("kits").getInt("max-provider-kits") < 1
-        || next.get("kits").getInt("max-provider-kits") > 10000)
-      throw new IllegalArgumentException(
-          "kits.yml: use schema 1 and max-provider-kits from 1..10000.");
-    for (String provider : List.of("PlayerKits2", "PlayerKits", "Essentials", "CMI"))
-      if (!(next.get("kits").get("providers." + provider) instanceof Boolean))
-        throw new IllegalArgumentException(
-            "kits.yml: providers." + provider + " must be true or false.");
-    bounded(config, "schema", 1, 1);
-    bounded(config, "limits.actors", 1, 1000);
-    bounded(config, "limits.active-scenes", 1, 100);
-    bounded(config, "limits.actions-per-tick", 1, 10000);
-    bounded(config, "limits.scene-actions", 1, 100000);
-    bounded(config, "limits.recording-ticks", 20, 72000);
-    bounded(config, "limits.region-blocks", 1, 1000000);
-    bounded(config, "limits.region-blocks-per-tick", 1, 10000);
-    bounded(config, "world.auto-clear-seconds", 0, 86400);
-    bounded(config, "world.auto-clear-radius", 1, 128);
-    for (String key : List.of("playback.knockback-pause-ticks", "playback.return-to-route-ticks")) {
-      var recording = next.get("recording");
-      if (recording.contains(key)) {
-        int value = recording.getInt(key);
-        if (!(recording.get(key) instanceof Integer) || value < 1 || value > 100)
-          throw new IllegalArgumentException(
-              "recording.yml: " + key + " must be an integer from 1 to 100.");
-      }
-    }
-    Map<String, Boolean> toggles = new HashMap<>();
-    for (String key : FEATURES) {
-      Object value = next.get("features").get(key);
-      if (!(value instanceof Boolean enabled))
-        throw new IllegalArgumentException(
-            "features.yml: " + key + " = " + value + "; expected true or false.");
-      toggles.put(key, enabled);
-    }
-    validateMenus.accept(next.get("guis"));
     NpcIdentities nextIdentities = NpcIdentities.read(next.get("npc-identities"));
-    if (ActorDefaults.migrate(config)) {
+    Map<String, Boolean> toggles = toggles(next.get("features"));
+    if (!failed.contains("config") && ActorDefaults.migrate(config)) {
       Path path = plugin.getDataFolder().toPath().resolve("config.yml");
       Path backup = path.resolveSibling("config-before-0.1.5-" + UUID.randomUUID() + ".yml");
       try {
@@ -208,12 +176,122 @@ public final class Settings {
     npcIdentities = nextIdentities;
     actorAi = nextAi;
     actorCombat = nextCombat;
+    broken = List.copyOf(failed);
     for (String name : documented) {
       if (name.equals("guis") && upgradeGui) continue;
       store.write(
           plugin.getDataFolder().toPath().resolve(name + ".yml"), next.get(name).saveToString());
     }
+    if (!failed.isEmpty())
+      plugin
+          .getLogger()
+          .warning(
+              "Using bundled defaults for "
+                  + String.join(".yml, ", failed)
+                  + ".yml. Operators are told on join; the files on disk were left alone.");
     changeListeners.forEach(Runnable::run);
+  }
+
+  /** Read one file's shipped copy. A jar without its own defaults cannot be run at all. */
+  private YamlConfiguration bundled(String file) {
+    try (var input = plugin.getResource(file + ".yml")) {
+      return YamlConfiguration.loadConfiguration(
+          new java.io.InputStreamReader(
+              Objects.requireNonNull(input, file + ".yml is missing from the plugin jar"),
+              java.nio.charset.StandardCharsets.UTF_8));
+    } catch (java.io.IOException ex) {
+      throw new IllegalStateException("Could not read bundled " + file + " defaults", ex);
+    }
+  }
+
+  /**
+   * Complete and check one file on its own. Everything that can reject a file lives here, so a
+   * refusal always names the one file responsible instead of stopping the whole load.
+   */
+  public static YamlConfiguration prepare(
+      String file,
+      YamlConfiguration yaml,
+      YamlConfiguration defaults,
+      Consumer<YamlConfiguration> validateMenus) {
+    YamlConfiguration prepared = yaml;
+    switch (file) {
+      case "messages" -> {
+        inheritMissing(prepared, defaults);
+        migrateMessages(prepared, defaults);
+      }
+      case "moderation", "actor-ai", "npc-identities", "items" ->
+          inheritMissing(prepared, defaults);
+      case "guis" -> prepared = GuiSchema.prepare(prepared, defaults);
+      default -> {}
+    }
+    switch (file) {
+      case "config" -> validateConfig(prepared);
+      case "actor-ai" -> {
+        ActorAiSettings.read(prepared);
+        ActorCombatSettings.read(prepared);
+      }
+      case "features" -> toggles(prepared);
+      case "kits" -> validateKits(prepared);
+      case "moderation" -> validateModeration(prepared);
+      case "nicknames" -> validateNicknames(prepared);
+      case "npc-identities" -> {
+        validateNpcIdentityProvider(prepared);
+        NpcIdentities.read(prepared);
+      }
+      case "items" -> validateItems(prepared);
+      case "recording" -> validateRecording(prepared);
+      case "guis" -> validateMenus.accept(prepared);
+      default -> {}
+    }
+    return prepared;
+  }
+
+  private static void validateConfig(YamlConfiguration config) {
+    bounded(config, "schema", 1, 1);
+    bounded(config, "limits.actors", 1, 1000);
+    bounded(config, "limits.active-scenes", 1, 100);
+    bounded(config, "limits.actions-per-tick", 1, 10000);
+    bounded(config, "limits.scene-actions", 1, 100000);
+    bounded(config, "limits.recording-ticks", 20, 72000);
+    bounded(config, "limits.region-blocks", 1, 1000000);
+    bounded(config, "limits.region-blocks-per-tick", 1, 10000);
+    bounded(config, "world.auto-clear-seconds", 0, 86400);
+    bounded(config, "world.auto-clear-radius", 1, 128);
+  }
+
+  private static void validateKits(YamlConfiguration kits) {
+    if (kits.getInt("schema") != 1
+        || !(kits.get("max-provider-kits") instanceof Integer)
+        || kits.getInt("max-provider-kits") < 1
+        || kits.getInt("max-provider-kits") > 10000)
+      throw new IllegalArgumentException(
+          "kits.yml: use schema 1 and max-provider-kits from 1..10000.");
+    for (String provider : List.of("PlayerKits2", "PlayerKits", "Essentials", "CMI"))
+      if (!(kits.get("providers." + provider) instanceof Boolean))
+        throw new IllegalArgumentException(
+            "kits.yml: providers." + provider + " must be true or false.");
+  }
+
+  private static void validateRecording(YamlConfiguration recording) {
+    for (String key : List.of("playback.knockback-pause-ticks", "playback.return-to-route-ticks")) {
+      if (!recording.contains(key)) continue;
+      int value = recording.getInt(key);
+      if (!(recording.get(key) instanceof Integer) || value < 1 || value > 100)
+        throw new IllegalArgumentException(
+            "recording.yml: " + key + " must be an integer from 1 to 100.");
+    }
+  }
+
+  private static Map<String, Boolean> toggles(YamlConfiguration features) {
+    Map<String, Boolean> toggles = new HashMap<>();
+    for (String key : FEATURES) {
+      Object value = features.get(key);
+      if (!(value instanceof Boolean enabled))
+        throw new IllegalArgumentException(
+            "features.yml: " + key + " = " + value + "; expected true or false.");
+      toggles.put(key, enabled);
+    }
+    return toggles;
   }
 
   private static void bounded(YamlConfiguration file, String key, int min, int max) {
@@ -376,6 +454,7 @@ public final class Settings {
   public void toggle(String key) {
     if (!FEATURES.contains(key))
       throw new IllegalArgumentException("Unknown feature '" + key + "'.");
+    requireWritable("features");
     Map<String, Boolean> next = new HashMap<>(features);
     next.put(key, !enabled(key));
     features = Map.copyOf(next);
@@ -385,6 +464,20 @@ public final class Settings {
   }
 
   public void persist(String name) {
+    requireWritable(name);
     store.write(plugin.getDataFolder().toPath().resolve(name + ".yml"), file(name).saveToString());
+  }
+
+  /**
+   * Refuse to save over a file that is only broken. What is in memory for it came from the jar,
+   * so writing it out would quietly replace the owner's file with the defaults — exactly what
+   * running on defaults is meant to avoid.
+   */
+  private void requireWritable(String name) {
+    if (broken.contains(name))
+      throw new IllegalArgumentException(
+          name
+              + ".yml is broken and is running on the defaults from the jar, so saving now would"
+              + " overwrite it. Fix the error shown in console, then run /es reload.");
   }
 }

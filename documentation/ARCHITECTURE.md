@@ -81,7 +81,7 @@ Actual operator checks guard kit management/gifting, faction management and spea
 
 `YamlStore` snapshots Bukkit values on the server thread, then serializes/writes on a single bounded writer. Save comments, headers and inline comments are detached too. Writes use same-directory atomic replacement where supported. Queue rejection is reported; an accepted asynchronous save is not a durability barrier. Deleted definitions move to `trash/`.
 
-Settings reload validates a candidate before replacing active settings. Missing configuration files/default leaves and shipped comments are inherited according to the file's migration rules; owner values/comments are preserved except documented backed-up migrations. Hand-edited actor/group/scene/kit/recording definitions reload on restart, not `/es reload`.
+Settings reload validates each file on its own before replacing active settings; a file that fails is logged and answered from the jar's own copy without being written back, and `Settings#broken` drives the operator join notice and the refusal to save that file.  Missing configuration files/default leaves and shipped comments are inherited according to the file's migration rules; owner values/comments are preserved except documented backed-up migrations. Hand-edited actor/group/scene/kit/recording definitions reload on restart, not `/es reload`.
 
 Region jobs allow one operation per world and a bounded number overall. Capture, validation and application use per-tick budgets and loaded-chunk checks; malformed records are rejected before the first restore mutation. Cancelling a multi-tick restore leaves completed block changes in place. Only supported block/container/sign state is stored.
 

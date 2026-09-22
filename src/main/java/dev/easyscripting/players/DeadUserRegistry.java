@@ -89,6 +89,18 @@ public final class DeadUserRegistry {
     return removed;
   }
 
+  /**
+   * Release every retired name at once. Returns how many were freed, so an empty list can be
+   * reported as such instead of looking like a successful but silent wipe.
+   */
+  public int clear() {
+    int released = entries.size();
+    if (released == 0) return 0;
+    entries.clear();
+    save();
+    return released;
+  }
+
   private void save() {
     YamlConfiguration yaml = new YamlConfiguration();
     yaml.set("schema", 1);
