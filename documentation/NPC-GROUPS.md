@@ -35,9 +35,9 @@ Kits replace a loadout. They do not give a group one shared inventory. Applying 
 
 Outside scenes/recordings, a carried totem moves to the offhand automatically. The displaced item moves into the vacated inventory slot. After a vanilla totem pop, another carried totem is equipped after `combat.totem-refill-ticks` (default **1 tick**, about 50 ms at 20 TPS). A main-hand totem works too. No replacement is created when supplies run out. Immortal NPCs cannot reach an ordinary lethal hit, so use **Immortal OFF** when testing normal totem pops.
 
-An aggressive NPC retaliates after an uncancelled hit. An intelligent group member can also defend allies or attack an ordered enemy. Before retaliation, it throws up to three **carried beneficial splash potions** straight upward, one at a time. Fewer supplies mean fewer throws. Harmful potions and drinkable potions are not used by this defensive routine. Throws create actual potion projectiles and consume the items; terrain and splash range matter.
+An aggressive NPC retaliates after an uncancelled hit. An intelligent group member can also defend allies or attack an ordered enemy. Before retaliation, it throws up to three **carried beneficial splash potions** straight upward, one at a time. A potion is only thrown when the NPC is actually missing what it would give: the effect ran out, was cleared, or is weaker than the one in the bottle. Healing counts as missing whenever the NPC is hurt. The check is repeated before every throw, so a burst stops as soon as the first bottle has covered it rather than emptying the backpack into an effect it already has. Fewer supplies mean fewer throws. Harmful potions and drinkable potions are not used by this defensive routine. Throws create actual potion projectiles and consume the items; terrain and splash range matter.
 
-Melee has configurable accuracy, cooldown jitter and a chance to jump after a hit. A missed attempt swings but does not deal damage. These are intentionally imperfect prototype reactions, not a trained PvP bot.
+Melee has distance-dependent accuracy, cooldown jitter and a chance to jump after a hit. `combat.accuracy` applies in full from half of `groups.melee-reach` and closer and tapers linearly to `combat.reach-accuracy` at the edge of reach, so an NPC cannot land every blow from exactly its maximum range the way no player can. A missed attempt swings but does not deal damage. These are intentionally imperfect prototype reactions, not a trained PvP bot.
 
 With `weapon-cooldown: true` an NPC waits for its held weapon to finish recharging before swinging, the way a player does, instead of attacking on a fixed timer and landing partly charged hits for a fraction of the weapon's damage. `attack-cooldown-ticks` then acts only as a floor; raise it to deliberately slow NPCs below what their weapon allows. The shipped default is **10**, low enough for the weapon to set the pace. An `actor-ai.yml` carried over from an earlier version keeps its own value, so lower it to 10 to get weapon-paced attacks on an existing server. `crit-jump-chance` gives a ready attacker a chance to hop first and land the blow while falling, which Minecraft scores as a critical hit. Reach is measured from the attacker's eyes to the nearest point of the target's hitbox, so an enemy standing on a slab or a stair can be hit.
 
@@ -45,7 +45,7 @@ An engaged member reassesses every two ticks rather than every five, so its swin
 
 ### Shields, apples and pearls
 
-A carried shield may be raised after a random delay against a non-allied mace holder. The NPC reacts to a mace directly overhead, which is the falling smash, and — within `shield-ground-radius` — to one simply walking in with a mace at its own level. It can notice either threat before the first hit. While the mace holder is still a threat the guard stays up past `shield-hold-ticks`, up to `shield-max-hold-ticks`, after which the shield drops so the NPC can fight back instead of blocking forever. A failed reaction roll or an exhausted inventory leaves it unprotected. Shield effectiveness follows Minecraft's facing/attack rules and the installed Citizens adapter.
+A carried shield may be raised after a random delay against a non-allied mace carrier **overhead**, which is the falling smash a shield is worth raising against. A mace carried at the NPC's own level is an ordinary melee weapon and never raises the shield, so NPCs do not turtle through a ground fight. With `shield-inventory-mace` on, a mace **anywhere in a player's inventory** counts, not only one in their hand: players swap the mace in for the hit itself, so reacting only to a held mace reacts after the smash has already landed. Turn it off for held-mace-only detection. It can notice either threat before the first hit. While the mace is still overhead the guard stays up past `shield-hold-ticks`, up to `shield-max-hold-ticks`, after which the shield drops so the NPC can fight back instead of blocking forever. A failed reaction roll or an exhausted inventory leaves it unprotected. Shield effectiveness follows Minecraft's facing/attack rules and the installed Citizens adapter.
 
 The `survival` section adds two graded reactions, both of which need the NPC to actually carry the item:
 
@@ -58,9 +58,13 @@ An NPC gaps before it runs, so `escape-health` may not be set above `heal-health
 
 A landing ender pearl hurts whoever threw it for 5 health, so an NPC that would die to its own pearl keeps fighting instead. Vanilla only teleports PLAYER actors; a mob actor throws the pearl and stays where it is. Neither reaction creates supplies: an NPC with no apples does not heal and an NPC with no pearls does not escape.
 
+### Falling
+
+An NPC that is airborne with clear ground more than `fall-pause-distance` below it is left entirely to gravity: no navigation, no wandering, no attack steering. Issuing path requests during a drop fights the fall and is what makes a long descent look floaty and land wrong. It takes its ordinary fall damage, and steering resumes as it comes within that distance of the ground. Set `fall-pause-distance` to 0 to go back to steering NPCs mid-air.
+
 ### How a fight moves
 
-An NPC sprints while closing on an enemy further away than `sprint-chase-distance` and walks inside it, the way a player drops sprint before a hit to keep their knockback. In reach and waiting on its weapon it circles the target at the distance it already holds — `strafe-chance` and `strafe-interval-ticks` set how often — rather than standing perfectly still, and a sidestep in progress is allowed to finish instead of being cancelled two ticks later. While healing or escaping it backs away at chase speed, still facing its enemy, so a retreat reads as a retreat rather than as the NPC losing interest. A meal or a raised shield pins it in place until it is done.
+An NPC sprints while closing on an enemy further away than `sprint-chase-distance` and walks inside it, the way a player drops sprint before a hit to keep their knockback. In reach and waiting on its weapon it circles the target at the distance it already holds — `strafe-chance` and `strafe-interval-ticks` set how often — rather than standing perfectly still, and a sidestep in progress is allowed to finish instead of being cancelled two ticks later. While healing or escaping it turns and runs at chase speed, facing the way it is going: holding the enemy in view while the body travels the other way is what reads as moonwalking. A meal or a raised shield pins it in place until it is done.
 
 Idle aggressive NPCs may still wander when Wander is enabled. A fight takes priority, and so does a shield, a meal, a potion burst or a retreat, so an NPC is never pulled into a wander partway through one. Group orders take priority over ambient wandering. A scene, actor performance capture or replay has an exclusive reservation; autonomous movement and item reactions yield until it ends.
 
@@ -93,14 +97,22 @@ Operators manage groups. A leader can open their group's GUI and issue orders wi
 | `/es group kit red fighter` | Operator: give every available current member a copy of the kit and remember it for actors later added to the group. |
 | `/es group identities red` | Operator: randomize every member's username and skin; normal following or replay may continue. |
 | `/es group tool red fighter PLAYER` | Operator: receive a persistent item that creates grounded, equipped members of this group. |
+| `/es group lineup red [front\|behind] [columns]` | Teleport every present, free member into block-aligned rows and columns beside you, each on its own block. The group then holds. |
 | `/es group remove red guard` | Operator: remove a member without deleting the NPC. |
+| `/es group purge red` | Operator: permanently delete every NPC in the group but keep the group, its leader and its shared defaults. |
 | `/es group delete red` | Operator: permanently delete the group and every member NPC. |
 
 In this example Alex is the leader and Steve is a different online player; the group refuses to attack Alex or its own members. Automatic totem handling also works when group Intelligence is OFF; that switch controls attacks and combat reactions.
 
 When Intelligence is ON and the order is not Hold, a leader's successful hit adds the victim as an enemy. If the leader hits multiple enemies, NPCs distribute across them and reassess as enemies move, die or leave range. Engaging an enemy group recruits that group's members. There is no fixed damage multiplier, scripted winner or shared resource bar. A group with no surviving NPCs is still a saved group definition and may receive new members.
 
-NPCs need **Hittable ON** to be eligible melee targets. **Immortal OFF** allows deaths to settle a battle. Immortal still permits hits and knockback, but an immortal combatant cannot lose by dying. A natural NPC death permanently deletes that NPC, retires its displayed username, and removes its selected take once no other NPC references it. Manual group deletion removes members without adding their names to Dead Users.
+The group page's **Attack a target** picker now lists only what the group can actually be ordered to attack right now: a living member must be within the engagement radius, and the target must be a hittable non-ally in survival or adventure mode. Previously it listed every online player and NPC and the order was refused after the click. An empty picker means nothing reachable qualifies — move the group closer, or check Hittable and Intelligence.
+
+A refused order now prints its reason on its own. Command syntax help is only shown when the command itself was malformed, so "the target must be within the engagement radius" is no longer buried under four lines of usage text.
+
+**Delete all NPCs in this group** on the group page permanently deletes every member while keeping the group, its leader, its orders and its shared defaults, so you can re-deploy into the same group. The operator-only **Delete every NPC** button on the `/actors` page does the same for the whole server. Both ask for confirmation, and both are also available as `/es group purge <group>` and `/actor deleteall`.
+
+NPCs need **Hittable ON** to be eligible melee targets. **Immortal OFF** allows deaths to settle a battle. Immortal still permits hits and knockback, but an immortal combatant cannot lose by dying. A natural NPC death permanently deletes that NPC, retires its displayed username, and removes its selected take once no other NPC references it. With `actors.death-drops` on, which is the shipped default, it also drops its backpack and worn equipment on the ground the way a player's gear drops; the items are the ones it was actually carrying and nothing is created. Set it to false for the older behaviour of a dead NPC leaving nothing behind. The "left the game" announcement is sent one tick after the death so the server's own death message is read first. Manual group deletion removes members without adding their names to Dead Users.
 
 ### How following moves
 
@@ -110,11 +122,21 @@ The rows are oriented by the direction the leader is actually travelling, sample
 
 Members are numbered over those that are present and free, in a stable order. A casualty closes the gap instead of shuffling everyone into a neighbour's place, and a member with no numbered slot waits rather than piling onto the first one. A slot inside a wall or over a drop pulls in toward the leader instead of freezing that member where it stands.
 
-Followers use ordinary Citizens/native paths at `follow-speed: 1.0`, stop within `follow-arrival-distance` of their slot and look toward the leader after arriving. A member that has taken its place only walks again once its slot has drifted a further `follow-resume-margin`; that gap keeps a settled formation from stuttering in and out of walking while the leader shuffles on the spot. At least eight blocks behind, members may use the configured 1.3 sprint-like catch-up pace. Very long routes are split into intermediate 32-block path targets; group following never teleports a lagging NPC.
+Each member takes the formation place nearest to where it already stands, preferring the one it already held, so a group that turns or reforms does not send members around the leader to reach a fixed numbered square. Followers use ordinary Citizens/native paths at `follow-speed: 1.0`, stop within `follow-arrival-distance` of their slot and look toward the leader after arriving. A navigator that finishes its path a little short of the slot counts as settled rather than being asked for the last fraction of a block again, which is what made settled members shuffle on the spot. A member that has taken its place only walks again once its slot has drifted a further `follow-resume-margin`; that gap keeps a settled formation from stuttering in and out of walking while the leader shuffles on the spot. At least eight blocks behind, members may use the configured 1.3 sprint-like catch-up pace. Very long routes are split into intermediate 32-block path targets; group following never teleports a lagging NPC.
 
 The default follower goal refreshes every five ticks only after the slot moves at least half a block. The shared path budget is spent on whoever is worst off — members that are stopped, then those furthest from their slot — instead of on whoever happened to be considered first, so stragglers in a large group are no longer starved of paths. These thresholds, speeds, spacing, column count and the budget are all in `actor-ai.yml`. An unavailable/dead/spectator/acting leader stops the members and clears active enemies.
 
 A **Move** order uses the same rows and columns, centred on the destination and facing the way the commander was looking when they issued it.
+
+Members settle within `follow-arrival-distance` of their slot, which ships at **0.6** so the rows and columns visibly line up; a larger value settles sooner but looks ragged. Members that have taken their place face the way the formation faces rather than each swivelling to stare at the leader, which is what makes the block read as rows and columns. Pathing can only ever get them approximately onto a grid — for an exact formation with every NPC on its own whole block, use **Line up on me** below.
+
+### Line up on me
+
+`/es group lineup red behind 5` teleports every present, unreserved member into rows and columns beside you: five per row, each NPC on its own whole block, all facing the way you face. `front` puts them in front instead, and omitting the column count picks the squarest block that fits the group.
+
+The anchor direction is snapped to the nearest of north/east/south/west so the rows and columns follow the world grid exactly; a diagonal formation would round two members onto one block. Each column is resolved to a safe standing block near your own feet — not the world's highest block — so lining up indoors does not drop the group onto the roof. If any one column has no safe standing block the whole line-up is refused rather than stacking two members on one square, and nothing moves.
+
+Unlike **Move here** this does not walk anyone anywhere, so terrain and pathing cannot spoil the shape. The group is set to Hold afterwards, since a following group would otherwise immediately walk back out of the formation it was just placed in; use `/es group follow red` to resume following.
 
 ## Deploy a larger equipped faction
 
@@ -146,7 +168,7 @@ Use `/actor act guard flight_take`, fly with an elytra, then `/actor finish`. Th
 
 Change `/actor mode guard stop`, `repeat` or `reverse` before, after or during playback. `/actor autoplay guard on` automatically starts the selected take; select `repeat` or `reverse` for continuous playback. `/actor stop guard` stops and disables autoplay. Name and skin changes remain available during replay.
 
-`/es player halfheart on` protection now lets a held vanilla totem pop, with normal consumption/effects, and stays enabled afterward. When no held totem remains, it prevents a lethal hit and leaves half a heart. It is a player flag, separate from NPC Immortal.
+`/es player halfheart on` protection now lets a held vanilla totem pop, with normal consumption/effects, and stays enabled afterward. When no held totem remains, the lethal hit still lands — knockback, hurt animation, mace smash and all — with its damage taken away, leaving half a heart. It is not cancelled. It is a player flag, separate from NPC Immortal.
 
 ## Configuration and limits
 

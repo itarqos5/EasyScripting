@@ -696,6 +696,9 @@ dynamic:
   group-intelligence: "<white>Intelligence: {intelligence}"
   group-info: "<aqua>Refresh / show status"
   group-clear-leader: "<yellow>Unassign leader"
+  group-lineup: "<aqua>Line up on me"
+  group-purge: "<red>Delete all NPCs in this group"
+  actors-delete-all: "<red>Delete every NPC"
   group-delete: "<red>Delete group"
   group-shared-immortal: "<white>Shared Immortal: {shared-immortal}"
   group-shared-kit: "<aqua>Shared kit: {shared-kit}"
@@ -778,6 +781,16 @@ dynamic:
       slot: 40
       material: "GRAY_DYE"
       lore: ["<gray>Clear the leader and hold position."]
+    # Teleported block-aligned formation; unlike Move here this does not path.
+    group-lineup:
+      slot: 30
+      material: "LEAD"
+      lore: ["<gray>Teleport every present member into rows and columns.", "<gray>Each NPC lands on its own block behind you.", "<gray>Use /es group lineup {group} front for the other side."]
+    # Empties the group without deleting the group itself.
+    group-purge:
+      slot: 42
+      material: "BONE_MEAL"
+      lore: ["<gray>Permanently delete every NPC in this group.", "<gray>The group, its leader and shared defaults are kept.", "<yellow>Click, then confirm."]
     group-delete:
       slot: 43
       material: "BARRIER"
@@ -1063,6 +1076,9 @@ dynamic:
   create-name: "<green>Create new"
   create-lore: ["<gray>Choose a name in chat.","<gray>Type cancel to return here."]
   create-slot: 47
+  # Operator-only "delete every NPC" button on the /actors library page.
+  delete-all-slot: 46
+  delete-all-lore: ["<gray>Permanently delete every NPC on the server.", "<gray>Group definitions and their settings are kept.", "<yellow>Click, then confirm."]
   confirm-slot: 20
   cancel-slot: 24
   confirm-name: "<red>Delete permanently"
@@ -1139,7 +1155,7 @@ player-flags:
     lore: ["<gray>Hold your player in place.","","<yellow>Click to toggle"]
   halfheart:
     name: "<white>Half a heart"
-    lore: ["<gray>Survive lethal damage on half a heart.","<gray>Held totems pop normally; protection stays ON.","","<yellow>Click to toggle"]
+    lore: ["<gray>Survive lethal damage on half a heart.","<gray>The hit still lands; only its damage is removed.","<gray>Held totems pop normally; protection stays ON.","","<yellow>Click to toggle"]
   keepinv:
     name: "<white>Keep inventory"
     lore: ["<gray>Keep your items when you die.","","<yellow>Click to toggle"]

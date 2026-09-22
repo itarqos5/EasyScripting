@@ -2,6 +2,7 @@ package dev.easyscripting;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.easyscripting.actors.ActorCombatService;
 import dev.easyscripting.config.ActorAiSettings;
 import dev.easyscripting.config.ActorCombatSettings;
 import java.io.InputStreamReader;
@@ -26,6 +27,25 @@ class ActorCombatSettingsTest {
     assertTrue(c.reactionMin() > 0);
     assertTrue(c.accuracy() > 0 && c.accuracy() < 1);
     assertTrue(c.shieldChance() > 0 && c.shieldChance() < 1);
+    // A swing from the very edge of reach must be a gamble, not the sure thing it was.
+    assertTrue(c.reachAccuracy() > 0 && c.reachAccuracy() < c.accuracy());
+  }
+
+  @Test
+  void accuracyFallsOffTowardTheEdgeOfReachAndNeverGuaranteesAMaximumRangeHit() {
+    double reach = ActorAiSettings.read(config()).meleeReach();
+    var c = ActorCombatSettings.read(config());
+    // Comfortably inside reach the configured accuracy applies in full.
+    assertEquals(c.accuracy(), ActorCombatService.hitChance(0.5, reach, c.accuracy(), 0.25), 1e-9);
+    assertEquals(
+        c.accuracy(), ActorCombatService.hitChance(reach / 2, reach, c.accuracy(), 0.25), 1e-9);
+    // At the limit only the reach accuracy is left, and beyond it nothing improves again.
+    assertEquals(0.25, ActorCombatService.hitChance(reach, reach, c.accuracy(), 0.25), 1e-9);
+    assertEquals(0.25, ActorCombatService.hitChance(reach * 2, reach, c.accuracy(), 0.25), 1e-9);
+    // In between it decreases monotonically rather than stepping.
+    double closer = ActorCombatService.hitChance(reach * 0.7, reach, c.accuracy(), 0.25);
+    double further = ActorCombatService.hitChance(reach * 0.9, reach, c.accuracy(), 0.25);
+    assertTrue(c.accuracy() > closer && closer > further && further > 0.25);
   }
 
   @Test
@@ -69,7 +89,6 @@ class ActorCombatSettingsTest {
     assertTrue(c.escapeHealth() <= c.healHealth());
     // The default escape threshold must leave more health than the pearl's own 5 damage.
     assertTrue(c.escapeHealth() * 20 > 5);
-    assertTrue(c.shieldGroundRadius() > 0); // A mace alongside counts, not only one overhead.
     assertTrue(c.shieldMaxHold() >= c.shieldHold());
     assertTrue(c.strafeChance() > 0 && c.strafeChance() < 1);
     assertTrue(ActorAiSettings.read(config()).sprintChaseDistance() > 0);
@@ -95,10 +114,24 @@ class ActorCombatSettingsTest {
   }
 
   @Test
+  void defaultsWatchForACarriedMaceAndPaceTheFormationTightly() {
+    var c = ActorCombatSettings.read(config());
+    // Attribute swapping means the mace is in the backpack until the instant it swings.
+    assertTrue(c.shieldInventoryMace());
+    var ai = ActorAiSettings.read(config());
+    // Tighter than a block, or the rows and columns never visibly line up.
+    assertTrue(ai.followArrivalDistance() < 1.0);
+    assertTrue(ai.followResumeDistance() > ai.followArrivalDistance());
+    // A falling NPC is left to gravity rather than steered.
+    assertTrue(ai.fallPause() > 0);
+  }
+
+  @Test
   void invalidChanceDelayAndInvertedReactionRangeFailReloadValidation() {
     for (String field :
         List.of(
             "combat.accuracy",
+            "combat.reach-accuracy",
             "combat.jump-reset-chance",
             "combat.shield-chance",
             "combat.crit-jump-chance",
@@ -120,6 +153,12 @@ class ActorCombatSettingsTest {
     var switched = config();
     switched.set("combat.weapon-cooldown", "yes");
     assertThrows(IllegalArgumentException.class, () -> ActorCombatSettings.read(switched));
+    var mace = config();
+    mace.set("combat.shield-inventory-mace", "sometimes");
+    assertThrows(IllegalArgumentException.class, () -> ActorCombatSettings.read(mace));
+    var fall = config();
+    fall.set("groups.fall-pause-distance", 9);
+    assertThrows(IllegalArgumentException.class, () -> ActorAiSettings.read(fall));
     var columns = config();
     columns.set("groups.follow-columns", 33);
     assertThrows(IllegalArgumentException.class, () -> ActorAiSettings.read(columns));

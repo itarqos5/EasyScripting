@@ -31,8 +31,13 @@ actors:
   # Player actors need a matching Citizens release. Mob actors are built in.
   # Enable the optional Citizens player-NPC backend when Citizens is installed.
   citizens-enabled: true
-  # Broadcast the NPC name leaving the server when a mortal NPC dies and is deleted.
+  # Broadcast the NPC name leaving the server when a mortal NPC dies and is deleted. The message
+  # is sent one tick after the death so the server's own death message is read first.
   announce-death-leave: true
+  # Drop a dead NPC's backpack and worn equipment on the ground, the way a player's gear drops.
+  # The items come from what the NPC was actually carrying; nothing is created. False keeps the
+  # older behaviour of a dead NPC leaving nothing behind.
+  death-drops: true
   # Initial settings for newly created NPCs only; saved NPCs keep their own values.
   defaults:
     # Internal creation-default migration marker; keep at 2.

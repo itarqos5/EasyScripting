@@ -14,6 +14,9 @@ public final class GroupTactics {
   /** Heading smoothing per tick. Most of the old heading is kept so a whole block turns as one. */
   private static final double INERTIA = 0.85;
 
+  /** Preference for the place a member already holds, so a settled formation stops renumbering. */
+  private static final double STICKY = 0.75;
+
   /**
    * Pick a stable horizontal heading from the distance the leader actually covered this tick.
    * Player velocity is not populated by walking input, so the caller samples position deltas.
@@ -33,6 +36,51 @@ public final class GroupTactics {
     Vector smooth =
         previous.clone().setY(0).normalize().multiply(INERTIA).add(moving.multiply(1 - INERTIA));
     return smooth.lengthSquared() < 0.000001 ? moving : smooth.normalize();
+  }
+
+  /**
+   * Give every member the formation slot nearest to where it already stands. A fixed numbered
+   * place makes a turning or reforming group send members around each other — and around the
+   * leader — to reach a square someone else is already standing on, which is what reads as
+   * members running off to the wrong side. Assigning by proximity keeps each member on its own
+   * side of the block, and preferring the slot it already held keeps a settled group still.
+   *
+   * <p>Slots are greedily paired cheapest-first; any member whose distances are all unusable
+   * still receives a leftover slot, so nobody is left without a place to stand.
+   */
+  public static Map<String, Integer> nearestSlots(
+      List<String> members,
+      int slots,
+      Map<String, Integer> previous,
+      ToDoubleBiFunction<String, Integer> distance) {
+    if (members == null || slots < members.size())
+      throw new IllegalArgumentException("A formation needs a slot for every member.");
+    record Pairing(String member, int slot, double cost) {}
+    List<Pairing> pairs = new ArrayList<>();
+    for (String member : members)
+      for (int slot = 0; slot < slots; slot++) {
+        double cost = distance.applyAsDouble(member, slot);
+        if (!Double.isFinite(cost) || cost < 0) continue;
+        Integer held = previous.get(member);
+        pairs.add(new Pairing(member, slot, held != null && held == slot ? cost * STICKY : cost));
+      }
+    pairs.sort(Comparator.comparingDouble(Pairing::cost));
+    Map<String, Integer> result = new LinkedHashMap<>();
+    boolean[] taken = new boolean[slots];
+    for (Pairing pair : pairs) {
+      if (result.containsKey(pair.member()) || taken[pair.slot()]) continue;
+      result.put(pair.member(), pair.slot());
+      taken[pair.slot()] = true;
+    }
+    int spare = 0;
+    for (String member : members)
+      if (!result.containsKey(member)) {
+        while (spare < slots && taken[spare]) spare++;
+        if (spare >= slots) break;
+        result.put(member, spare);
+        taken[spare] = true;
+      }
+    return result;
   }
 
   /** Resolve the requested column count; 0 asks for the squarest block that fits the group. */

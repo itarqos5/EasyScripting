@@ -95,11 +95,15 @@ public final class CommandRouter implements CommandExecutor, TabCompleter {
       String name = args.length == 0 ? "menu" : args[0].toLowerCase(Locale.ROOT);
       Route route = routes.get(name);
       if (route != null && access.allowed(sender, "easyscripting." + route.permission)) {
-        if (!CommandHelp.syntaxProblem(ex.getMessage())) messages.error(sender, ex.getMessage());
-        Args values = new Args(Arrays.copyOfRange(args, Math.min(1, args.length), args.length));
-        for (String line :
-            CommandHelp.explain(settings.file("command-help"), name, values, route.usage))
-          messages.send(sender, "info", line);
+        // Syntax help answers a malformed command. When the command parsed and the operation
+        // itself refused — no leader, target out of range, intelligence off — the reason is the
+        // answer, and burying it under four lines of usage is what hides it.
+        if (CommandHelp.syntaxProblem(ex.getMessage())) {
+          Args values = new Args(Arrays.copyOfRange(args, Math.min(1, args.length), args.length));
+          for (String line :
+              CommandHelp.explain(settings.file("command-help"), name, values, route.usage))
+            messages.send(sender, "info", line);
+        } else messages.error(sender, ex.getMessage());
       } else if (route == null) {
         messages.send(
             sender,

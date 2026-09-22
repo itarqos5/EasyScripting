@@ -2,6 +2,29 @@
 
 Latest plugin release: **[0.2.0](https://github.com/itarqos5/EasyScripting/releases/tag/v0.2.0)**. Entries below describe each version at its release; later entries supersede changed behavior.
 
+## Unreleased
+
+Group AI, formation and lifecycle fixes on top of 0.2.0. No version has been published for these changes yet.
+
+* Fixed NPC melee landing every blow from exactly its maximum reach. Accuracy now falls off with distance: `combat.accuracy` applies in full from half of `groups.melee-reach` and closer, tapering linearly to the new `combat.reach-accuracy` (0.25) at the limit itself. The roll now also covers the fallback melee path that previously struck without one, so no NPC swing connects unconditionally.
+* Fixed NPCs raising their shields against a mace carried at their own level, which left them turtling through an ordinary ground fight. Only a mace **overhead** — the falling smash a shield is actually worth raising against — triggers the reaction again, and `combat.shield-ground-radius` has been removed. A leftover key in an existing `actor-ai.yml` is ignored.
+* Fixed members walking to a fixed numbered place in the follow formation. Each member now takes the place nearest to where it already stands, preferring the one it already held, so a group that turns or reforms no longer sends members around the leader and through their neighbours to reach a square on the far side.
+* Fixed settled followers shuffling on the spot. Citizens and Paper both finish a path a little short of its destination, and the director kept asking for that last fraction of a block back every few ticks; a navigator that has already stopped inside the resume distance now counts as settled, and one repath interval covers a completed path as well as a running one.
+* Fixed NPCs stopping dead for `groups.knockback-pause-ticks` on damage that throws nobody anywhere. Fire, fall damage, drowning and cactus no longer pause navigation, so an NPC walks out of the damage instead of standing in it; a real blow still pauses for its knockback.
+* Shields now answer a mace carried **anywhere** in a player's inventory, not only one in their hand. Attribute swapping means the mace is in the backpack until the instant it swings, so held-only detection reacted after the smash had landed. The new `combat.shield-inventory-mace` turns the backpack check off.
+* Fixed defensive potion bursts re-dosing effects the NPC already had. A potion is thrown only when its effect has run out, been cleared, or is weaker than the one in the bottle; healing counts only while hurt. The check is repeated before every throw, so a burst stops as soon as one bottle has covered it.
+* Fixed a retreating NPC keeping its enemy in view while walking away, which read as moonwalking. It now turns and runs the way it is going.
+* Tightened the follow formation so its rows and columns visibly line up: `follow-arrival-distance` ships at 0.6 instead of 1.0, and members that have taken their place face the way the formation faces instead of each swivelling to stare at the leader.
+* Added `/es group lineup <group> [front|behind] [columns]` and a **Line up on me** button. It teleports every present, free member into block-aligned rows and columns beside you, each NPC on its own whole block, facing the way you face. The direction is snapped to the nearest cardinal so the grid follows the world exactly, columns resolve near your own feet rather than to the world's highest block, and one unusable column refuses the whole line-up rather than stacking two members on one square.
+* Fixed falling NPCs being steered mid-air, which made long drops look floaty. An NPC with clear ground more than the new `groups.fall-pause-distance` below it is left to gravity — no navigation, no wandering, no attack steering — and takes its ordinary fall damage.
+* Fixed the group GUI's attack picker offering targets the order would then refuse. It now lists only reachable, hittable, non-allied targets, and shows an explicit empty state.
+* Fixed every refused command printing four lines of syntax help after its real reason. Syntax help is now shown only when the command itself was malformed, so an ordinary refusal reads as one sentence.
+* Added **Delete all NPCs in this group** to the group page and `/es group purge <group>`: deletes every member while keeping the group, its leader and its shared defaults. Added an operator-only **Delete every NPC** button to `/actors` and `/actor deleteall`.
+* Dead NPCs now drop their backpack and worn equipment, controlled by the new `actors.death-drops` (default true). The items are the ones the NPC was carrying; nothing is created.
+* Fixed the NPC "left the game" announcement being sent before the server's own death message. It is now sent one tick later, so the two read in the order they happened.
+* `/es player halfheart` now keeps the lethal hit instead of cancelling it. Cancelling swallowed the whole attack — no knockback, no hurt animation, no mace smash, no hit sound. The blow now lands with its damage taken away, leaving the player on half a heart.
+* Validation: **178 unit tests**, production, test and smoke compilation. No Minecraft server was started.
+
 ## 0.2.0 — 2026-09-20
 
 Group AI repairs and NPC self preservation.

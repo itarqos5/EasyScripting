@@ -103,7 +103,8 @@ public final class SceneCommands {
     router.add(
         "actor",
         "actor",
-        "create|list|info|randomize|set|here|move|copy|hide|show|respawn|attack|kit|pattern|all|delete|act|finish|cancel|play|stop|mode|recording|autoplay"
+        "create|list|info|randomize|set|here|move|copy|hide|show|respawn|attack|kit|pattern|all"
+            + "|delete|deleteall|act|finish|cancel|play|stop|mode|recording|autoplay"
             + " <id> ...",
         (s, a) -> {
           settings.require("actors");
@@ -275,6 +276,15 @@ public final class SceneCommands {
                 }
             }
             case "delete" -> actors.remove(a.get(1));
+            case "deleteall" -> {
+              ActorGroupService.requireManager(s);
+              int count = actors.purge();
+              messages.ok(
+                  s,
+                  "Permanently deleted "
+                      + count
+                      + " NPC(s). Group definitions and their settings are kept.");
+            }
             case "gui" -> menus.actor(Args.player(s), a.get(1), a.get(2, "overview"));
             default -> throw new IllegalArgumentException("Unknown actor operation.");
           }
@@ -307,6 +317,7 @@ public final class SceneCommands {
                     "pattern",
                     "all",
                     "delete",
+                    "deleteall",
                     "gui");
           if (a.get(0).equals("pattern"))
             return switch (a.size()) {

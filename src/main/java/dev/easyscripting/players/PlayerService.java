@@ -400,10 +400,13 @@ public final class PlayerService implements Listener, AutoCloseable {
         p.getHealth(),
         p.getInventory().getItemInMainHand().getType(),
         p.getInventory().getItemInOffHand().getType())) {
-      e.setCancelled(true);
+      // Keep the hit and take its damage away rather than cancelling it. Cancelling swallows the
+      // whole attack: no knockback, no hurt animation, no mace smash, no hit sound. Zeroing the
+      // base damage recalculates every dependent modifier to zero, so the blow still lands and
+      // still throws the player around; it simply costs nothing.
+      e.setDamage(0);
       p.setHealth(
           Math.min(1, Objects.requireNonNull(p.getAttribute(Attribute.MAX_HEALTH)).getValue()));
-      p.playHurtAnimation(0);
     }
   }
 

@@ -11,6 +11,7 @@ import org.bukkit.event.*;
 import org.bukkit.event.entity.*;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionEffect;
 import org.bukkit.util.Vector;
 
 /** Tick-owned supply use and fallible combat reactions; never synthesizes replacement items. */
@@ -29,6 +30,12 @@ public final class ActorCombatService implements Listener, AutoCloseable {
 
   /** Vanilla golden apples take 32 ticks to eat; the slack absorbs a late server tick. */
   private static final int EAT_TICKS = 34;
+
+  /**
+   * The box a smash can fall from: at least this far above the NPC's feet, no higher than a fall
+   * it would survive aiming, and within a horizontal radius the smash could still cover.
+   */
+  private static final double OVERHEAD_MINIMUM = 1.5, OVERHEAD_HEIGHT = 10, OVERHEAD_RADIUS = 4;
 
   private static final class Reaction {
     long refillAt, nextPotion, potionCooldown, shieldCheck, shieldRaise, shieldUntil, jumpAt;
@@ -103,11 +110,31 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     return true;
   }
 
-  public void strike(ActorService.ManagedActor actor, LivingEntity target) {
+  /**
+   * The chance a swing from this far away connects. Close in an NPC is as accurate as
+   * `combat.accuracy` allows; at the very edge of `groups.melee-reach` it is only as accurate as
+   * `combat.reach-accuracy`, falling off linearly between the two. Without this an NPC lands
+   * every single blow at exactly its maximum reach, which no player can do.
+   */
+  public static double hitChance(double distance, double reach, double accuracy, double atReach) {
+    double comfortable = reach / 2;
+    if (!(reach > comfortable) || distance <= comfortable) return accuracy;
+    double far = Math.min(1, (distance - comfortable) / (reach - comfortable));
+    return accuracy + (atReach - accuracy) * far;
+  }
+
+  /** Roll this NPC's accuracy for a swing at the given distance, using the configured falloff. */
+  public boolean connects(double distance) {
+    var c = settings.actorCombat();
+    return ThreadLocalRandom.current().nextDouble()
+        < hitChance(distance, settings.actorAi().meleeReach(), c.accuracy(), c.reachAccuracy());
+  }
+
+  /** Swing, and deal damage only when the accuracy roll for this distance succeeds. */
+  public void strike(ActorService.ManagedActor actor, LivingEntity target, double distance) {
     var entity = actor.requireEntity();
     entity.swingMainHand();
-    if (ThreadLocalRandom.current().nextDouble() < settings.actorCombat().accuracy())
-      entity.attack(target);
+    if (connects(distance)) entity.attack(target);
   }
 
   public void idle(ActorService.ManagedActor actor) {
@@ -225,7 +252,8 @@ public final class ActorCombatService implements Listener, AutoCloseable {
         actor.look(entity.getEyeLocation().add(0, 10, 0));
         if (tick >= r.nextPotion) {
           var items = ActorSupplies.inventory(actor);
-          int slot = ActorSupplies.find(items, ActorCombatService::beneficialSplash);
+          // Re-checked before every throw: the first one may already have supplied the effect.
+          int slot = ActorSupplies.find(items, item -> useful(entity, item));
           if (slot < 0) r.potionsLeft = 0;
           else {
             ItemStack potion = ActorSupplies.takeOne(items, slot);
@@ -245,10 +273,14 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     return shield(actor, target, r);
   }
 
+  private static double maximum(LivingEntity entity) {
+    var attribute = entity.getAttribute(Attribute.MAX_HEALTH);
+    return attribute == null ? 20 : attribute.getValue();
+  }
+
   /** Remaining health as a fraction of this NPC's own maximum, which kits and mobs both change. */
   private static double healthFraction(LivingEntity entity) {
-    var maximum = entity.getAttribute(Attribute.MAX_HEALTH);
-    double max = maximum == null ? 20 : maximum.getValue();
+    double max = maximum(entity);
     return max <= 0 ? 1 : Math.min(1, entity.getHealth() / max);
   }
 
@@ -458,11 +490,10 @@ public final class ActorCombatService implements Listener, AutoCloseable {
     return false;
   }
 
-  /** The nearest visible non-allied mace holder, whether it is overhead or standing alongside. */
+  /** The nearest visible non-allied mace holder overhead, the one a shield actually helps with. */
   private LivingEntity maceHolder(LivingEntity entity) {
-    double radius = Math.max(4, settings.actorCombat().shieldGroundRadius());
     // Threat sensing does not need a previous hit: a descending mace can be the first attack.
-    return entity.getNearbyEntities(radius, 10, radius).stream()
+    return entity.getNearbyEntities(OVERHEAD_RADIUS, OVERHEAD_HEIGHT, OVERHEAD_RADIUS).stream()
         .filter(e -> e instanceof LivingEntity && !e.isDead() && !groups.allied(entity, e))
         .map(e -> (LivingEntity) e)
         .filter(
@@ -477,30 +508,74 @@ public final class ActorCombatService implements Listener, AutoCloseable {
         .orElse(null);
   }
 
+
   /**
-   * A mace overhead is a falling smash. A mace at the NPC's own level is a threat too, so the
-   * shield also goes up against someone simply walking in with one.
+   * A mace is a threat wherever it is carried, not only where it is held. Players swap a mace in
+   * for the hit itself — attribute swapping — so reacting only to a held mace means reacting
+   * after the smash has already landed. `shield-inventory-mace` turns the backpack check off.
+   */
+  private boolean carriesMace(LivingEntity entity) {
+    var equipment = entity.getEquipment();
+    if (equipment != null
+        && (equipment.getItemInMainHand().getType() == Material.MACE
+            || equipment.getItemInOffHand().getType() == Material.MACE)) return true;
+    return settings.actorCombat().shieldInventoryMace()
+        && entity instanceof HumanEntity human
+        && human.getInventory().contains(Material.MACE);
+  }
+
+  /**
+   * Only a mace held overhead is a mace threat. The falling smash is the attack a shield is worth
+   * raising against; a mace carried at the NPC's own level is an ordinary melee weapon, and
+   * turtling against one leaves the NPC standing behind its shield through a normal ground fight.
    */
   private boolean maceThreat(LivingEntity actor, LivingEntity target) {
-    if (target == null
-        || target.getWorld() != actor.getWorld()
-        || target.getEquipment() == null
-        || target.getEquipment().getItemInMainHand().getType() != Material.MACE) return false;
+    if (target == null || target.getWorld() != actor.getWorld() || !carriesMace(target))
+      return false;
     var delta = target.getLocation().toVector().subtract(actor.getLocation().toVector());
     double flat = delta.getX() * delta.getX() + delta.getZ() * delta.getZ();
-    if (delta.getY() > 1.5 && delta.getY() < 10 && flat < 16) return true;
-    double ground = settings.actorCombat().shieldGroundRadius();
-    return ground > 0 && Math.abs(delta.getY()) <= 3 && flat <= ground * ground;
+    return delta.getY() > OVERHEAD_MINIMUM
+        && delta.getY() < OVERHEAD_HEIGHT
+        && flat < OVERHEAD_RADIUS * OVERHEAD_RADIUS;
   }
 
   public static boolean beneficialSplash(ItemStack item) {
     if (item.getType() != Material.SPLASH_POTION
         || !(item.getItemMeta() instanceof PotionMeta meta)) return false;
+    var effects = effects(meta);
+    return !effects.isEmpty()
+        && effects.stream().allMatch(effect -> beneficial(effect.getType().getKey().getKey()));
+  }
+
+  private static List<PotionEffect> effects(PotionMeta meta) {
     var effects = new ArrayList<>(meta.getCustomEffects());
     if (meta.getBasePotionType() != null)
       effects.addAll(meta.getBasePotionType().getPotionEffects());
-    return !effects.isEmpty()
-        && effects.stream().allMatch(effect -> beneficial(effect.getType().getKey().getKey()));
+    return effects;
+  }
+
+  /**
+   * A splash potion is only worth throwing when the NPC is actually missing what it would give:
+   * the effect ran out, was cleared, or is weaker than the one in the bottle. Healing counts as
+   * missing whenever the NPC is hurt. This is what stops an NPC re-dosing an effect it still has.
+   */
+  static boolean useful(LivingEntity entity, ItemStack item) {
+    if (!beneficialSplash(item) || !(item.getItemMeta() instanceof PotionMeta meta)) return false;
+    for (PotionEffect effect : effects(meta)) {
+      if (effect.getType().getKey().getKey().equals("instant_health")) {
+        if (entity.getHealth() < maximum(entity)) return true;
+        continue;
+      }
+      PotionEffect active = entity.getPotionEffect(effect.getType());
+      if (active == null || active.getAmplifier() < effect.getAmplifier()) return true;
+    }
+    return false;
+  }
+
+  private boolean carriesUseful(ActorService.ManagedActor actor) {
+    LivingEntity entity = actor.entity().orElse(null);
+    return entity != null
+        && ActorSupplies.find(ActorSupplies.inventory(actor), item -> useful(entity, item)) >= 0;
   }
 
   static boolean beneficial(String effect) {
@@ -545,7 +620,10 @@ public final class ActorCombatService implements Listener, AutoCloseable {
               // A hit taken mid-meal interrupts it, exactly as it does for a player.
               if (r.stowed != null)
                 actor.entity().ifPresent(entity -> abandonMeal(actor, entity, r));
-              if (c.potions() && tick >= r.potionCooldown && r.potionsLeft == 0) {
+              if (c.potions()
+                  && tick >= r.potionCooldown
+                  && r.potionsLeft == 0
+                  && carriesUseful(actor)) {
                 r.potionsLeft = c.potionCount();
                 r.nextPotion = tick + reactionDelay();
                 r.potionCooldown = tick + c.potionCooldown();

@@ -30,6 +30,8 @@ public final class GroupCommands {
           "hold",
           "stop",
           "move",
+          "lineup",
+          "purge",
           "attack",
           "fight");
 
@@ -43,8 +45,8 @@ public final class GroupCommands {
     router.add(
         "group",
         "use",
-        "[gui|list|create|delete|info|add|remove|leader|intelligence|immortal|kit|identities|tool"
-            + "|follow|hold|stop|move|attack|fight]"
+        "[gui|list|create|delete|purge|info|add|remove|leader|intelligence|immortal|kit"
+            + "|identities|tool|follow|hold|stop|move|lineup|attack|fight]"
             + " [group] [value]",
         (sender, args) -> {
           String operation = args.get(0, "gui").toLowerCase(Locale.ROOT);
@@ -65,6 +67,7 @@ public final class GroupCommands {
               Set.of(
                       "create",
                       "delete",
+                      "purge",
                       "add",
                       "remove",
                       "leader",
@@ -89,7 +92,8 @@ public final class GroupCommands {
                       .contains(operation)
                   ? 3
                   : operation.equals("tool") ? 3 : 2;
-          int maximum = operation.equals("tool") ? 4 : minimum;
+          int maximum =
+              operation.equals("tool") || operation.equals("lineup") ? 4 : minimum;
           if (args.size() < minimum || args.size() > maximum)
             throw new IllegalArgumentException(
                 "Use /es group "
@@ -97,6 +101,7 @@ public final class GroupCommands {
                     + " <group>"
                     + (minimum == 3 ? " <value>" : "")
                     + (operation.equals("tool") ? " [type]" : "")
+                    + (operation.equals("lineup") ? " [front|behind] [columns]" : "")
                     + ".");
           switch (operation) {
             case "create" -> groups.create(id);
@@ -167,6 +172,35 @@ public final class GroupCommands {
               tools.give(Args.player(sender), id, args.get(2), args.get(3, tools.defaultType()));
               return;
             }
+            case "purge" -> {
+              int count = groups.purge(id);
+              messages.ok(
+                  sender,
+                  "Permanently deleted "
+                      + count
+                      + " NPC(s) from "
+                      + id
+                      + ". The group, its leader and its shared defaults are kept.");
+              return;
+            }
+            case "lineup" -> {
+              int count =
+                  groups.lineUp(
+                      id,
+                      Args.player(sender),
+                      args.get(2, "behind"),
+                      args.size() > 3 ? Checks.integer(args.get(3), 1, 32) : 0);
+              messages.ok(
+                  sender,
+                  "Lined up "
+                      + count
+                      + " NPC(s) of "
+                      + id
+                      + ", each on its own block. The group is now holding; use /es group follow "
+                      + id
+                      + " to resume following.");
+              return;
+            }
             case "follow" -> groups.order(id, ActorGroup.Order.FOLLOW, null);
             case "hold", "stop" -> groups.order(id, ActorGroup.Order.HOLD, null);
             case "move" ->
@@ -194,6 +228,7 @@ public final class GroupCommands {
           if (args.size() != 3) return List.of();
           return switch (args.get(0)) {
             case "intelligence", "immortal" -> List.of("on", "off");
+            case "lineup" -> List.of("behind", "front");
             case "kit", "tool" -> tools.kitIds();
             case "fight" -> groups.ids();
             case "add" -> {
@@ -203,7 +238,9 @@ public final class GroupCommands {
             }
             case "remove" ->
                 groups.members(args.get(1)).stream().map(ActorService.ManagedActor::id).toList();
-            case "leader", "attack" -> {
+            // Attack suggests only what this group could actually be ordered to attack now.
+            case "attack" -> groups.attackable(args.get(1));
+            case "leader" -> {
               List<String> names =
                   new ArrayList<>(
                       Bukkit.getOnlinePlayers().stream()
@@ -213,8 +250,7 @@ public final class GroupCommands {
                                       && actors.byEntity(p.getUniqueId()).isEmpty())
                           .map(Player::getName)
                           .toList());
-              if (args.get(0).equals("leader")) names.add("off");
-              else actors.ids().forEach(id -> names.add("actor:" + id));
+              names.add("off");
               yield names;
             }
             default -> List.of();
