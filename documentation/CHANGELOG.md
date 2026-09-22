@@ -2,6 +2,15 @@
 
 Latest plugin release: **[0.2.5](https://github.com/itarqos5/EasyScripting/releases/tag/v0.2.5)**. Entries below describe each version at its release; later entries supersede changed behavior.
 
+## Unreleased
+
+Nickname coverage fixes on top of 0.2.5. No version has been published for these changes yet.
+
+* A nickname now also rewrites the name carried by a death or leave message rather than only the name shown in it. Vanilla attaches a hover card and shift-click insertion to every name it puts in those messages, and both still read as the real account, so hovering a rewritten death message handed the account name straight back. Translation arguments — where a death message keeps its victim and killer — are walked for the same data.
+* A kicked player's leave message is now rewritten too. It is announced through `PlayerKickEvent`, which never passed through the quit-message rewrite, so a kick published the real account name of a nicknamed player.
+* Applying a nickname now also applies a random public skin, drawn from the same cached skin-owner pool generated NPC identities use and falling back to the `npc-identities.yml` skin owners. Blacklisted owners, retired names and the player's own account are never chosen, the lookup is asynchronous, and a failure keeps the current skin without costing the nickname. The new `random-skin` in `nicknames.yml` turns it off; resetting a nickname restores the real skin as before.
+* Validation: **184 unit tests**, production, test and smoke compilation. No Minecraft server was started.
+
 ## 0.2.5 — 2026-09-22
 
 Group AI, formation and lifecycle repairs, distance-dependent melee accuracy, half-heart protection that keeps the hit, and configuration loading that survives a broken file.

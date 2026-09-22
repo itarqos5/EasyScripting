@@ -139,6 +139,36 @@ class NicknameTest {
   }
 
   @Test
+  void deathAndLeaveNamesAreRewrittenInTheirHoverAndShiftClickTextToo() {
+    UUID id = UUID.randomUUID();
+    Component name =
+        Component.text("Alice")
+            .insertion("Alice")
+            .hoverEvent(
+                net.kyori.adventure.text.event.HoverEvent.showEntity(
+                    net.kyori.adventure.key.Key.key("minecraft", "player"),
+                    id,
+                    Component.text("Alice")));
+    Component rewritten =
+        NicknameMessages.rewrite(
+            Component.translatable("death.attack.player", name), Map.of("Alice", "QuietFox"));
+    var argument =
+        ((net.kyori.adventure.text.TranslatableComponent) rewritten)
+            .arguments()
+            .getFirst()
+            .asComponent();
+    assertEquals("QuietFox", ((TextComponent) argument).content());
+    // Hovering or shift-clicking the name must not hand the account name back.
+    assertEquals("QuietFox", argument.style().insertion());
+    var hover =
+        (net.kyori.adventure.text.event.HoverEvent.ShowEntity)
+            Objects.requireNonNull(argument.style().hoverEvent()).value();
+    assertEquals(Component.text("QuietFox"), hover.name());
+    // The account's UUID still identifies the account, which remains true and is left alone.
+    assertEquals(id, hover.id());
+  }
+
+  @Test
   void replacementIsSimultaneousAndNamesAreNotRegex() {
     Component message = Component.translatable("multiplayer.player.left", Component.text("Alice"));
     assertEquals(

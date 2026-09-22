@@ -2,6 +2,15 @@
 
 Current release: **0.2.5**. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence.
 
+## Unreleased nickname coverage fixes
+
+**184 unit tests pass**, adding coverage for rewriting the hover card and shift-click insertion carried by a name inside a death or leave message. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.
+
+* Nickname yourself, then die to a mob and to another player. Both the victim and the killer must read as the nickname, and **hovering** the name in the death message and **shift-clicking** it must show the nickname, not the account.
+* Nickname yourself and disconnect normally, then repeat while being kicked. Both leave messages must use the nickname.
+* Nickname yourself and check the skin changes to an unrelated public skin, that it is not your own account's skin, and that `/nickname <you> off` restores your real name and your real skin. Set `random-skin: false` and confirm the nickname applies with your own skin kept.
+* Nickname yourself with the username API unreachable and with an empty skin pool; the nickname must still apply and the skin must simply stay as it was.
+
 ## 0.2.5 validation
 
 **183 unit tests pass**, adding coverage for block-aligned line-ups (every member on its own block across awkward and cardinal yaws, front/behind symmetry, rejected counts and column widths), the new mace, falling and formation settings, melee accuracy falling off toward the edge of reach, formation places assigned by proximity with a preference for the place already held, per-file configuration fallback (every bundled default is itself a usable replacement, and one broken file does not condemn its neighbours), and releasing every dead username at once. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.

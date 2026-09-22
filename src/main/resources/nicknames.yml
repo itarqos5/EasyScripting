@@ -10,4 +10,11 @@ api-enabled: true
 api-timeout-millis: 4000
 # Use lower-case fragments from npc-identities.yml when the API is disabled or unavailable.
 local-fallback: true
-# Names are temporary for the current connection. Skins are preserved.
+# Also give the player a random public skin when a nickname is applied, drawn from the same
+# cached skin-owner pool that generated actor identities use, falling back to the
+# npc-identities.yml skin-owners list when the pool is empty and local-fallback is on.
+# Blacklisted, retired and the player's own account name are never chosen. The lookup is
+# asynchronous: if it fails the nickname still applies and the current skin is kept.
+# Set false to keep the player's own skin under the alias.
+random-skin: true
+# Names and skins are temporary for the current connection; the next join uses the real account.

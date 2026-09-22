@@ -340,6 +340,12 @@ public final class IdentityService implements Listener, AutoCloseable {
     e.quitMessage(NicknameMessages.rewrite(e.quitMessage(), directory.replacements()));
   }
 
+  /** A kick announces its own leave message, which never passes through the quit message above. */
+  @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+  public void kicked(PlayerKickEvent e) {
+    e.leaveMessage(NicknameMessages.rewrite(e.leaveMessage(), directory.replacements()));
+  }
+
   @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
   public void death(org.bukkit.event.entity.PlayerDeathEvent e) {
     e.deathMessage(NicknameMessages.rewrite(e.deathMessage(), directory.replacements()));

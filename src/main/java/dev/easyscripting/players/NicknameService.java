@@ -127,6 +127,7 @@ public final class NicknameService implements AutoCloseable {
                         "Username API unavailable or no unused name returned. Try again shortly.");
                   identities.nick(player, name);
                   provider.claim(name);
+                  disguise(player);
                   if (!(sender instanceof Player p) || p.isOnline())
                     sender.sendMessage(
                         messages.text(
@@ -144,6 +145,35 @@ public final class NicknameService implements AutoCloseable {
               }
             });
     jobs.put(player.getUniqueId(), job);
+  }
+
+  /**
+   * Give the alias a face as well as a name. A nickname worn over the account's own skin is
+   * recognisable on sight, which defeats the point of a temporary identity, so a public skin
+   * owner is drawn from the same cached pool actor identities use. The skin is applied
+   * asynchronously and is never allowed to cost the player the nickname they just received:
+   * an empty pool, a blacklisted owner or a failed lookup simply leaves the current skin alone.
+   */
+  private void disguise(Player player) {
+    var config = settings.file("nicknames");
+    if (!config.getBoolean("random-skin", true)) return;
+    List<String> owners = new ArrayList<>(provider.skinOwners());
+    if (owners.isEmpty() && config.getBoolean("local-fallback", true))
+      owners.addAll(settings.npcIdentities().skins());
+    String account = identities.accountName(player);
+    owners.removeIf(
+        owner ->
+            owner == null
+                || owner.isBlank()
+                || owner.equalsIgnoreCase(account)
+                || identities.blocked(owner)
+                || deadUsers.contains(owner));
+    if (owners.isEmpty()) return;
+    try {
+      identities.skin(player, owners.get(ThreadLocalRandom.current().nextInt(owners.size())));
+    } catch (IllegalArgumentException | IllegalStateException ignored) {
+      // A full lookup queue or a disabled feature costs a skin, never the name.
+    }
   }
 
   private boolean usable(Player player, String name) {

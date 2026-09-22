@@ -219,7 +219,7 @@ public final class Settings {
         inheritMissing(prepared, defaults);
         migrateMessages(prepared, defaults);
       }
-      case "moderation", "actor-ai", "npc-identities", "items" ->
+      case "moderation", "actor-ai", "npc-identities", "items", "nicknames" ->
           inheritMissing(prepared, defaults);
       case "guis" -> prepared = GuiSchema.prepare(prepared, defaults);
       default -> {}
@@ -367,7 +367,7 @@ public final class Settings {
   public static void validateNicknames(YamlConfiguration yaml) {
     if (yaml.getInt("schema") != 1)
       throw new IllegalArgumentException("nicknames.yml: schema must be 1.");
-    for (String key : List.of("api-enabled", "local-fallback"))
+    for (String key : List.of("api-enabled", "local-fallback", "random-skin"))
       if (!(yaml.get(key) instanceof Boolean))
         throw new IllegalArgumentException("nicknames.yml: " + key + " must be true or false.");
     if (!(yaml.get("api-timeout-millis") instanceof Integer)
