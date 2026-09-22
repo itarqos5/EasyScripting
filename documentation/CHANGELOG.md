@@ -1,10 +1,10 @@
 # Changelog
 
-Latest plugin release: **[0.2.0](https://github.com/itarqos5/EasyScripting/releases/tag/v0.2.0)**. Entries below describe each version at its release; later entries supersede changed behavior.
+Latest plugin release: **[0.2.5](https://github.com/itarqos5/EasyScripting/releases/tag/v0.2.5)**. Entries below describe each version at its release; later entries supersede changed behavior.
 
-## Unreleased
+## 0.2.5 — 2026-09-22
 
-Group AI, formation and lifecycle fixes on top of 0.2.0. No version has been published for these changes yet.
+Group AI, formation and lifecycle repairs, distance-dependent melee accuracy, half-heart protection that keeps the hit, and configuration loading that survives a broken file.
 
 * Fixed NPC melee landing every blow from exactly its maximum reach. Accuracy now falls off with distance: `combat.accuracy` applies in full from half of `groups.melee-reach` and closer, tapering linearly to the new `combat.reach-accuracy` (0.25) at the limit itself. The roll now also covers the fallback melee path that previously struck without one, so no NPC swing connects unconditionally.
 * Fixed NPCs raising their shields against a mace carried at their own level, which left them turtling through an ordinary ground fight. Only a mace **overhead** — the falling smash a shield is actually worth raising against — triggers the reaction again, and `combat.shield-ground-radius` has been removed. A leftover key in an existing `actor-ai.yml` is ignored.

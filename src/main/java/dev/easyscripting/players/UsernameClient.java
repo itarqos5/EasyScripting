@@ -43,7 +43,7 @@ public final class UsernameClient implements AutoCloseable {
                 connection.setReadTimeout(timeoutMillis);
                 connection.setInstanceFollowRedirects(false);
                 connection.setRequestProperty("Accept", "application/json");
-                connection.setRequestProperty("User-Agent", "EasyScripting/0.2.0");
+                connection.setRequestProperty("User-Agent", "EasyScripting/0.2.5");
                 if (connection.getResponseCode() != 200)
                   throw new IOException("Username provider unavailable.");
                 try (InputStream input = connection.getInputStream()) {
@@ -75,7 +75,7 @@ public final class UsernameClient implements AutoCloseable {
                 connection.setReadTimeout(timeoutMillis);
                 connection.setInstanceFollowRedirects(false);
                 connection.setRequestProperty("Accept", "application/json");
-                connection.setRequestProperty("User-Agent", "EasyScripting/0.2.0");
+                connection.setRequestProperty("User-Agent", "EasyScripting/0.2.5");
                 if (connection.getResponseCode() != 200)
                   throw new IOException("Skin profile provider unavailable.");
                 try (InputStream input = connection.getInputStream()) {

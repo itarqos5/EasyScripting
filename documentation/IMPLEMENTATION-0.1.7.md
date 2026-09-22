@@ -2,7 +2,7 @@
 
 Completed release record for **EasyScripting 0.1.7**, published from `1ea6d202e249a3aba726d58d61e7f0966027060f`. These notes describe implemented work; current service ownership is summarized in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-This is a historical record. For the current 0.2.0 implementation, see [IMPLEMENTATION-0.2.0.md](IMPLEMENTATION-0.2.0.md).
+This is a historical record. For the current 0.2.5 implementation, see [IMPLEMENTATION-0.2.5.md](IMPLEMENTATION-0.2.5.md).
 
 ## Delivered changes
 

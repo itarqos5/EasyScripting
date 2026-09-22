@@ -1,10 +1,10 @@
 # Every EasyScripting command, explained simply
 
-This is the command guide for **EasyScripting 0.2.0**. Use `/es status` to see your installed version. Incomplete or invalid commands show their expected syntax, explanation and an example in chat.
+This is the command guide for **EasyScripting 0.2.5**. Use `/es status` to see your installed version. Incomplete or invalid commands show their expected syntax, explanation and an example in chat.
 
 Every successful command sends feedback, including commands that previously finished silently.
 
-Reviewed against release 0.2.0: 32 registered command groups plus `/es help`, and 33 scene action types.
+Reviewed against release 0.2.5: 32 registered command groups plus `/es help`, and 33 scene action types.
 
 Each section lists the exact syntax, what it does and an example. Replace example names such as `Alex`, `guard`, `starter` and `opening` with names on your server.
 

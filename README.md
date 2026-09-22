@@ -1,6 +1,6 @@
 # EasyScripting
 
-Current release: **[0.2.0](https://github.com/itarqos5/EasyScripting/releases/tag/v0.2.0)**. [Download the plugin JAR](https://github.com/itarqos5/EasyScripting/releases/download/v0.2.0/EasyScripting-0.2.0.jar). Documentation describes this release.
+Current release: **[0.2.5](https://github.com/itarqos5/EasyScripting/releases/tag/v0.2.5)**. [Download the plugin JAR](https://github.com/itarqos5/EasyScripting/releases/download/v0.2.5/EasyScripting-0.2.5.jar). Documentation describes this release.
 
 Paper/Purpur tools for scripted SMP productions: actors, timed scenes, movement recordings, repeatable takes, kits, inventory tools, world controls and configurable inventory menus.
 
@@ -18,9 +18,9 @@ Use JDK 25 and the included Gradle wrapper:
 
 On Windows, use `.\gradlew.bat build`.
 
-Copy `build/libs/EasyScripting-0.2.0.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
+Copy `build/libs/EasyScripting-0.2.5.jar` into your server's `plugins/` directory and restart. Do not install the sources JAR or the optional smoke-test JAR. Configuration files are created under `plugins/EasyScripting/`. Open the studio with `/es` or `/es menu`. Follow [USERGUIDE.md](documentation/USERGUIDE.md) for installation, NPC identities, acting, scenes, recordings and YAML/GUI customization.
 
-The project targets Paper/Purpur, with Paper 26.2 as its original primary target. Release 0.2.0 is compiled against Paper 1.21.8 and 1.21.11 using JDK 25 and produces Java 21 bytecode. Validation totals: **171 unit tests**; no server/client was launched for this release. Earlier 26.x compilation and runtime results are historical, not fresh 0.2.0 verification. See [TESTING.md](documentation/TESTING.md) for the exact matrix. Purpur is a compatibility target; Folia and Spigot are not supported.
+The project targets Paper/Purpur, with Paper 26.2 as its original primary target. Release 0.2.5 is compiled against Paper 1.21.8 and 1.21.11 using JDK 25 and produces Java 21 bytecode. Validation totals: **183 unit tests**; no server/client was launched for this release. Earlier 26.x compilation and runtime results are historical, not fresh 0.2.5 verification. See [TESTING.md](documentation/TESTING.md) for the exact matrix. Purpur is a compatibility target; Folia and Spigot are not supported.
 
 Optional integrations:
 
@@ -31,13 +31,13 @@ Neither dependency is bundled. Without them the rest of the plugin loads and the
 
 ## NPC movement, groups and identities
 
-Version 0.2.0 forms followers into aligned rows and columns of a configurable width, oriented by the direction the leader is actually travelling, at a normal walking pace with a sprint-like catch-up only when they fall behind. Melee waits for the held weapon to recharge, NPCs circle between swings, and a hurt NPC will break off to eat a carried golden apple or throw a carried ender pearl. The leader can hit their own group NPCs; members still cannot hurt their leader or each other. Start a group with `/es group create red`. See the [group and combat guide](documentation/NPC-GROUPS.md).
+Version 0.2.5 forms followers into aligned rows and columns of a configurable width, oriented by the direction the leader is actually travelling, at a normal walking pace with a sprint-like catch-up only when they fall behind. Each member takes the place nearest to where it already stands, so a turning group does not send anyone around the leader to reach a numbered square. Melee waits for the held weapon to recharge and its accuracy falls off toward the edge of reach, so no NPC lands every blow from maximum range. NPCs circle between swings, and a hurt NPC will break off to eat a carried golden apple or throw a carried ender pearl. The leader can hit their own group NPCs; members still cannot hurt their leader or each other. Start a group with `/es group create red`. See the [group and combat guide](documentation/NPC-GROUPS.md).
 
 Mass creation now requires an existing group and saved kit. `/actor pattern red disc behind 40 fighter 2 PLAYER` fills a disc behind the assigned leader and resolves every X/Z column to its highest safe standing surface. `/es group tool red fighter PLAYER` gives an operator a persistent bound tool; right-click a block to create `red-actor-1`, `red-actor-2`, and later members with that kit. Group controls can apply Immortal, one kit or fresh identities to every member. Deleting a group permanently deletes all its NPCs.
 
 Generated NPC names and `/nickname` aliases use asynchronously cached public identity pools. Every generated username is 5–16 Minecraft characters, includes at least one letter plus at least one digit or underscore, and excludes current actor/nickname names, blacklisted names, retired names, current operators, and every real account known to have joined the server. Actor copies receive a fresh generated identity instead of duplicating the source identity. Local readable fallbacks keep creation available when a provider is down. Natural actor deaths and nicknamed-player deaths retire their displayed name; `/deadusers` opens the searchable, paginated registry, where shift-right-click releases a name.
 
-`/kits` opens kits. Studio home now has **Record session** to turn joining restrictions/MOTD on or off. The new GUI separates identity, movement, replay and combat; old layouts are backed up before migration. Configuration files are commented, and command mistakes show syntax and examples. Elytra performances preserve the gliding animation; player half-heart protection allows held totems to pop and stays enabled afterward.
+`/kits` opens kits. Studio home now has **Record session** to turn joining restrictions/MOTD on or off. The new GUI separates identity, movement, replay and combat; old layouts are backed up before migration. Configuration files are commented, and command mistakes show syntax and examples. Elytra performances preserve the gliding animation; player half-heart protection allows held totems to pop, stays enabled afterward, and keeps the lethal hit with its knockback and animation rather than cancelling it. A configuration file that cannot be read no longer stops the plugin: that one file falls back to the copy inside the JAR, the error is logged, your file is left untouched, and operators are told on join.
 
 ## Nicknames, chat and kits
 

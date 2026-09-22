@@ -1,5 +1,7 @@
 # 0.2.0 engineering notes
 
+This is a historical record. For the current 0.2.5 implementation, see [IMPLEMENTATION-0.2.5.md](IMPLEMENTATION-0.2.5.md). Where 0.2.5 reversed a decision made here, the 0.2.5 record says so.
+
 Release record for **EasyScripting 0.2.0**. These notes describe the group following repairs, the weapon-paced melee rebuild and the new NPC self-preservation layer. Current service ownership is summarized in [ARCHITECTURE.md](ARCHITECTURE.md); the previous release record is [IMPLEMENTATION-0.1.8.md](IMPLEMENTATION-0.1.8.md).
 
 ## Delivered changes

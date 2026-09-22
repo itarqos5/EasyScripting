@@ -1,10 +1,12 @@
 # Testing and acceptance
 
-Current release: **0.2.0**. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence.
+Current release: **0.2.5**. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence.
 
-## Unreleased group AI, formation and lifecycle fixes
+## 0.2.5 validation
 
-**175 unit tests pass**, adding coverage for block-aligned line-ups (every member on its own block across awkward and cardinal yaws, front/behind symmetry, rejected counts and column widths) and for the new mace, falling and formation settings. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.
+**183 unit tests pass**, adding coverage for block-aligned line-ups (every member on its own block across awkward and cardinal yaws, front/behind symmetry, rejected counts and column widths), the new mace, falling and formation settings, melee accuracy falling off toward the edge of reach, formation places assigned by proximity with a preference for the place already held, per-file configuration fallback (every bundled default is itself a usable replacement, and one broken file does not condemn its neighbours), and releasing every dead username at once. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.
+
+Artifact: `build/libs/EasyScripting-0.2.5.jar`; source companion: `build/libs/EasyScripting-0.2.5-sources.jar`; SHA-256: `0A8CCE08578402A694F793CD6CF95FE91FC71FA37C1345A86A38FA5AE383B4CC`; sources companion SHA-256: `33876F313703EA1BE66126E7B50CB224B131DC7DD5405F4DD3DEE6E42AAE0E4B`. The JAR carries `plugin.yml` version 0.2.5 and the `actor-ai.yml` with `combat.reach-accuracy` and without `combat.shield-ground-radius`. These hashes are from `gradlew clean build compileSmokeJava` on a clean checkout of the committed tree and reproduce across repeated builds; attach these exact artifacts to the v0.2.5 release.
 
 Most of this batch is behaviour no fixture can reach. These cases decide it:
 
@@ -60,9 +62,9 @@ With JDK 25, from the repository root on Windows:
 
 The final command rebuilds the distributable against the baseline 1.21.8 API after the compatibility compile. Use `./gradlew` on Linux/macOS. These commands do not start a Minecraft server. The HTML unit report is `build/reports/tests/test/index.html`; JUnit XML is under `build/test-results/test/`.
 
-The released plugin is [EasyScripting-0.2.0.jar](https://github.com/itarqos5/EasyScripting/releases/download/v0.2.0/EasyScripting-0.2.0.jar), SHA-256 `C1F4FE64E5F44EAC5B79FF6CDAFA800ADC95550011F25E2B922439C8A11338A0`. It contains the production descriptor and YAML resources, Java class major 65, and no smoke/Paper/Citizens classes. Sources are a separate release asset.
+The released plugin is [EasyScripting-0.2.5.jar](https://github.com/itarqos5/EasyScripting/releases/download/v0.2.5/EasyScripting-0.2.5.jar), SHA-256 `0A8CCE08578402A694F793CD6CF95FE91FC71FA37C1345A86A38FA5AE383B4CC`. It contains the production descriptor and YAML resources, Java class major 65, and no smoke/Paper/Citizens classes. Sources are a separate release asset.
 
-Current documentation checks cover all 13 Markdown files, local links/anchors, all 32 registered command groups, the public facade methods, permission declarations and configuration filenames. Old GUI/recording commands are retained only where explicitly describing history or migration.
+Current documentation checks cover all 14 Markdown files, local links/anchors, all 32 registered command groups, the public facade methods, permission declarations and configuration filenames. Old GUI/recording commands are retained only where explicitly describing history or migration.
 
 ## 0.1.7 validation
 
@@ -179,7 +181,7 @@ Paper emitted Windows performance-counter/OSHI warnings unrelated to the plugin.
 ./gradlew smokeJar
 ```
 
-The commands, artifacts and counts in this historical section describe the named earlier versions. Use the current build instructions above for 0.2.0; do not infer a fresh live test from these results.
+The commands, artifacts and counts in this historical section describe the named earlier versions. Use the current build instructions above for 0.2.5; do not infer a fresh live test from these results.
 
 All 44 pure tests passed on 0.1.2. The original 24 cover timeline ordering, state transitions, cancellation inside an action, execution budgets, argument/identifier validation, malformed scene lists, round trips, repeat/append semantics, detached YAML, atomic writes and GUI layout rejection. Nine identity tests added in 0.1.1 cover 200 unique generated names, occupied names, blacklist filtering, alternate skins, mob behavior, bounded pool exhaustion and malformed YAML choices. Eleven checks added in 0.1.2 cover varied name endings, bounded tiny-pool fallback, all playback endpoint sequences (including single-frame and legacy reverse behavior), invalid playback inputs, and inheriting missing actor GUI controls while preserving custom entries. The unit test report is `build/reports/tests/test/index.html`.
 
@@ -224,7 +226,7 @@ The acting fixture drives a known airborne/grounded path with server teleports. 
 
 ## Manual behavioral acceptance
 
-Each row defines setup, equivalent action, pass condition and reset procedure. Use the same starting state when comparing with a legitimately obtained reference installation. Do not compare source code. These rows are current 0.2.0 acceptance procedures, not claims that all have been run. A future server run must use updated fixtures and the exact deployment stack.
+Each row defines setup, equivalent action, pass condition and reset procedure. Use the same starting state when comparing with a legitimately obtained reference installation. Do not compare source code. These rows are current 0.2.5 acceptance procedures, not claims that all have been run. A future server run must use updated fixtures and the exact deployment stack.
 
 | Feature | Setup | Action | Expected result / pass condition | Reset |
 | --- | --- | --- | --- | --- |

@@ -1,8 +1,12 @@
 # EasyScripting behavioral parity
 
-Feature inventory for **0.2.0**, reviewed against the current implementation. The public-reference evidence below was collected on 2026-09-13; it is not a new inspection of the reference product.
+Feature inventory for **0.2.5**, reviewed against the current implementation. The public-reference evidence below was collected on 2026-09-13; it is not a new inspection of the reference product.
 
 Independent clean-room implementation based on public descriptions, both listing/gallery images and public updates. No original plugin binary, source, private assets, licensing or DRM was accessed. Branding, source and configuration are independent.
+
+## 0.2.5 additions
+
+Group following was repaired again: each member takes the formation place nearest to where it already stands rather than a fixed numbered square, a navigator that stops short of its slot counts as settled, and only a real blow pauses an NPC for knockback. Melee accuracy now falls off with distance, so no NPC lands every blow from exactly its maximum reach, and the accuracy roll covers every melee path. Shields answer only a mace held overhead. `/es player halfheart` keeps the lethal hit and removes its damage instead of cancelling the attack. Configuration loading isolates a broken file to itself: the error is logged, that one file falls back to the copy in the JAR, the file on disk is never rewritten, and operators are told on join. `/es deadusers clear` and an operator-only GUI button release every retired name at once. See [NPC-GROUPS.md](NPC-GROUPS.md), [CONFIGURATION.md](CONFIGURATION.md) and [TESTING.md](TESTING.md).
 
 ## 0.2.0 additions
 
@@ -19,7 +23,7 @@ Group followers now use stable trailing rows, normal native path speeds, bounded
 * [Public updates](https://builtbybit.com/resources/scriptedessentials-full-release.75101/updates): combat, identity, kit, restriction and production workflow clarifications.
 * Platform sources: [Paper project setup](https://docs.papermc.io/paper/dev/project-setup/), [Java requirements](https://docs.papermc.io/paper/getting-started/), [BlockData snapshots](https://jd.papermc.io/paper/1.21.8/org/bukkit/block/data/BlockData.html#createBlockState()).
 
-IMPLEMENTED means working code exists. VERIFIED (historical) identifies the specific behavior exercised in earlier recorded tests; it does not mean the whole 0.2.0 implementation was retested in-game. PARTIAL identifies a known difference, NOT STARTED an absent behavior, and UNKNOWN insufficient public detail for equivalence. REMOVED identifies a deliberately retired command surface. Confidence describes the observed requirement, not code quality. Verification is against the behavior specification, not a running reference binary.
+IMPLEMENTED means working code exists. VERIFIED (historical) identifies the specific behavior exercised in earlier recorded tests; it does not mean the whole 0.2.5 implementation was retested in-game. PARTIAL identifies a known difference, NOT STARTED an absent behavior, and UNKNOWN insufficient public detail for equivalence. REMOVED identifies a deliberately retired command surface. Confidence describes the observed requirement, not code quality. Verification is against the behavior specification, not a running reference binary.
 
 Commands follow /es unless shown otherwise. Permission suffixes follow easyscripting. UI names refer to guis.yml inventory menus. Features are permission-gated and grouped under 18 feature switches, not one switch for every command.
 
