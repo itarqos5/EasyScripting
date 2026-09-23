@@ -23,7 +23,7 @@ Files are generated under `plugins/EasyScripting/`. Keep your existing files whe
 | items.yml | Head display name, random-fill material pool, and persistent bound group actor tool appearance/type/cooldown |
 | potions.yml | Named presets; each effect has ticks and amplifier |
 | effects.yml | Projectile count/lifetime, orbital height, railgun range/damage, wolf limit and bossbar appearance |
-| death.yml | Default mode, radius, spectator permission, kick message and keep-inventory-respects-vanishing |
+| death.yml | Default mode, radius, spectator permission, the death kick and its rejoin lockout, invisible-player message obfuscation, kick/lockout messages and keep-inventory-respects-vanishing |
 
 ### Limits
 
@@ -38,6 +38,8 @@ Region jobs permit one operation per world and at most `limits.active-scenes` jo
 `actors.default-type` defaults to PLAYER. Set it to ZOMBIE on a server without Citizens. `actors.defaults` controls immortal, hittable, collidable, nametag, tablist, look-nearby, wander and autoplay for newly created actors. Autoplay defaults to true, Immortal to false and tablist to false. Upgrade 0.1.5 backs up `config.yml` as `config-before-0.1.5-<UUID>.yml`, sets the creation default `immortal: false` and records `actors.defaults.version: 2`. This is a one-time migration; afterward you may change that default again. Individual saved actor Immortal values are preserved. Actor-specific files persist their own choices; old actor files without an autoplay key default to true.
 
 In `recording.yml`, `playback.knockback-pause-ticks: 12` controls how long replay yields to native physics after a hit, and `playback.return-to-route-ticks: 10` controls the following blend back to its recorded route. Both must be integers from 1 to 100. Missing keys on an older installation use these defaults. The recording cursor pauses during the physics interval; subsequent hits restart it. These settings do not change combat damage or bypass Hittable/Immortal.
+
+In `death.yml`, `kick-on-death: true` kicks every player who dies. The death is never cancelled to do it: the hit lands, the server broadcasts its own death message, and the kick follows `kick-delay-ticks` (1..200, ships at 20) afterwards. `rejoin-lockout-seconds` (0..86400, ships at 60) then refuses that player's reconnection, counting the remaining whole seconds into `lockout-message`; `kick-message` is shown by the kick itself and can use the same `<seconds>` placeholder. The lockout is kept in memory and is released by a restart. Set `kick-on-death: false` to kick only the players whose own `/es death kick` mode is set, which uses the same delay and lockout. `kick-bypass-permission` names the node that exempts a player; `easyscripting.death.kick.bypass` is granted to nobody by default, operators included. `invisible-obfuscation` accepts `message`, `names` or `off` and covers the death, kill and leave messages of a player who is invisible by potion or flag. An unrecognized value is refused when the file loads, so `death.yml` falls back to the bundled copy instead of failing every message. Both behaviors belong to the `death` feature group: turning `death` off in `/es features` restores ordinary deaths and ordinary messages, and releases anyone still inside a lockout.
 
 `world.auto-clear-seconds: 0` disables automatic cleanup. When enabled, only dropped items within `auto-clear-radius` of online players in `auto-clear-worlds` are removed. It is not a scan of unloaded worlds. Explicit cleanup can remove other chosen entity categories.
 

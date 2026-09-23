@@ -1,6 +1,7 @@
 package dev.easyscripting.config;
 
 import dev.easyscripting.core.Checks;
+import dev.easyscripting.players.ObfuscatedNames;
 import dev.easyscripting.storage.YamlStore;
 import java.nio.file.Path;
 import java.util.*;
@@ -219,7 +220,7 @@ public final class Settings {
         inheritMissing(prepared, defaults);
         migrateMessages(prepared, defaults);
       }
-      case "moderation", "actor-ai", "npc-identities", "items", "nicknames" ->
+      case "moderation", "actor-ai", "npc-identities", "items", "nicknames", "death" ->
           inheritMissing(prepared, defaults);
       case "guis" -> prepared = GuiSchema.prepare(prepared, defaults);
       default -> {}
@@ -240,6 +241,7 @@ public final class Settings {
       }
       case "items" -> validateItems(prepared);
       case "recording" -> validateRecording(prepared);
+      case "death" -> validateDeath(prepared);
       case "guis" -> validateMenus.accept(prepared);
       default -> {}
     }
@@ -280,6 +282,22 @@ public final class Settings {
         throw new IllegalArgumentException(
             "recording.yml: " + key + " must be an integer from 1 to 100.");
     }
+  }
+
+  public static void validateDeath(YamlConfiguration death) {
+    if (!(death.get("kick-on-death") instanceof Boolean))
+      throw new IllegalArgumentException("death.yml: kick-on-death must be true or false.");
+    if (!(death.get("kick-delay-ticks") instanceof Integer)
+        || death.getInt("kick-delay-ticks") < 1
+        || death.getInt("kick-delay-ticks") > 200)
+      throw new IllegalArgumentException(
+          "death.yml: kick-delay-ticks must be an integer from 1 to 200.");
+    if (!(death.get("rejoin-lockout-seconds") instanceof Integer)
+        || death.getInt("rejoin-lockout-seconds") < 0
+        || death.getInt("rejoin-lockout-seconds") > 86400)
+      throw new IllegalArgumentException(
+          "death.yml: rejoin-lockout-seconds must be an integer from 0 to 86400.");
+    ObfuscatedNames.Mode.of(death.getString("invisible-obfuscation", "message"));
   }
 
   private static Map<String, Boolean> toggles(YamlConfiguration features) {

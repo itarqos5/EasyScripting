@@ -56,6 +56,7 @@ permissions:
   easyscripting.locks.bypass: {description: Bypass production locks, default: op}
   easyscripting.death: {description: Set player death behavior, default: op}
   easyscripting.death.spectator: {description: Allow automatic spectator mode after death, default: op}
+  easyscripting.death.kick.bypass: {description: Keep playing after dying while kick-on-death is enabled, default: false}
   easyscripting.chat: {description: Manage production chat, default: op}
   easyscripting.chat.bypass: {description: Bypass recording-session chat suppression only; blocked public chat requires operator status, default: op}
   easyscripting.world: {description: Set environment and view limits, default: op}

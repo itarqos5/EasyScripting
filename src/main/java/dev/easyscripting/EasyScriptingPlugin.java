@@ -111,6 +111,8 @@ public final class EasyScriptingPlugin extends JavaPlugin {
       villagers.load();
       DeathService deaths = new DeathService(settings, ticks, store);
       deaths.load();
+      InvisibleNameService invisibleNames =
+          new InvisibleNameService(settings, identities.directory());
       deaths.scenes(
           scenes::get,
           (player, id) -> {
@@ -163,6 +165,7 @@ public final class EasyScriptingPlugin extends JavaPlugin {
               items,
               identityProvider,
               identities,
+              invisibleNames,
               deadIdentities,
               scenes,
               recordings,

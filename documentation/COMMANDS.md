@@ -616,11 +616,15 @@ Access: `admin`. These settings persist in moderation.yml.
 
 Access: `death`; targeting others also needs `player.others`. These commands choose what happens **after a player really dies**; running them does not kill the player.
 
+By default every player is kicked when they die, whatever their own mode says. The death itself runs first — the hit lands, the death message is broadcast and items drop — and the kick follows one second later (`kick-delay-ticks`). The player then cannot rejoin for a minute (`rejoin-lockout-seconds`); the refusal tells them how many seconds are left. Set `kick-on-death: false` in `death.yml` to go back to kicking only the players whose own mode is `kick`, which uses the same delay and lockout. `easyscripting.death.kick.bypass` exempts a player from the kick and is granted to nobody by default, operators included. The lockout lives in memory, so restarting the server releases anyone still waiting, and a player kicked while on the death screen respawns normally when they return.
+
+While a player is invisible — the potion effect or the invisible flag — their death message, the death message of anyone they kill and their leave message arrive as obfuscated characters. `invisible-obfuscation` in `death.yml` chooses `message` (the whole announcement, the default), `names` (their name only, leaving the sentence readable) or `off`. Their account name and any active nickname are both hidden, and the hover card and shift-click text attached to the name are cleared so the identity cannot be read back out of the message.
+
 | Command | What it does | Example |
 | --- | --- | --- |
 | `/es death normal [player]` | Use ordinary death/respawn behavior. | `/es death normal Alex` |
 | `/es death spectator [player]` | Auto-respawn into spectator after death; the player also needs the configured spectator permission. | `/es death spectator Alex` |
-| `/es death kick [player]` | Kick the player after their next death. | `/es death kick Alex` |
+| `/es death kick [player]` | Kick the player after their next death, then keep them out for the lockout. | `/es death kick Alex` |
 | `/es death respawn [player]` | Automatically respawn after death. | `/es death respawn Alex` |
 | `/es death scene <scene-id> [player]` | Run that scene after the player's respawn; setting it also needs scene.edit. | `/es death scene aftermath Alex` |
 | `/es death scene off [player]` | Remove their respawn-scene trigger. | `/es death scene off Alex` |

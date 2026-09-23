@@ -2,10 +2,19 @@
 
 Current release: **0.2.5**. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence.
 
-## Unreleased nickname coverage fixes
+## Unreleased death kicks, invisible identities and nickname coverage fixes
 
-**184 unit tests pass**, adding coverage for rewriting the hover card and shift-click insertion carried by a name inside a death or leave message. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.
+**195 unit tests pass**, adding coverage for the rejoin lockout clock (a full minute after the kick, extended but never shortened by a second death, forgotten the moment it elapses, and per player), for obfuscating an invisible player's messages (the hidden name scrambled while the rest of the cast stays readable, the whole message scrambled in `message` mode, the hover card and shift-click insertion cleared, an account name and its nickname hidden together, and the configured mode rejected when it is not one of the three), and for rewriting the hover card and shift-click insertion carried by a name inside a death or leave message. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.
 
+The kick, the refused rejoin and the obfuscated rendering itself are server behavior no fixture reaches. These cases decide them:
+
+* Die to a mob, to another player and to the void. Each time the death must resolve in full — damage, death message, dropped items — and the kick must arrive about a second later, not at the moment of the hit.
+* Try to rejoin immediately after that kick. The server must refuse with a countdown, refuse again at 30 seconds, and let you in once the minute has passed. Confirm a second player's death does not affect your own wait.
+* Disconnect deliberately in the second between the death and the kick. The lockout must still apply.
+* Set `kick-on-death: false` and confirm ordinary deaths no longer kick, while a player set to `/es death kick` still is and still has to wait out the lockout.
+* Drink an invisibility potion, then kill somebody and die yourself. Both messages must arrive scrambled, and hovering and shift-clicking the scrambled name must give nothing away. Repeat with `invisible-obfuscation: names` and confirm the other player's name and the rest of the sentence stay readable.
+* Repeat while nicknamed, and confirm neither the nickname nor the account name can be read out of the message.
+* Go invisible and disconnect: the leave message must be scrambled. Come back visible and confirm ordinary messages return.
 * Nickname yourself, then die to a mob and to another player. Both the victim and the killer must read as the nickname, and **hovering** the name in the death message and **shift-clicking** it must show the nickname, not the account.
 * Nickname yourself and disconnect normally, then repeat while being kicked. Both leave messages must use the nickname.
 * Nickname yourself and check the skin changes to an unrelated public skin, that it is not your own account's skin, and that `/nickname <you> off` restores your real name and your real skin. Set `random-skin: false` and confirm the nickname applies with your own skin kept.

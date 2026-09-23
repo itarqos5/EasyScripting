@@ -4,12 +4,14 @@ Latest plugin release: **[0.2.5](https://github.com/itarqos5/EasyScripting/relea
 
 ## Unreleased
 
-Nickname coverage fixes on top of 0.2.5. No version has been published for these changes yet.
+Death kicks with a rejoin lockout, hidden identities for invisible players, and nickname coverage fixes on top of 0.2.5. No version has been published for these changes yet.
 
 * A nickname now also rewrites the name carried by a death or leave message rather than only the name shown in it. Vanilla attaches a hover card and shift-click insertion to every name it puts in those messages, and both still read as the real account, so hovering a rewritten death message handed the account name straight back. Translation arguments — where a death message keeps its victim and killer — are walked for the same data.
 * A kicked player's leave message is now rewritten too. It is announced through `PlayerKickEvent`, which never passed through the quit-message rewrite, so a kick published the real account name of a nicknamed player.
 * Applying a nickname now also applies a random public skin, drawn from the same cached skin-owner pool generated NPC identities use and falling back to the `npc-identities.yml` skin owners. Blacklisted owners, retired names and the player's own account are never chosen, the lookup is asynchronous, and a failure keeps the current skin without costing the nickname. The new `random-skin` in `nicknames.yml` turns it off; resetting a nickname restores the real skin as before.
-* Validation: **184 unit tests**, production, test and smoke compilation. No Minecraft server was started.
+* Dying now removes the player from the server and keeps them out for a minute. The death happens first — the blow lands, the body drops and the server's own death message goes out — and the kick follows `kick-delay-ticks` (20, one second) later, so nobody disappears mid-hit. The rejoin is then refused for `rejoin-lockout-seconds` (60) with a message counting down the wait left. Both live in `death.yml` with the new `kick-on-death: true`; set it to `false` for the old behavior, where only a player whose own `/es death kick` mode is set is kicked. That per-player mode now uses the same delay and lockout. `easyscripting.death.kick.bypass` exempts a player and is granted to nobody by default, operators included, so the switch really does mean everyone. The lockout is held in memory: restarting the server releases anyone still waiting.
+* An invisible player's death, kill and leave messages are now obfuscated. Somebody nobody can see has already left the shot, and naming them in chat put them back in it. `invisible-obfuscation` in `death.yml` ships as `message`, which scrambles the whole announcement; `names` scrambles only their name and leaves the rest of the sentence readable, and `off` restores the ordinary messages. Both the account name and an active nickname are covered, and the hover card and shift-click insertion vanilla attaches to a name are cleared as well, so the identity cannot be read back out of a message it was scrambled in. Invisibility means the potion effect or the invisible player flag.
+* Validation: **195 unit tests**, production, test and smoke compilation. No Minecraft server was started.
 
 ## 0.2.5 — 2026-09-22
 

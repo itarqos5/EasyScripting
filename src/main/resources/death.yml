@@ -6,5 +6,17 @@ keep-inventory-respects-vanishing: true
 message-radius: -1
 # Permission required for automatic spectator mode on death.
 spectator-permission: easyscripting.death.spectator
-# MiniMessage text sent when the configured death mode kicks a player.
-kick-message: '<gray>Your part in this take is complete.'
+# Kick every player who dies, whatever their own death mode is. The death happens first.
+kick-on-death: true
+# Ticks between the death and the kick, so the player visibly dies and the death message lands first (1..200).
+kick-delay-ticks: 20
+# Seconds a player kicked for dying cannot rejoin; 60 is one minute and 0 lets them come straight back (0..86400).
+rejoin-lockout-seconds: 60
+# Permission that exempts a player from the death kick. Nobody holds it by default, operators included.
+kick-bypass-permission: easyscripting.death.kick.bypass
+# MiniMessage text sent when the configured death mode kicks a player. <seconds> is the rejoin wait.
+kick-message: '<gray>Your part in this take is complete. Join again in <white><seconds></white> seconds.'
+# MiniMessage text shown to a player whose rejoin is refused. <seconds> is the whole seconds left.
+lockout-message: '<red>You died. You can join again in <white><seconds></white> seconds.'
+# Obfuscate an invisible player's death, kill and leave messages: message, names or off.
+invisible-obfuscation: message

@@ -19,13 +19,7 @@ public final class Messages {
   }
 
   public Component text(String key, Map<String, String> values) {
-    String template = settings.file("messages").getString(key, "<gray><detail>");
-    return MiniMessage.miniMessage()
-        .deserialize(
-            template,
-            values.entrySet().stream()
-                .map(e -> Placeholder.unparsed(e.getKey(), e.getValue()))
-                .toArray(net.kyori.adventure.text.minimessage.tag.resolver.TagResolver[]::new));
+    return rich(settings.file("messages").getString(key, "<gray><detail>"), values);
   }
 
   public void send(CommandSender sender, String key, String detail) {
@@ -54,5 +48,15 @@ public final class Messages {
 
   public static Component rich(String input) {
     return MiniMessage.miniMessage().deserialize(input);
+  }
+
+  /** Fill a configured MiniMessage template whose placeholders live outside messages.yml. */
+  public static Component rich(String input, Map<String, String> values) {
+    return MiniMessage.miniMessage()
+        .deserialize(
+            input,
+            values.entrySet().stream()
+                .map(e -> Placeholder.unparsed(e.getKey(), e.getValue()))
+                .toArray(net.kyori.adventure.text.minimessage.tag.resolver.TagResolver[]::new));
   }
 }

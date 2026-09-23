@@ -29,6 +29,7 @@ Every command requires `easyscripting.use`. Permission checks apply to GUI actio
 | `easyscripting.locks.bypass` | op | Bypass production locks |
 | `easyscripting.death` | op | Set player death behavior |
 | `easyscripting.death.spectator` | op | Allow automatic spectator mode after death |
+| `easyscripting.death.kick.bypass` | nobody | Keep playing after dying while `kick-on-death` is enabled; must be granted explicitly, operators included |
 | `easyscripting.chat` | op | Manage production chat |
 | `easyscripting.chat.bypass` | op | Bypass recording-session chat suppression; never bypass /es chat block |
 | `easyscripting.world` | op | Set environment and view limits |

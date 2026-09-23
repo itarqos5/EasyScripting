@@ -39,6 +39,12 @@ Generated NPC names and `/nickname` aliases use asynchronously cached public ide
 
 `/kits` opens kits. Studio home now has **Record session** to turn joining restrictions/MOTD on or off. The new GUI separates identity, movement, replay and combat; old layouts are backed up before migration. Configuration files are commented, and command mistakes show syntax and examples. Elytra performances preserve the gliding animation; player half-heart protection allows held totems to pop, stays enabled afterward, and keeps the lethal hit with its knockback and animation rather than cancelling it. A configuration file that cannot be read no longer stops the plugin: that one file falls back to the copy inside the JAR, the error is logged, your file is left untouched, and operators are told on join.
 
+## Deaths, kicks and invisible players
+
+Dying now takes a player off the server. The death resolves first — the hit lands, the death message goes out, items drop — and the kick follows a second later, after which the player cannot rejoin for a minute and is told how long is left each time they try. `kick-on-death`, `kick-delay-ticks` and `rejoin-lockout-seconds` in `death.yml` control all three, and `easyscripting.death.kick.bypass` exempts a player from the kick; nobody holds it by default, operators included.
+
+An invisible player is no longer named in chat by the server. Their death, the death of anyone they kill and their leave message arrive as obfuscated characters, including the hover card and shift-click text vanilla attaches to a name, so neither their account name nor an active nickname can be read back out. `invisible-obfuscation` scrambles the whole message by default; `names` scrambles only their name and `off` restores ordinary messages. See the [death behavior reference](documentation/COMMANDS.md#death-behavior).
+
 ## Nicknames, chat and kits
 
 Use `/es kits claim <kit> [player|*|actor:id]`, bulk provider imports and per-kit access for operators/everyone/one player plus operators. Only actual operators can manage or gift kits. Commands now report their result. `/es record on|off` controls a recording MOTD and blocks non-operator joins/reconnects; NPC performances use `/actor act` and `/actor finish`.

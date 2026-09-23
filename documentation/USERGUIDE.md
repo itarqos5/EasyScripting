@@ -296,6 +296,8 @@ Open `/deadusers` to browse retired aliases and NPC names. The GUI shows 21 entr
 
 Templates are in `messages.yml`, including `fake-death`, `chat-muted` and `chat-unmuted` (the existing internal keys are retained). Title settings are in `moderation.yml`. Old default gray death text upgrades to white; customized templates remain yours to edit.
 
+A real player death is different: by default the player is kicked a second after it — late enough that the death, its message and its dropped items all happen first — and cannot rejoin for a minute, each attempt telling them how long is left. Turn that off with `kick-on-death: false` in `death.yml`, change the wait with `rejoin-lockout-seconds`, or grant `easyscripting.death.kick.bypass` to a player who should stay on the server; nobody holds that node by default. A player who is invisible is not named by the server at all: their death, any kill they score and their leave message are printed as obfuscated characters, hover card and shift-click text included, under `invisible-obfuscation` in the same file.
+
 ## 9. Create, edit and import kits
 
 Run `/kits` or `/es kits`, or open Studio → Wardrobe → Kits. Actual operators manage kits; other players see only kits they can claim. The [complete command guide](COMMANDS.md#kits) lists every kit command with examples.
