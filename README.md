@@ -43,7 +43,7 @@ Generated NPC names and `/nickname` aliases use asynchronously cached public ide
 
 Dying now takes a player off the server. The death resolves first — the hit lands, the death message goes out, items drop — and the kick follows a second later, after which the player cannot rejoin for a minute and is told how long is left each time they try. `kick-on-death`, `kick-delay-ticks` and `rejoin-lockout-seconds` in `death.yml` control all three, and `easyscripting.death.kick.bypass` exempts a player from the kick; nobody holds it by default, operators included.
 
-An invisible player is no longer named in chat by the server. Their death, the death of anyone they kill and their leave message arrive as obfuscated characters, including the hover card and shift-click text vanilla attaches to a name, so neither their account name nor an active nickname can be read back out. `invisible-obfuscation` scrambles the whole message by default; `names` scrambles only their name and `off` restores ordinary messages. See the [death behavior reference](documentation/COMMANDS.md#death-behavior).
+An invisible player is no longer named in chat by the server. Their death, the death of anyone they kill and their leave message still read as what they are — the sentence is untouched — but their name inside it arrives as obfuscated characters, including the hover card and shift-click text vanilla attaches to it, so neither their account name nor an active nickname can be read back out. `invisible-obfuscation` ships as `names`; `message` scrambles the whole announcement and `off` restores ordinary messages. See the [death behavior reference](documentation/COMMANDS.md#death-behavior).
 
 ## Nicknames, chat and kits
 

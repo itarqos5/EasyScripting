@@ -33,7 +33,7 @@ public final class InvisibleNameService implements Listener {
   private ObfuscatedNames.Mode mode() {
     if (!settings.enabled("death")) return ObfuscatedNames.Mode.OFF;
     return ObfuscatedNames.Mode.of(
-        settings.file("death").getString("invisible-obfuscation", "message"));
+        settings.file("death").getString("invisible-obfuscation", "names"));
   }
 
   public static boolean invisible(Player player) {

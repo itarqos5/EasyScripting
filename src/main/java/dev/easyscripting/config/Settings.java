@@ -297,7 +297,7 @@ public final class Settings {
         || death.getInt("rejoin-lockout-seconds") > 86400)
       throw new IllegalArgumentException(
           "death.yml: rejoin-lockout-seconds must be an integer from 0 to 86400.");
-    ObfuscatedNames.Mode.of(death.getString("invisible-obfuscation", "message"));
+    ObfuscatedNames.Mode.of(death.getString("invisible-obfuscation", "names"));
   }
 
   private static Map<String, Boolean> toggles(YamlConfiguration features) {

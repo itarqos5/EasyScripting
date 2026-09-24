@@ -18,5 +18,5 @@ kick-bypass-permission: easyscripting.death.kick.bypass
 kick-message: '<gray>Your part in this take is complete. Join again in <white><seconds></white> seconds.'
 # MiniMessage text shown to a player whose rejoin is refused. <seconds> is the whole seconds left.
 lockout-message: '<red>You died. You can join again in <white><seconds></white> seconds.'
-# Obfuscate an invisible player's death, kill and leave messages: message, names or off.
-invisible-obfuscation: message
+# Obfuscate an invisible player's name in their death, kill and leave messages: names, message or off.
+invisible-obfuscation: names
