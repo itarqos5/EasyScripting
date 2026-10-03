@@ -54,7 +54,7 @@ permissions:
   easyscripting.inventory: {description: Inspect save and restore inventories, default: op}
   easyscripting.locks: {description: Lock containers and item frames, default: op}
   easyscripting.locks.bypass: {description: Bypass production locks, default: op}
-  easyscripting.death: {description: Set player death behavior, default: op}
+  easyscripting.death: {description: Control the death kick its cooldown and respawn scenes, default: op}
   easyscripting.death.spectator: {description: Allow automatic spectator mode after death, default: op}
   easyscripting.death.kick.bypass: {description: Keep playing after dying while kick-on-death is enabled, default: false}
   easyscripting.chat: {description: Manage production chat, default: op}

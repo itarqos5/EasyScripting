@@ -288,26 +288,62 @@ public final class PlayerCommands {
         "<player-name|Minecraft-texture-url> [auto|slim|classic]",
         (s, a) -> identities.skin(Args.player(s), a.get(0), a.get(1, "auto")));
     router.add(
+        "deathkick",
         "death",
-        "death",
-        "normal|spectator|kick|respawn [player] | scene <id|off> [player]",
+        "on|off | cooldown <off|30s|5min|1h>",
         (s, a) -> {
           settings.require("death");
-          boolean scene = a.get(0).equals("scene");
-          int targetIndex = scene ? 2 : 1;
-          Player player =
-              a.size() > targetIndex ? players.player(a.get(targetIndex)) : Args.player(s);
-          if (!player.equals(s)) access.require(s, "player.others");
-          if (scene) {
-            access.require(s, "scene.edit");
-            deaths.scene(player, a.get(1));
-          } else deaths.mode(player, a.get(0));
+          String operation = a.get(0, "").toLowerCase(Locale.ROOT);
+          switch (operation) {
+            case "on", "off" -> {
+              deaths.kicking(operation.equals("on"));
+              messages.ok(s, status(deaths));
+            }
+            case "cooldown" -> {
+              deaths.cooldown(Durations.seconds(a.get(1, "")));
+              messages.ok(s, status(deaths));
+            }
+            case "" -> messages.send(s, "success", status(deaths));
+            default ->
+                throw new IllegalArgumentException(
+                    "Use /es deathkick on, /es deathkick off, or /es deathkick cooldown with a"
+                        + " length of time such as 30s, 5min or 1h, or off.");
+          }
         },
-        "normal",
-        "spectator",
-        "kick",
-        "respawn",
-        "scene");
+        (s, a) ->
+            a.size() <= 1
+                ? List.of("on", "off", "cooldown")
+                : a.get(0).equalsIgnoreCase("cooldown")
+                    ? List.of("off", "30s", "1min", "5min", "30min", "1h")
+                    : List.of());
+    router.add(
+        "deathscene",
+        "death",
+        "<scene-id|off> [player]",
+        (s, a) -> {
+          settings.require("death");
+          Player player = a.size() > 1 ? players.player(a.get(1)) : Args.player(s);
+          if (!player.equals(s)) access.require(s, "player.others");
+          access.require(s, "scene.edit");
+          deaths.scene(player, a.get(0));
+          messages.ok(
+              s,
+              a.get(0).equals("off")
+                  ? "Removed the respawn scene for " + player.getName() + "."
+                  : "Scene '" + a.get(0) + "' now runs when " + player.getName() + " respawns.");
+        },
+        (s, a) -> a.size() <= 1 ? List.of("off") : List.of());
+  }
+
+  /** What the death kick is doing right now, used as the answer to every deathkick command. */
+  private static String status(DeathService deaths) {
+    if (!deaths.kicking()) return "Death kick is OFF. Dying no longer removes a player.";
+    long cooldown = deaths.cooldown();
+    return "Death kick is ON. "
+        + (cooldown <= 0
+            ? "A player who dies is kicked and can join again straight away."
+            : "A player who dies is kicked and waits " + Durations.describe(cooldown) + ".")
+        + (deaths.waiting() > 0 ? " Waiting now: " + deaths.waiting() + "." : "");
   }
 
   private static List<String> combine(List<String> a, List<String> b) {

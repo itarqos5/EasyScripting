@@ -614,22 +614,22 @@ Access: `admin`. These settings persist in moderation.yml.
 
 ## Death behavior
 
-Access: `death`; targeting others also needs `player.others`. These commands choose what happens **after a player really dies**; running them does not kill the player.
+Access: `death`; targeting another player with `/es deathscene` also needs `player.others`. These commands choose what happens **after a player really dies**; running them does not kill the player.
 
-By default every player is kicked when they die, whatever their own mode says. The death itself runs first — the hit lands, the death message is broadcast and items drop — and the kick follows one second later (`kick-delay-ticks`). The player then cannot rejoin for a minute (`rejoin-lockout-seconds`); the refusal tells them how many seconds are left. Set `kick-on-death: false` in `death.yml` to go back to kicking only the players whose own mode is `kick`, which uses the same delay and lockout. `easyscripting.death.kick.bypass` exempts a player from the kick and is granted to nobody by default, operators included. The lockout lives in memory, so restarting the server releases anyone still waiting, and a player kicked while on the death screen respawns normally when they return.
+Every player is kicked when they die. The death itself runs first — the hit lands, the death message is broadcast and items drop — and the kick follows one second later (`kick-delay-ticks` in `death.yml`). The player then cannot rejoin until the cooldown has passed; the refusal tells them how many seconds are left. `easyscripting.death.kick.bypass` exempts a player and is granted to nobody by default, operators included. The cooldown lives in memory, so restarting the server releases anyone still waiting, and a player kicked while on the death screen respawns normally when they return.
 
 While a player is invisible — the potion effect or the invisible flag — their name is obfuscated in their own death message, in the death message of anyone they kill and in their leave message. The rest of each sentence is untouched, so a death still reads as a death. `invisible-obfuscation` in `death.yml` chooses `names` (the default), `message` (scramble the whole announcement) or `off`. Their account name and any active nickname are both hidden, and the hover card and shift-click text attached to the name are cleared so the identity cannot be read back out of the message.
 
 | Command | What it does | Example |
 | --- | --- | --- |
-| `/es death normal [player]` | Use ordinary death/respawn behavior. | `/es death normal Alex` |
-| `/es death spectator [player]` | Auto-respawn into spectator after death; the player also needs the configured spectator permission. | `/es death spectator Alex` |
-| `/es death kick [player]` | Kick the player after their next death, then keep them out for the lockout. | `/es death kick Alex` |
-| `/es death respawn [player]` | Automatically respawn after death. | `/es death respawn Alex` |
-| `/es death scene <scene-id> [player]` | Run that scene after the player's respawn; setting it also needs scene.edit. | `/es death scene aftermath Alex` |
-| `/es death scene off [player]` | Remove their respawn-scene trigger. | `/es death scene off Alex` |
+| `/es deathkick` | Report whether dying kicks a player, the current cooldown, and how many players are waiting. | `/es deathkick` |
+| `/es deathkick on\|off` | Turn the death kick on or off. | `/es deathkick on` |
+| `/es deathkick cooldown <length\|off>` | How long a kicked player cannot rejoin. | `/es deathkick cooldown 5min` |
+| `/es deathscene <scene-id\|off> [player]` | Run that scene after the player's respawn; setting it also needs scene.edit. | `/es deathscene aftermath Alex` |
 
-Modes remain saved until changed. Respawn scenes run with the affected player's permissions and a 10-second recursion guard. `/es chat death Alex` is only an announcement; the scene action `death` is an actual kill. NPC deaths permanently delete the actor.
+A cooldown is written the way you say it: `30s`, `90`, `5min`, `1h`, `1h30m`, up to `24h`, or `off` for none. Both `/es deathkick` forms save straight into `death.yml`, so the choice survives a restart, and turning the kick off or shortening the cooldown immediately lets go of the players already waiting. `/es deathkick` on its own only reports.
+
+What happens to a player who is not kicked is still configured in `death.yml`: `default-mode` chooses the server-wide `normal`, `spectator` or `respawn` behaviour, and `message-radius` chooses who sees the death message. The per-player death modes of `/es death` were removed with that command, and kicking is decided only by `/es deathkick`, so an older `default-mode: kick` now loads and is read as `normal`. Respawn scenes run with the affected player's permissions and a 10-second recursion guard. `/es chat death Alex` is only an announcement; the scene action `death` is an actual kill. NPC deaths permanently delete the actor.
 
 ## Teams
 

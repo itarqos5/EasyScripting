@@ -27,7 +27,7 @@ Every command requires `easyscripting.use`. Permission checks apply to GUI actio
 | `easyscripting.inventory` | op | Inspect save and restore inventories |
 | `easyscripting.locks` | op | Lock containers and item frames |
 | `easyscripting.locks.bypass` | op | Bypass production locks |
-| `easyscripting.death` | op | Set player death behavior |
+| `easyscripting.death` | op | Control the death kick, its cooldown and respawn scenes |
 | `easyscripting.death.spectator` | op | Allow automatic spectator mode after death |
 | `easyscripting.death.kick.bypass` | nobody | Keep playing after dying while `kick-on-death` is enabled; must be granted explicitly, operators included |
 | `easyscripting.chat` | op | Manage production chat |

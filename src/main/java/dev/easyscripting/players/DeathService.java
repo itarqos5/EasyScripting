@@ -1,6 +1,7 @@
 package dev.easyscripting.players;
 
 import dev.easyscripting.config.*;
+import dev.easyscripting.core.Durations;
 import dev.easyscripting.core.TickEngine;
 import dev.easyscripting.storage.YamlStore;
 import java.util.*;
@@ -48,20 +49,46 @@ public final class DeathService implements Listener {
     modes = store.read("state", "deaths");
   }
 
-  public void mode(Player p, String mode) {
-    if (!List.of("normal", "spectator", "kick", "respawn").contains(mode))
-      throw new IllegalArgumentException("Death mode must be normal, spectator, kick or respawn.");
-    modes.set(p.getUniqueId().toString(), mode);
-    store.save("state", "deaths", modes);
+  public boolean kicking() {
+    return settings.file("death").getBoolean("kick-on-death", true);
+  }
+
+  /** Turning the kick off also lets go of everyone still waiting out a lockout from it. */
+  public void kicking(boolean enabled) {
+    settings.require("death");
+    settings.file("death").set("kick-on-death", enabled);
+    settings.persist("death");
+    if (!enabled) release();
+  }
+
+  public long cooldown() {
+    return lockSeconds();
+  }
+
+  /** Shortening the wait, including to nothing, applies to the players already serving one. */
+  public void cooldown(long seconds) {
+    settings.require("death");
+    if (seconds < 0 || seconds > Durations.MAXIMUM)
+      throw new IllegalArgumentException("A death-kick cooldown runs from off up to 24h.");
+    settings.file("death").set("rejoin-lockout-seconds", (int) seconds);
+    settings.persist("death");
+    release();
+  }
+
+  /** How many players cannot join right now because they died. */
+  public int waiting() {
+    return lockout.size();
+  }
+
+  public void release() {
+    lockout.clearAll();
   }
 
   @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
   public void death(PlayerDeathEvent e) {
     if (!settings.enabled("death")) return;
     Player p = e.getEntity();
-    String mode =
-        modes.getString(
-            p.getUniqueId().toString(), settings.file("death").getString("default-mode", "normal"));
+    String mode = settings.file("death").getString("default-mode", "normal");
     double radius = settings.file("death").getDouble("message-radius", -1);
     if (radius >= 0) {
       var message = e.deathMessage();
@@ -70,7 +97,7 @@ public final class DeathService implements Listener {
         for (Player viewer : p.getWorld().getNearbyPlayers(p.getLocation(), radius))
           viewer.sendMessage(message);
     }
-    if (kicks(p, mode)) {
+    if (kicks(p)) {
       kickAfterDeath(p);
       return;
     }
@@ -98,13 +125,13 @@ public final class DeathService implements Listener {
   }
 
   /**
-   * Whether this death ends with a kick. The global switch covers everybody; a player whose own
-   * mode is 'kick' is still kicked while it is off. The bypass permission defaults to nobody, so
-   * turning the switch on really does mean every player, operators included.
+   * Whether this death ends with a kick. One switch decides it for everybody, so /es deathkick off
+   * really means nobody is kicked. The bypass permission is granted to nobody by default, which is
+   * what makes 'everybody' include operators.
    */
-  private boolean kicks(Player p, String mode) {
+  private boolean kicks(Player p) {
     var config = settings.file("death");
-    if (!config.getBoolean("kick-on-death", true) && !mode.equals("kick")) return false;
+    if (!kicking()) return false;
     return !p.hasPermission(
         config.getString("kick-bypass-permission", "easyscripting.death.kick.bypass"));
   }

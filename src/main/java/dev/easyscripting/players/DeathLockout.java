@@ -41,6 +41,11 @@ public final class DeathLockout {
     until.remove(id);
   }
 
+  /** Let everyone back in at once, for an operator who turns the kick or its wait off. */
+  public void clearAll() {
+    until.clear();
+  }
+
   public int size() {
     return until.size();
   }

@@ -313,6 +313,11 @@ public final class Settings {
   }
 
   public static void validateDeath(YamlConfiguration death) {
+    String mode = death.getString("default-mode", "normal");
+    // 'kick' is still accepted so an older file loads, but the kick is the switch's business now.
+    if (!List.of("normal", "spectator", "respawn", "kick").contains(mode))
+      throw new IllegalArgumentException(
+          "death.yml: default-mode must be normal, spectator or respawn.");
     if (!(death.get("kick-on-death") instanceof Boolean))
       throw new IllegalArgumentException("death.yml: kick-on-death must be true or false.");
     if (!(death.get("kick-delay-ticks") instanceof Integer)
