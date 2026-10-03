@@ -34,6 +34,11 @@ actors:
   # Broadcast the NPC name leaving the server when a mortal NPC dies and is deleted. The message
   # is sent one tick after the death so the server's own death message is read first.
   announce-death-leave: true
+  # Let a Hittable NPC be hit even where the world forbids players to hurt each other. A player
+  # NPC is a player entity, so a world with PvP off, or a shared team without friendly fire,
+  # otherwise refuses every melee hit on it before the plugin sees one. The rule is lifted for the
+  # single swing being delivered and restored immediately; real players keep their own protection.
+  hittable-ignores-world-pvp: true
   # Drop a dead NPC's backpack and worn equipment on the ground, the way a player's gear drops.
   # The items come from what the NPC was actually carrying; nothing is created. False keeps the
   # older behaviour of a dead NPC leaving nothing behind.

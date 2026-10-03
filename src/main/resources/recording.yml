@@ -6,6 +6,17 @@ playback:
   knockback-pause-ticks: 12
   # Ticks over which a knocked-back NPC returns to its recorded position (1..100).
   return-to-route-ticks: 10
+  # Walk back to the recorded route on foot after a hit instead of sliding onto it. The frames wait
+  # where the hit landed, so the NPC returns to the place it was taken from and resumes there.
+  walk-back: true
+  # Movement speed modifier while walking back; 1.0 is an ordinary walk (0.1..2.0).
+  walk-back-speed: 1.0
+  # Distance in blocks that counts as back on the route. A hit that moved the NPC less than this
+  # is blended instead, so a nudge never turns into a visible walk (0.1..16.0).
+  walk-back-arrival-distance: 0.8
+  # Give up a walk back after this many ticks and blend onto the route instead, so an NPC that
+  # cannot path home — a route in the air, a blocked way back — never stalls the take (20..1200).
+  walk-back-timeout-ticks: 100
 # /es record on always displays this MOTD and blocks non-operator logins, including reconnects.
 # /es record off returns to the normal MOTD and ordinary server login rules.
 # MiniMessage server-list MOTD while /es record on is active.

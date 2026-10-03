@@ -49,6 +49,24 @@ class PlaybackCursorTest {
   }
 
   @Test
+  void theCursorKnowsWhenItIsPlayingBackwardsAndWhereItIsHeaded() {
+    var cursor = new PlaybackCursor(3, PlaybackMode.REVERSE, false);
+    assertFalse(cursor.backwards());
+    assertEquals(1, cursor.ahead(), "the frame being travelled towards decides the facing");
+    cursor.advance();
+    cursor.advance();
+    assertEquals(2, cursor.index());
+    assertEquals(2, cursor.ahead(), "the last frame of a leg points at itself, never out of range");
+    cursor.advance();
+    assertTrue(cursor.backwards(), "the bounce back down the take is what reads as moonwalking");
+    assertEquals(1, cursor.index());
+    assertEquals(0, cursor.ahead());
+    var backwards = new PlaybackCursor(3, PlaybackMode.STOP, true);
+    assertTrue(backwards.backwards());
+    assertEquals(1, backwards.ahead());
+  }
+
+  @Test
   void noEmptyRecording() {
     assertThrows(
         IllegalArgumentException.class, () -> new PlaybackCursor(0, PlaybackMode.STOP, false));

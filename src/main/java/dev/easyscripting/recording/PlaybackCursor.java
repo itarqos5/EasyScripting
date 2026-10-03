@@ -18,6 +18,17 @@ public final class PlaybackCursor {
     return index;
   }
 
+  /** True while the frames are being played from the end towards the start. */
+  public boolean backwards() {
+    return direction < 0;
+  }
+
+  /** The frame this cursor is travelling towards, without moving it. */
+  public int ahead() {
+    int next = index + direction;
+    return next >= 0 && next < size ? next : index;
+  }
+
   public void mode(PlaybackMode mode) {
     if (this.mode == mode) return;
     this.mode = java.util.Objects.requireNonNull(mode);

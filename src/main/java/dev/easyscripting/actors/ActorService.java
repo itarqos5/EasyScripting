@@ -24,6 +24,9 @@ public final class ActorService implements Listener, AutoCloseable {
   private final ActorBackend mobs, players;
   private final Map<String, ManagedActor> actors = new TreeMap<>();
   private final Map<UUID, ManagedActor> entities = new HashMap<>();
+  /** World PvP flags and team friendly fire lifted for the swing being delivered right now. */
+  private final Set<World> pvpLifted = new LinkedHashSet<>();
+  private final Set<org.bukkit.scoreboard.Team> friendlyFireLifted = new LinkedHashSet<>();
   private final Deque<String> recentNames = new ArrayDeque<>();
   private Consumer<String> removed = id -> {};
   private Consumer<ActorDefinition> deleted = definition -> {};
@@ -788,6 +791,66 @@ public final class ActorService implements Listener, AutoCloseable {
             });
   }
 
+  /**
+   * Hittable has to mean hittable. A world with PvP switched off refuses every hit on a player
+   * entity, and a Citizens PLAYER actor is a player entity, so on such a world a mortal, hittable
+   * NPC quietly could not be touched at all: the server threw the attack away before there was any
+   * damage event left to allow. The flag is lifted for exactly the one swing and put back the
+   * moment the hit has been delivered, so the NPC takes an ordinary vanilla blow — its own damage,
+   * crit, enchantments, knockback, hurt animation and kill credit — while real players stay as
+   * protected from each other as the world says they are. Mobs are never affected by this rule.
+   */
+  @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+  public void attack(io.papermc.paper.event.player.PrePlayerAttackEntityEvent event) {
+    if (!(event.getAttacked() instanceof Player) || !event.willAttack()) return;
+    ManagedActor actor = entities.get(event.getAttacked().getUniqueId());
+    if (actor == null
+        || !actor.definition.hittable
+        || !settings.file("config").getBoolean("actors.hittable-ignores-world-pvp", true)) return;
+    World world = event.getAttacked().getWorld();
+    boolean lifted = false;
+    if (!world.getPVP() && pvpLifted.add(world)) {
+      world.setPVP(true);
+      lifted = true;
+    }
+    // A shared scoreboard team without friendly fire refuses the same hit for the same reason:
+    // it is a rule about the cast protecting each other, not about what this NPC may be shown
+    // taking. Production teams ship with friendly fire off, so a cast NPC inherits it.
+    org.bukkit.scoreboard.Team team = team(event.getAttacked());
+    if (team != null
+        && team.equals(team(event.getPlayer()))
+        && !team.allowFriendlyFire()
+        && friendlyFireLifted.add(team)) {
+      team.setAllowFriendlyFire(true);
+      lifted = true;
+    }
+    // The damage event of this same swing normally puts it back. This is the backstop for a swing
+    // that never reaches one, so the lift can never outlive the tick it was made in.
+    if (lifted && ticks.acceptingWork()) ticks.later(1, this::restoreCombatRules);
+  }
+
+  private static org.bukkit.scoreboard.Team team(Entity entity) {
+    return entity instanceof Player player
+        ? player.getScoreboard().getEntryTeam(player.getName())
+        : null;
+  }
+
+  /**
+   * The lift belongs to one swing. By the time any damage event is dispatched the server has
+   * already made its PvP decision for that swing, so restoring here cannot take the hit away.
+   */
+  @EventHandler(priority = EventPriority.MONITOR)
+  public void delivered(EntityDamageEvent event) {
+    restoreCombatRules();
+  }
+
+  private void restoreCombatRules() {
+    for (World world : pvpLifted) world.setPVP(false);
+    pvpLifted.clear();
+    for (org.bukkit.scoreboard.Team team : friendlyFireLifted) team.setAllowFriendlyFire(false);
+    friendlyFireLifted.clear();
+  }
+
   @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
   public void damage(EntityDamageEvent event) {
     ManagedActor a = entities.get(event.getEntity().getUniqueId());
@@ -951,6 +1014,7 @@ public final class ActorService implements Listener, AutoCloseable {
   @Override
   public void close() {
     closing = true;
+    restoreCombatRules();
     if (behaviorJob != null) ticks.cancel(behaviorJob);
     for (ManagedActor a : List.copyOf(actors.values())) {
       try {

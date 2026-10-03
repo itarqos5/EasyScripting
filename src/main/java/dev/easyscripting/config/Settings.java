@@ -249,6 +249,9 @@ public final class Settings {
   }
 
   private static void validateConfig(YamlConfiguration config) {
+    String pvp = "actors.hittable-ignores-world-pvp";
+    if (config.contains(pvp) && !(config.get(pvp) instanceof Boolean))
+      throw new IllegalArgumentException("config.yml: " + pvp + " must be true or false.");
     bounded(config, "schema", 1, 1);
     bounded(config, "limits.actors", 1, 1000);
     bounded(config, "limits.active-scenes", 1, 100);
@@ -282,6 +285,31 @@ public final class Settings {
         throw new IllegalArgumentException(
             "recording.yml: " + key + " must be an integer from 1 to 100.");
     }
+    String walk = "playback.walk-back";
+    if (recording.contains(walk) && !(recording.get(walk) instanceof Boolean))
+      throw new IllegalArgumentException("recording.yml: " + walk + " must be true or false.");
+    decimal(recording, "playback.walk-back-speed", 0.1, 2);
+    decimal(recording, "playback.walk-back-arrival-distance", 0.1, 16);
+    String timeout = "playback.walk-back-timeout-ticks";
+    if (recording.contains(timeout)
+        && (!(recording.get(timeout) instanceof Integer)
+            || recording.getInt(timeout) < 20
+            || recording.getInt(timeout) > 1200))
+      throw new IllegalArgumentException(
+          "recording.yml: " + timeout + " must be an integer from 20 to 1200.");
+  }
+
+  /** A present numeric key inside its range; an absent one keeps the shipped default. */
+  private static void decimal(YamlConfiguration file, String key, double min, double max) {
+    if (!file.contains(key)) return;
+    Object value = file.get(key);
+    if (!(value instanceof Number number)
+        || !Double.isFinite(number.doubleValue())
+        || number.doubleValue() < min
+        || number.doubleValue() > max)
+      throw new IllegalArgumentException(
+          "recording.yml: " + key + " = " + value + "; expected a number from " + min + " to "
+              + max + ".");
   }
 
   public static void validateDeath(YamlConfiguration death) {

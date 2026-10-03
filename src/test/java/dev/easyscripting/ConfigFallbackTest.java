@@ -7,6 +7,7 @@ import dev.easyscripting.config.Settings;
 import dev.easyscripting.players.PlayerService;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import org.bukkit.Material;
@@ -75,6 +76,45 @@ class ConfigFallbackTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> Settings.prepare("guis", menus, bundled("guis"), MENUS));
+  }
+
+  @Test
+  void walkBackAndHittableSettingsAreCheckedWithinTheirOwnFile() {
+    var recording = bundled("recording");
+    recording.set("playback.walk-back-speed", 5);
+    var refusal =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> Settings.prepare("recording", recording, bundled("recording"), yaml -> {}));
+    assertTrue(refusal.getMessage().startsWith("recording.yml:"));
+    recording.set("playback.walk-back-speed", 1.0);
+    recording.set("playback.walk-back-timeout-ticks", 5);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Settings.prepare("recording", recording, bundled("recording"), yaml -> {}));
+    recording.set("playback.walk-back-timeout-ticks", 100);
+    recording.set("playback.walk-back", "sometimes");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Settings.prepare("recording", recording, bundled("recording"), yaml -> {}));
+    var config = bundled("config");
+    config.set("actors.hittable-ignores-world-pvp", "yes");
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> Settings.prepare("config", config, bundled("config"), yaml -> {}));
+  }
+
+  @Test
+  void anOlderRecordingFileWithoutTheWalkBackKeysIsStillAccepted() {
+    var recording = bundled("recording");
+    for (String key :
+        List.of(
+            "playback.walk-back",
+            "playback.walk-back-speed",
+            "playback.walk-back-arrival-distance",
+            "playback.walk-back-timeout-ticks")) recording.set(key, null);
+    assertDoesNotThrow(
+        () -> Settings.prepare("recording", recording, bundled("recording"), yaml -> {}));
   }
 
   @Test

@@ -338,11 +338,17 @@ public final class RecordingService implements Listener, AutoCloseable {
     actors.reserve(actorId, "recording " + recording);
     boolean gravity = entity.hasGravity();
     var visualFire = entity.getVisualFire();
+    var playbackSettings = settings.file("recording");
     CombatPlayback combatState =
         new CombatPlayback(
             new ReplayRecovery(
-                settings.file("recording").getInt("playback.knockback-pause-ticks", 12),
-                settings.file("recording").getInt("playback.return-to-route-ticks", 10)));
+                playbackSettings.getInt("playback.knockback-pause-ticks", 12),
+                playbackSettings.getInt("playback.return-to-route-ticks", 10)),
+            new ReplayWalkback(
+                playbackSettings.getBoolean("playback.walk-back", true),
+                playbackSettings.getDouble("playback.walk-back-arrival-distance", 0.8),
+                playbackSettings.getInt("playback.walk-back-timeout-ticks", 100)));
+    double walkBackSpeed = playbackSettings.getDouble("playback.walk-back-speed", 1.0);
     combat.put(actorId, combatState);
     entity.setGravity(false);
     entity.setVelocity(new org.bukkit.util.Vector());
@@ -353,6 +359,8 @@ public final class RecordingService implements Listener, AutoCloseable {
               boolean completed;
               Boat vehicle;
               int refreshWait;
+              boolean knocked;
+              int walkRetry;
 
               public boolean tick() {
                 if (!settings.enabled("actors") || !settings.enabled("recording")) return false;
@@ -365,6 +373,7 @@ public final class RecordingService implements Listener, AutoCloseable {
                 if (combatState.recovery.yieldToPhysics()) {
                   combatState.animation = null;
                   e.setGravity(true);
+                  knocked = true;
                   if (vehicle != null) {
                     vehicle.remove();
                     vehicle = null;
@@ -376,8 +385,43 @@ public final class RecordingService implements Listener, AutoCloseable {
                 if (!restoreOnComplete) cursor.mode(actor.definition.playbackMode);
                 if (Bukkit.getWorld(f.location.getWorld().getUID()) != f.location.getWorld())
                   return false;
+                // Walking back is only meaningful on the ground of the world the route is in; a
+                // boat performance and a knockback across worlds both fall back to the blend.
+                boolean reachable = e.getWorld().equals(f.location.getWorld()) && !f.boat;
+                double away =
+                    reachable ? e.getLocation().distance(f.location) : Double.MAX_VALUE;
+                if (knocked) {
+                  knocked = false;
+                  walkRetry = 0;
+                  if (reachable) combatState.walkback.begin(away);
+                  else combatState.walkback.abandon();
+                }
+                if (combatState.walkback.returning()) {
+                  if (combatState.walkback.walking(away)) {
+                    // Frames are held where the hit landed: the NPC returns to the place it was
+                    // taken from and resumes there, rather than chasing a route that moved on.
+                    e.setGravity(true);
+                    // A route it cannot reach would otherwise be repathed every single tick.
+                    if (!actor.navigating() && --walkRetry <= 0) {
+                      walkRetry = 5;
+                      actor.move(f.location, walkBackSpeed);
+                    }
+                    return true;
+                  }
+                  actor.stop();
+                }
                 e.setGravity(false);
                 Location destination = f.location.clone();
+                // A take played backwards keeps the yaw of a walk that went the other way, which
+                // reads as moonwalking. While it is travelling, it faces where it is going.
+                if (cursor.backwards()) {
+                  Location ahead = frames.get(cursor.ahead()).location;
+                  destination.setYaw(
+                      ReplayFacing.yaw(
+                          ahead.getX() - destination.getX(),
+                          ahead.getZ() - destination.getZ(),
+                          destination.getYaw()));
+                }
                 var correction =
                     combatState.recovery.offset(e.getLocation().toVector(), destination.toVector());
                 destination.add(correction);
@@ -577,11 +621,13 @@ public final class RecordingService implements Listener, AutoCloseable {
 
   private static final class CombatPlayback {
     final ReplayRecovery recovery;
+    final ReplayWalkback walkback;
     ReplayPose animation;
     boolean damaged;
 
-    CombatPlayback(ReplayRecovery recovery) {
+    CombatPlayback(ReplayRecovery recovery, ReplayWalkback walkback) {
       this.recovery = recovery;
+      this.walkback = walkback;
     }
   }
 

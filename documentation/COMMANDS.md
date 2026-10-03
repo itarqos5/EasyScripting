@@ -98,7 +98,7 @@ Use `/actor set <id> <setting> <value>`.
 | `skin <account>` | Use a Java account's skin; PLAYER only. Account name, not a PNG or NameMC URL. | `/actor set guard skin Notch` |
 | `group <id>` | Set its group tag; a matching registered `/es group` faction uses that membership. | `/actor set guard group extras` |
 | `immortal on\|off` | ON: can be hit and knocked back but will not die. OFF: can die. New actors default to OFF. | `/actor set guard immortal on` |
-| `hittable on\|off` | ON: allow direct melee hits. OFF: block melee/sweeps; falls, projectiles and explosions still work. | `/actor set guard hittable off` |
+| `hittable on\|off` | ON: allow direct melee hits, including on a world with PvP off or inside a team without friendly fire, and during a replay. OFF: block melee/sweeps; falls, projectiles and explosions still work. | `/actor set guard hittable off` |
 | `collidable on\|off` | Toggle physical entity collision. | `/actor set guard collidable off` |
 | `nametag on\|off` | Show/hide overhead name. | `/actor set guard nametag on` |
 | `tablist on\|off` | Show/hide a PLAYER NPC in the Tab player list. | `/actor set guard tablist on` |

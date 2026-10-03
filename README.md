@@ -39,6 +39,12 @@ Generated NPC names and `/nickname` aliases use asynchronously cached public ide
 
 `/kits` opens kits. Studio home now has **Record session** to turn joining restrictions/MOTD on or off. The new GUI separates identity, movement, replay and combat; old layouts are backed up before migration. Configuration files are commented, and command mistakes show syntax and examples. Elytra performances preserve the gliding animation; player half-heart protection allows held totems to pop, stays enabled afterward, and keeps the lethal hit with its knockback and animation rather than cancelling it. A configuration file that cannot be read no longer stops the plugin: that one file falls back to the copy inside the JAR, the error is logged, your file is left untouched, and operators are told on join.
 
+## Hits, replays and NPCs that walk home
+
+A Hittable, mortal NPC can now actually be hit. A PLAYER NPC is a player entity, so a world with PvP switched off — or a scoreboard team it shares with the attacker, which ships with friendly fire off — made the server refuse every melee swing on it before the plugin ever saw one. That rule is lifted for the single swing being delivered and restored the moment the hit lands, so the NPC takes an ordinary vanilla blow and real players keep their own protection. `actors.hittable-ignores-world-pvp: false` obeys the world instead.
+
+A replaying NPC that is knocked off its route now walks back to it. The frames wait where the hit landed, so the NPC returns under its own gravity to the place it was taken from and resumes the performance there, rather than sliding through whatever is in the way. Small displacements still blend, and a route it cannot reach on foot is abandoned on a timeout so a take never stalls. A take played backwards — the return leg of `reverse` — now faces the way it is travelling, so a walk down a line no longer reads as moonwalking.
+
 ## Deaths, kicks and invisible players
 
 Dying now takes a player off the server. The death resolves first — the hit lands, the death message goes out, items drop — and the kick follows a second later, after which the player cannot rejoin for a minute and is told how long is left each time they try. `kick-on-death`, `kick-delay-ticks` and `rejoin-lockout-seconds` in `death.yml` control all three, and `easyscripting.death.kick.bypass` exempts a player from the kick; nobody holds it by default, operators included.

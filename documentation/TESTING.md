@@ -2,9 +2,18 @@
 
 Current release: **0.2.5**. Test results are version-specific. The current release used build-only validation; older server/client runs below are historical evidence.
 
-## Unreleased death kicks, invisible identities and nickname coverage fixes
+## Unreleased death kicks, invisible identities, hittable NPCs and nickname coverage fixes
 
-**195 unit tests pass**, adding coverage for the rejoin lockout clock (a full minute after the kick, extended but never shortened by a second death, forgotten the moment it elapses, and per player), for obfuscating an invisible player's name (the hidden name scrambled while the rest of the message and the rest of the cast stay readable, the whole message scrambled in the optional `message` mode, the hover card and shift-click insertion cleared, an account name and its nickname hidden together, and the configured mode rejected when it is not one of the three), and for rewriting the hover card and shift-click insertion carried by a name inside a death or leave message. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.
+**206 unit tests pass**, adding coverage for the rejoin lockout clock (a full minute after the kick, extended but never shortened by a second death, forgotten the moment it elapses, and per player), for obfuscating an invisible player's name (the hidden name scrambled while the rest of the message and the rest of the cast stay readable, the whole message scrambled in the optional `message` mode, the hover card and shift-click insertion cleared, an account name and its nickname hidden together, and the configured mode rejected when it is not one of the three), for the bounded walk back onto a route (walking until it arrives, a nudge blended instead of walked, an impossible return abandoned on its timeout, a walk dropped when the actor leaves the world, and the setting switched off), for the facing of a take played backwards (travel direction while moving, recorded yaw while standing still) and the cursor knowing which way it is headed, for the new walk-back and hittable settings being refused inside their own file while an older file without them is still accepted, and for rewriting the hover card and shift-click insertion carried by a name inside a death or leave message. Production, test and smoke compilation pass against Paper 1.21.8. No Minecraft server was started.
+
+Hitting an NPC and watching it walk home are server behaviour no fixture reaches. These cases decide them:
+
+* Create a mortal, Hittable PLAYER NPC on a world with `pvp=false` and hit it. It must take the blow, with damage, knockback, hurt animation and sound, and die when its health runs out. Confirm two real players still cannot hurt each other on that world, during and after the swing.
+* Repeat with the NPC and yourself on the same `/es team`, which ships with friendly fire off. The NPC must be hittable; confirm the other members of that team still cannot hurt each other.
+* Set `actors.hittable-ignores-world-pvp: false` and confirm the old behaviour returns, and that `hittable off` still blocks melee on a PvP world.
+* Hit a replaying NPC mid-performance. The hit must land, the knockback must carry it, and the NPC must then walk back to where it was hit and resume the performance from there — not slide back, and not cut through a wall between it and the route.
+* Knock a replaying NPC into a place it cannot walk out of, and off a cliff with its route above. Both must give up after the timeout and blend back rather than stalling the take.
+* Record a walk down a straight line, set the playback mode to `reverse`, and watch the return leg: the NPC must face the way it is walking. Record standing still and looking to one side, then reverse it: that head turn must survive.
 
 The kick, the refused rejoin and the obfuscated rendering itself are server behavior no fixture reaches. These cases decide them:
 
